@@ -1,0 +1,35 @@
+.feature-card,
+.button-link,
+.hero-device,
+.reading-progress__bar {
+  transition:
+    transform 240ms ease,
+    box-shadow 240ms ease,
+    background-color 180ms ease;
+}
+
+.feature-card:hover {
+  box-shadow: var(--shadow-card);
+  transform: translateY(-0.25rem);
+}
+
+.hero-visual:hover .hero-device {
+  transform: translate(-50%, -52%) rotate(4deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .reading-progress__bar {
+    transition: none !important;
+  }
+}
