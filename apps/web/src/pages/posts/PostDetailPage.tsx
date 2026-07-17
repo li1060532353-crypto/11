@@ -84,11 +84,15 @@ export function PostDetailPage() {
         {query.result?.source === 'fallback' ? <FallbackNotice error={query.result.error} /> : null}
         <article id="article-content" className="post-detail" tabIndex={-1}>
           <header className="post-detail__header">
-            <div
-              className={`post-detail__cover post-card__visual post-card__visual--${post.cover.tone}`}
-              role="img"
-              aria-label={post.cover.alt}
-            />
+            {post.cover.image ? (
+              <img className="post-detail__cover-image" src={post.cover.image} alt={post.cover.alt} />
+            ) : (
+              <div
+                className={`post-detail__cover post-card__visual post-card__visual--${post.cover.tone}`}
+                role="img"
+                aria-label={post.cover.alt}
+              />
+            )}
             <div className="post-detail__intro">
               <p className="eyebrow">Article</p>
               <h1>{post.title}</h1>

@@ -57,4 +57,12 @@ const safe = true;
       '安全-markdown-2',
     );
   });
+  it('renders markdown images with their alt text and source path', () => {
+    render(<MarkdownRenderer source={'![System diagram](/content-media/hello-static-blog/diagram.png)'} />);
+
+    expect(screen.getByRole('img', { name: 'System diagram' })).toHaveAttribute(
+      'src',
+      '/content-media/hello-static-blog/diagram.png',
+    );
+  });
 });

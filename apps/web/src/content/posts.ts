@@ -1,6 +1,7 @@
 import type { Post } from './types';
+import { generatedPosts } from './generatedPosts';
 
-export const posts = [
+const legacyPosts = [
   {
     slug: 'stm32-esp01s',
     title: 'STM32 与 ESP-01S 的可靠联网实践',
@@ -162,3 +163,5 @@ x[n] = cos(ω₀n) 在 ω₀ / 2π 为有理数时才是周期序列
     cover: { alt: '周期信号波形', tone: 'teal' },
   },
 ] as const satisfies readonly Post[];
+
+export const posts = [...generatedPosts, ...legacyPosts] as const satisfies readonly Post[];

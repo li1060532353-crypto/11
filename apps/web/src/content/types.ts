@@ -1,6 +1,7 @@
 export type Cover = {
   alt: string;
   tone: 'blue' | 'violet' | 'teal' | 'orange';
+  image?: string;
 };
 
 export type ContentSource = 'api' | 'fallback';

@@ -7,6 +7,9 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "content:import": "node scripts/content-import.mjs",
+    "content:check": "node scripts/content-import.mjs --check",
+    "content:preview": "pnpm --filter @namdw/web dev",
     "dev": "pnpm --filter @namdw/shared build && pnpm --parallel --filter @namdw/web --filter @namdw/api dev",
     "build": "pnpm --filter @namdw/shared build && pnpm --filter @namdw/web build && pnpm --filter @namdw/api build",
     "typecheck": "pnpm --filter @namdw/shared build && pnpm -r --if-present typecheck",
