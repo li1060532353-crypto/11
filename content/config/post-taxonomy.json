@@ -1,0 +1,51 @@
+{
+  "defaultCoverTone": "blue",
+  "categories": [
+    {
+      "name": "嵌入式系统",
+      "match": ["stm32", "esp8266", "iotda", "rfid", "冷链", "物联网"]
+    },
+    {
+      "name": "密码学",
+      "match": ["rsa", "密码学", "信息安全", "加密"]
+    },
+    {
+      "name": "线性代数",
+      "match": ["矩阵", "线性代数", "秩"]
+    },
+    {
+      "name": "信号与系统",
+      "match": ["卷积", "信号与系统", "傅里叶", "周期信号"]
+    },
+    {
+      "name": "Engineering",
+      "match": ["markdown", "static blog"]
+    }
+  ],
+  "tags": [
+    {
+      "name": "Markdown",
+      "match": ["markdown"]
+    },
+    {
+      "name": "STM32",
+      "match": ["stm32"]
+    },
+    {
+      "name": "ESP8266",
+      "match": ["esp8266", "esp-01s"]
+    },
+    {
+      "name": "IoTDA",
+      "match": ["iotda"]
+    },
+    {
+      "name": "RFID",
+      "match": ["rfid"]
+    },
+    {
+      "name": "RSA",
+      "match": ["rsa"]
+    }
+  ]
+}

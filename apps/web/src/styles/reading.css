@@ -146,6 +146,22 @@
   text-underline-offset: 0.18em;
 }
 
+.markdown-body img,
+.post-detail__cover-image {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin-block: 1.5rem;
+  border-radius: 1rem;
+}
+
+.post-detail__cover-image {
+  min-height: clamp(12rem, 32vw, 23rem);
+  margin-block: 0;
+  object-fit: cover;
+}
+
 .markdown-body blockquote {
   margin-inline: 0;
   padding-left: 1.25rem;

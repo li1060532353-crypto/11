@@ -93,6 +93,16 @@ frontend will automatically use bundled static content when the API/database is 
 
 Detailed steps are in `docs/deployment/cloudflare-pages-static.md`.
 
+## Static content import
+
+To add or update articles without the API/database, use the local Markdown import workflow:
+
+- Article template: `content/posts/_template/index.md`
+- Import guide: `docs/deployment/static-content-import.md`
+- Validate content: `pnpm content:check`
+- Generate static content: `pnpm content:import`
+- Preview locally: `pnpm content:preview`
+
 ## Current implementation
 
 - Module 1: pnpm monorepo, shared API contracts, React/Vite web app, NestJS health API
