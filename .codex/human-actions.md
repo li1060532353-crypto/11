@@ -12,3 +12,11 @@ Required dashboard actions, not yet performed:
 6. Copy `wrangler.example.jsonc` to ignored `wrangler.jsonc`, enter the obtained non-secret resource IDs/names and Access values, then run `pnpm cloudflare:verify-config` before deployment.
 
 Never place passwords, API tokens, private keys, cookies, or complete secret values in this repository or chat.
+
+## H2 completion evidence (2026-07-18)
+
+- D1 `personal-blog-db` is bound as `DB`.
+- Private R2 `personal-blog-assets` is bound as `KB_ASSETS`.
+- Access app `11-9tc.pages.dev` has an owner-email-only policy.
+- Required runtime variables are configured and deployed bypass is disabled.
+- The ignored local configuration passed `pnpm cloudflare:verify-config`; no values are recorded here.

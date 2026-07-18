@@ -41,3 +41,14 @@ Allowed files: Wrangler template, Functions environment typing, tests, Cloudflar
 Tests: validator tests PASS (2); Functions typecheck PASS; stale `ASSETS` scan contains documentation-only explanations
 Decision: R2 binding renamed from `ASSETS` to `KB_ASSETS` because Wrangler reserves `ASSETS` for Pages projects.
 Next action: user completes the H2 dashboard steps in `.codex/human-actions.md`, then provides non-secret confirmation and resource identifiers through the dashboard-configured local `wrangler.jsonc` workflow.
+
+H2 completion evidence: owner confirmed D1/R2 bindings, production Access policy, and runtime variables. Local `node scripts/verify-cloudflare-config.mjs wrangler.jsonc` exited 0 without exposing configuration values.
+
+## Wave 2 — planning
+
+Task: W2-00 notes/search/statistics and visual-shell plan
+Status: DONE
+Model: Terra controller; Luna eligible only for isolated frontend presentation after contracts remain unchanged
+Allowed files: planning and `.codex/**`
+Contracts: `ApiRouteContractMap` frozen; no frontend API integration authorized
+Next action: begin sequential Terra Notes API task after task ownership is recorded.
