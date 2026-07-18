@@ -24,4 +24,4 @@ Affected commit: `b2516b5` (binding template); no production resource was contac
 
 Evidence: local command output logged 2026-07-18; D1-only fixture is used only to verify migration reproducibility.
 
-Recommended next action: retain the binding name required by the master specification until H1 approval, then resolve the Cloudflare naming conflict before H2 production configuration.
+Resolution: At H2, the user approved `KB_ASSETS` as the replacement binding name. All local configuration, types, tests, and setup documentation now use it. No production Cloudflare resource was changed.

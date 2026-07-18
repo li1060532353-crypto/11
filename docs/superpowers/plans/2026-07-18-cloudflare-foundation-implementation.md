@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Preserve the pnpm lockfile and existing static content/routes; do not touch frontend API integration in Wave 1.
-- D1 binding name is `DB`; R2 binding name is `ASSETS`; R2 is private.
+- D1 binding name is `DB`; R2 binding name is `KB_ASSETS`; R2 is private.
 - `content_json` is canonical and `content_text` is server-derived.
 - Every `/api/*` route is protected; production fails closed when Access configuration is missing.
 - Use prepared statements and reproducible SQL migrations; do not add FTS5.

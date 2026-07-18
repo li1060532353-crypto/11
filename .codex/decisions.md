@@ -25,3 +25,9 @@ Reason: This prevents route ambiguity while preserving existing frontend/static 
 Decision: `wrangler.example.jsonc` is intentionally non-deployable; `wrangler.jsonc` is created only at H2 after real Pages/D1/R2 values are available.
 
 Reason: A Pages Wrangler file becomes deployment configuration source of truth; placeholders must not alter a live project.
+
+## DEC-005
+
+Decision: Use `KB_ASSETS` as the private R2 binding name.
+
+Reason: Wrangler reserves `ASSETS` for Pages projects. The user approved this H2 amendment.

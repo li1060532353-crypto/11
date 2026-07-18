@@ -12,7 +12,7 @@ Deferred: multiple users or roles, public R2 delivery, VPS/Docker production, Po
 
 Keep the existing frontend framework, package manager/lockfile, styling system where practical, working routes, and static content. Do not create a monorepo or perform unrelated refactors. Use a root-level `functions/` directory unless inspection proves Pages Advanced Mode is necessary; never put Functions in `dist/` or `public/`.
 
-The browser application contains Dashboard, Notes, Editor, Search, Import, Assets, and Roadmaps. Cloudflare Pages Functions provide Access validation, Notes/Search/Stats, Markdown import, Roadmaps, and private R2 proxy APIs. D1 binding name is `DB`; private R2 binding name is `ASSETS`.
+The browser application contains Dashboard, Notes, Editor, Search, Import, Assets, and Roadmaps. Cloudflare Pages Functions provide Access validation, Notes/Search/Stats, Markdown import, Roadmaps, and private R2 proxy APIs. D1 binding name is `DB`; private R2 binding name is `KB_ASSETS` (amended at H2 after Wrangler reserved `ASSETS`).
 
 `content_json` is the only canonical editable note body. `content_text` is server-derived search text. Markdown is import/future export only; never synchronize editable HTML, Markdown, and JSON. Use prepared D1 statements with `.bind()`, reproducible migrations, transactions/batches for atomic changes, useful indexes only, and parameterized `LIKE` search with SQL wildcard escaping.
 

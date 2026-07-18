@@ -14,7 +14,7 @@
   ],
   "r2_buckets": [
     {
-      "binding": "ASSETS",
+      "binding": "KB_ASSETS",
       "bucket_name": "REPLACE_WITH_PRIVATE_R2_BUCKET_NAME"
     }
   ],

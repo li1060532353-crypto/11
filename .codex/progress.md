@@ -30,4 +30,14 @@ Local D1 evidence: `pnpm exec wrangler d1 migrations apply DB --local --config t
 Review verdict: final independent review APPROVED for specification compliance and code quality/safety; no Critical or Important findings
 Open findings: baseline web content-query tests remain stale from Wave 0; B-002 Pages reserves the specification-required `ASSETS` R2 binding name and must be resolved before H2
 Dependencies: H1 approval
-Next action: present H1; do not integrate frontend API or perform Cloudflare dashboard work. Resolve B-002 only through the approved H2 configuration decision.
+Next action: H2 human configuration checkpoint; do not integrate frontend API or perform Cloudflare dashboard work until the user confirms external configuration is complete.
+
+## Wave 1 — H2 configuration preparation
+
+Task: W1-02 Pages binding compatibility and human configuration guide
+Status: HUMAN_ACTION_REQUIRED
+Model: current Terra-equivalent controller
+Allowed files: Wrangler template, Functions environment typing, tests, Cloudflare setup docs, `.codex/**`
+Tests: validator tests PASS (2); Functions typecheck PASS; stale `ASSETS` scan contains documentation-only explanations
+Decision: R2 binding renamed from `ASSETS` to `KB_ASSETS` because Wrangler reserves `ASSETS` for Pages projects.
+Next action: user completes the H2 dashboard steps in `.codex/human-actions.md`, then provides non-secret confirmation and resource identifiers through the dashboard-configured local `wrangler.jsonc` workflow.
