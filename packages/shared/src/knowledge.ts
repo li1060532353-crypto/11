@@ -100,9 +100,35 @@ export type AssetUploadRequest = { noteId?: string; originalName: string; mimeTy
 export type AssetUploadResult = { asset: AssetRecord };
 export type ReorderRoadmapRequest = { itemIds: readonly string[] };
 export type EmptyResponse = Record<never, never>;
-export type KnowledgeRouteContract = KnowledgeApiRoute & { request: string | undefined; response: string };
-export const knowledgeRouteContracts = knowledgeApiRoutes.map((route): KnowledgeRouteContract => ({
-  ...route,
-  request: route.method === 'GET' || route.method === 'DELETE' ? undefined : route.path.includes('reorder') ? 'ReorderRoadmapRequest' : 'Route mutation payload',
-  response: route.path === '/api/notes' && route.method === 'GET' ? 'Paginated<NoteRecord>' : route.path === '/api/search' ? 'Paginated<SearchResult>' : route.path === '/api/stats' ? 'KnowledgeStats' : route.path.includes('versions') ? 'NoteVersionRecord or readonly NoteVersionRecord[]' : route.path.includes('roadmaps') ? 'RoadmapRecord or readonly RoadmapRecord[]' : route.path.includes('assets') ? 'AssetRecord or asset stream' : 'NoteRecord or EmptyResponse',
-}));
+export type SearchQuery = { q: string; page?: number; pageSize?: number };
+export type RoadmapListQuery = { status?: RoadmapStatus };
+export type AssetDownload = { asset: AssetRecord; body: ReadableStream<Uint8Array> };
+export type ApiRouteContractMap = {
+  'GET /api/notes': { request: NoteListQuery; response: Paginated<NoteRecord> };
+  'POST /api/notes': { request: CreateNoteRequest; response: NoteRecord };
+  'GET /api/notes/:id': { request: EmptyResponse; response: NoteRecord };
+  'PATCH /api/notes/:id': { request: UpdateNoteRequest; response: NoteRecord };
+  'DELETE /api/notes/:id': { request: EmptyResponse; response: NoteRecord };
+  'POST /api/notes/:id/restore': { request: EmptyResponse; response: NoteRecord };
+  'POST /api/notes/:id/review': { request: EmptyResponse; response: NoteRecord };
+  'POST /api/notes/:id/versions': { request: EmptyResponse; response: NoteVersionRecord };
+  'GET /api/notes/:id/versions': { request: EmptyResponse; response: readonly NoteVersionRecord[] };
+  'GET /api/search': { request: SearchQuery; response: Paginated<SearchResult> };
+  'GET /api/stats': { request: EmptyResponse; response: KnowledgeStats };
+  'GET /api/roadmaps': { request: RoadmapListQuery; response: readonly RoadmapRecord[] };
+  'POST /api/roadmaps': { request: CreateRoadmapRequest; response: RoadmapRecord };
+  'GET /api/roadmaps/:id': { request: EmptyResponse; response: RoadmapRecord };
+  'PATCH /api/roadmaps/:id': { request: UpdateRoadmapRequest; response: RoadmapRecord };
+  'DELETE /api/roadmaps/:id': { request: EmptyResponse; response: RoadmapRecord };
+  'POST /api/roadmaps/:id/items': { request: CreateRoadmapItemRequest; response: RoadmapItemRecord };
+  'PATCH /api/roadmap-items/:id': { request: UpdateRoadmapItemRequest; response: RoadmapItemRecord };
+  'DELETE /api/roadmap-items/:id': { request: EmptyResponse; response: RoadmapItemRecord };
+  'POST /api/roadmaps/:id/reorder': { request: ReorderRoadmapRequest; response: readonly RoadmapItemRecord[] };
+  'POST /api/import/markdown': { request: MarkdownImportRequest; response: MarkdownImportResult };
+  'POST /api/assets': { request: AssetUploadRequest; response: AssetUploadResult };
+  'GET /api/assets/:id': { request: EmptyResponse; response: AssetDownload };
+  'DELETE /api/assets/:id': { request: EmptyResponse; response: AssetRecord };
+};
+export type KnowledgeApiContractKey = keyof ApiRouteContractMap;
+export type ApiRequestFor<K extends KnowledgeApiContractKey> = ApiRouteContractMap[K]['request'];
+export type ApiResponseFor<K extends KnowledgeApiContractKey> = ApiRouteContractMap[K]['response'];

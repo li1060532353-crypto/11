@@ -5,6 +5,11 @@ import {
   apiSuccess,
   knowledgeApiRoutes,
   type NoteStatus,
+  type ApiRequestFor,
+  type ApiResponseFor,
+  type CreateNoteRequest,
+  type Paginated,
+  type NoteRecord,
 } from './index';
 
 describe('knowledge-base API contracts', () => {
@@ -32,5 +37,17 @@ describe('knowledge-base API contracts', () => {
     const statuses: readonly NoteStatus[] = ['draft', 'published', 'archived'];
 
     expect(statuses).toHaveLength(3);
+  });
+
+  it('associates each endpoint key with concrete request and response types', () => {
+    const create: ApiRequestFor<'POST /api/notes'> = {
+      title: 'Test', summary: '', contentJson: '{}', category: '', status: 'draft', isPinned: false,
+    } satisfies CreateNoteRequest;
+    const list: ApiResponseFor<'GET /api/notes'> = {
+      items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0,
+    } satisfies Paginated<NoteRecord>;
+
+    expect(create.title).toBe('Test');
+    expect(list.totalItems).toBe(0);
   });
 });
