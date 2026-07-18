@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "REPLACE_WITH_PAGES_PROJECT_NAME",
+  "pages_build_output_dir": "./apps/web/dist",
+  "compatibility_date": "2026-07-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "REPLACE_WITH_D1_DATABASE_NAME",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "REPLACE_WITH_PRIVATE_R2_BUCKET_NAME"
+    }
+  ],
+  "vars": {
+    "CF_ACCESS_TEAM_DOMAIN": "REPLACE_WITH_TEAM.cloudflareaccess.com",
+    "CF_ACCESS_AUD": "REPLACE_WITH_ACCESS_AUDIENCE",
+    "LOCAL_AUTH_BYPASS": "false"
+  }
+}
