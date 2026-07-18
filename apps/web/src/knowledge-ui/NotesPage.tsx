@@ -6,6 +6,8 @@ type NotesPresentationState = 'ready' | 'loading' | 'empty' | 'error';
 type NotesPageProps = {
   model: NotesViewModel;
   state?: NotesPresentationState;
+  onSearchChange?: (value: string) => void;
+  onClearSearch?: () => void;
 };
 
 function NoteCard({ note }: { note: NoteCardViewModel }) {
@@ -25,7 +27,7 @@ function NoteCard({ note }: { note: NoteCardViewModel }) {
   );
 }
 
-export function NotesPage({ model, state = 'ready' }: NotesPageProps) {
+export function NotesPage({ model, state = 'ready', onSearchChange, onClearSearch }: NotesPageProps) {
   return (
     <section className="knowledge-shell" aria-labelledby="knowledge-notes-title">
       <header className="knowledge-shell__heading">
@@ -35,9 +37,9 @@ export function NotesPage({ model, state = 'ready' }: NotesPageProps) {
       <div className="knowledge-notes-controls">
         <label className="knowledge-search-field" htmlFor="knowledge-note-search">
           <span>Search notes</span>
-          <input id="knowledge-note-search" type="search" placeholder="Search your notes" value={model.searchTerm} readOnly />
+          <input id="knowledge-note-search" type="search" placeholder="Search your notes" value={model.searchTerm} readOnly={!onSearchChange} onChange={(event) => onSearchChange?.(event.target.value)} />
         </label>
-        <button type="button" disabled aria-disabled="true">Clear search</button>
+        <button type="button" disabled={!onClearSearch || !model.searchTerm} aria-disabled={!onClearSearch || !model.searchTerm} onClick={onClearSearch}>Clear search</button>
         <p className="knowledge-filter-label" aria-label="Current filter">{model.filterLabel}</p>
       </div>
       {state === 'loading' ? <p className="knowledge-message" role="status">Loading notes</p> : null}

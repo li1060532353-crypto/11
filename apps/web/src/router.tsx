@@ -25,6 +25,8 @@ import { PostDetailPage } from './pages/posts/PostDetailPage';
 import { SearchPage } from './pages/posts/SearchPage';
 import { TagIndexPage } from './pages/posts/TagIndexPage';
 import { TagPostsPage } from './pages/posts/TagPostsPage';
+import { KnowledgeDashboardRoute } from './knowledge/KnowledgeDashboardRoute';
+import { KnowledgeNotesRoute } from './knowledge/KnowledgeNotesRoute';
 
 export const publicRoutes = [
   { path: '/', element: <HomePage /> },
@@ -54,6 +56,8 @@ export const publicRoutes = [
     path: '/search',
     element: <SearchPage />,
   },
+  { path: '/knowledge', element: <KnowledgeDashboardRoute /> },
+  { path: '/knowledge/notes', element: <KnowledgeNotesRoute /> },
   { path: '*', element: <NotFoundPage /> },
 ] as const;
 
@@ -61,6 +65,9 @@ function routeMeta(pathname: string): { title: string; description: string } {
   const match = matchRoutes([...publicRoutes], pathname)?.at(-1);
   const routePath = match?.route.path ?? '*';
   const slug = match?.params.slug ?? '';
+
+  if (routePath === '/knowledge') return { title: 'Knowledge dashboard', description: 'Private knowledge workspace' };
+  if (routePath === '/knowledge/notes') return { title: 'Notes', description: 'Private knowledge workspace notes' };
 
   if (routePath === '/posts/:slug') {
     const post = getPostBySlug(slug);
