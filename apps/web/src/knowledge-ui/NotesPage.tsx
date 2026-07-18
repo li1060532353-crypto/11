@@ -20,12 +20,7 @@ function NoteCard({ note }: { note: NoteCardViewModel }) {
       </div>
       <h2>{note.title}</h2>
       <p>{note.summary}</p>
-      <footer className="knowledge-note-card__footer">
-        <ul className="knowledge-tag-list" aria-label={`${note.title} tags`}>
-          {note.tags.map((tag) => <li key={tag}>{tag}</li>)}
-        </ul>
-        <span>{note.updatedLabel}</span>
-      </footer>
+      <footer className="knowledge-note-card__footer"><span>{note.updatedLabel}</span></footer>
     </article>
   );
 }

@@ -9,7 +9,6 @@ export type NoteCardViewModel = {
   summary: string;
   category: string;
   updatedLabel: string;
-  tags: readonly string[];
   pinned?: boolean;
   archived?: boolean;
 };
@@ -40,7 +39,6 @@ export const notesFixture: NotesViewModel = {
       summary: 'Patterns worth carrying into the next delivery cycle.',
       category: 'Work',
       updatedLabel: 'Updated today',
-      tags: ['method', 'review'],
       pinned: true,
     },
     {
@@ -49,7 +47,6 @@ export const notesFixture: NotesViewModel = {
       summary: 'Completed reading notes retained for future reference.',
       category: 'Learning',
       updatedLabel: 'Archived last week',
-      tags: ['reference'],
       archived: true,
     },
   ],

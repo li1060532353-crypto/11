@@ -10,7 +10,9 @@ function store(): NoteStore {
     async list() { return { items: [...notes.values()], page: 1, pageSize: 20, totalItems: notes.size, totalPages: 1 }; },
     async find(id) { return notes.get(id) ?? null; },
     async save(note) { notes.set(note.id, note); return note; },
-    async saveWithVersion(note) { notes.set(note.id, note); return note; },
+    async saveWithTags(note) { notes.set(note.id, note); return note; },
+    async createVersion(note, versionId) { return { id: versionId, contentJson: note.contentJson, contentText: note.contentText, createdAt: note.updatedAt }; },
+    async listVersions() { return []; },
   };
 }
 
