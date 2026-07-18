@@ -64,3 +64,19 @@ Review verdict: independent review approved specification compliance and code qu
 Open findings: baseline web content-query mismatch remains unrelated; archive SQL is source-inspected rather than exact-SQL mock asserted (Minor)
 Dependencies: frozen contracts and existing Access middleware preserved
 Next action: stop Task 1; do not begin Wave 2 Task 2 without user direction.
+
+## Wave 2 - Task 2 Search and statistics API
+
+Task: W2-02 frozen search and statistics backend
+Status: DONE
+Model: Terra controller
+Agent/worktree: `/root`, `E:\AIblog\personal-blog-source`, `codex/local-api-docker`
+Allowed files: `functions/lib/search.ts`, `functions/api/search.ts`, `functions/api/stats.ts`, focused search tests, `.codex/**`
+Forbidden files: migrations, shared frozen contracts, frontend, Access middleware, production configuration
+Base commit: `25b6087`
+Head commit: Task 2 closure commit (see repository history)
+Tests: focused `pnpm --filter @namdw/shared test -- search-route.test.ts` PASS (6); shared tests PASS (23); Functions typecheck PASS; project typecheck PASS; lint PASS; production build PASS (existing Vite chunk-size warning); Cloudflare configuration verifier PASS
+Review verdict: independent review approved specification compliance and code quality/safety; no Critical/Important findings
+Open findings: Minor review evidence record corrected; unrelated baseline web content-query mismatch remains outside this task
+Dependencies: frozen `GET /api/search` and `GET /api/stats` contracts; existing global Access middleware
+Next action: stop after Task 2; do not begin frontend integration without user direction.
