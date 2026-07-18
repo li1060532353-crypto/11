@@ -1,2 +1,33 @@
-export { API_PREFIX, apiSuccess } from './api';
-export type { ApiSuccess } from './api';
+export { API_PREFIX, apiError, apiSuccess } from './api';
+export type { ApiFailure, ApiResponse, ApiSuccess } from './api';
+export { knowledgeApiRoutes, knowledgeRouteContracts, noteStatuses, roadmapItemStatuses, roadmapStatuses } from './knowledge';
+export type {
+  ApiMethod,
+  AssetRecord,
+  KnowledgeApiRoute,
+  NoteRecord,
+  NoteStatus,
+  RoadmapItemRecord,
+  RoadmapItemStatus,
+  RoadmapStatus,
+  Pagination,
+  Paginated,
+  NoteListQuery,
+  CreateNoteRequest,
+  UpdateNoteRequest,
+  NoteVersionRecord,
+  SearchResult,
+  KnowledgeStats,
+  RoadmapRecord,
+  CreateRoadmapRequest,
+  UpdateRoadmapRequest,
+  CreateRoadmapItemRequest,
+  UpdateRoadmapItemRequest,
+  MarkdownImportRequest,
+  MarkdownImportResult,
+  AssetUploadRequest,
+  AssetUploadResult,
+  ReorderRoadmapRequest,
+  EmptyResponse,
+  KnowledgeRouteContract,
+} from './knowledge';

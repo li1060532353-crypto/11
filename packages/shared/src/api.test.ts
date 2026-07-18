@@ -10,6 +10,6 @@ describe('API contracts', () => {
   it('wraps successful payloads without changing them', () => {
     const data = { status: 'ok' as const };
 
-    expect(apiSuccess(data)).toEqual({ data });
+    expect(apiSuccess(data)).toEqual({ success: true, data });
   });
 });

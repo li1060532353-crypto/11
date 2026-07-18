@@ -10,6 +10,9 @@
     "content:import": "node scripts/content-import.mjs",
     "content:check": "node scripts/content-import.mjs --check",
     "content:preview": "pnpm --filter @namdw/web dev",
+    "pages:dev": "wrangler pages dev apps/web/dist --config wrangler.jsonc",
+    "d1:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.jsonc",
+    "cloudflare:verify-config": "node scripts/verify-cloudflare-config.mjs",
     "dev": "pnpm --filter @namdw/shared build && pnpm --parallel --filter @namdw/web --filter @namdw/api dev",
     "build": "pnpm --filter @namdw/shared build && pnpm --filter @namdw/web build && pnpm --filter @namdw/api build",
     "typecheck": "pnpm --filter @namdw/shared build && pnpm -r --if-present typecheck",
@@ -20,12 +23,15 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260717.1",
     "@eslint/js": "^10.0.1",
     "eslint": "10.7.0",
     "globals": "17.7.0",
+    "jose": "^6.2.3",
     "prettier": "3.9.5",
     "typescript": "5.9.3",
     "typescript-eslint": "8.64.0",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "wrangler": "^4.112.0"
   }
 }

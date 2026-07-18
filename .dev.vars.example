@@ -1,0 +1,6 @@
+# Local-only example. Copy to .dev.vars; never commit the copied file.
+# Set true only while running wrangler pages dev on localhost.
+LOCAL_AUTH_BYPASS=true
+# Leave these unset for a local bypass. Production has no bypass.
+# CF_ACCESS_TEAM_DOMAIN=your-team.cloudflareaccess.com
+# CF_ACCESS_AUD=your-access-audience
