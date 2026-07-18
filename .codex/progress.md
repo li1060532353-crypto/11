@@ -52,3 +52,15 @@ Model: Terra controller; Luna eligible only for isolated frontend presentation a
 Allowed files: planning and `.codex/**`
 Contracts: `ApiRouteContractMap` frozen; no frontend API integration authorized
 Next action: begin sequential Terra Notes API task after task ownership is recorded.
+
+## Wave 2 — Task 1 Notes API
+
+Task: W2-01 protected Notes CRUD API
+Status: DONE
+Model: Terra controller
+Allowed files: `functions/lib/notes.ts`, `functions/api/notes/**`, focused tests, `.codex/**`
+Tests: shared focused tests PASS (17); Functions typecheck PASS; project typecheck PASS; lint PASS; production build PASS; Cloudflare configuration verifier PASS
+Review verdict: independent review approved specification compliance and code quality/safety; no Critical/Important findings
+Open findings: baseline web content-query mismatch remains unrelated; archive SQL is source-inspected rather than exact-SQL mock asserted (Minor)
+Dependencies: frozen contracts and existing Access middleware preserved
+Next action: stop Task 1; do not begin Wave 2 Task 2 without user direction.
