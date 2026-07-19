@@ -41,7 +41,7 @@
       ],
       "vars": {
         "CF_ACCESS_TEAM_DOMAIN": "holy-mode-d41b.cloudflareaccess.com",
-        "CF_ACCESS_AUD": "4b0a80698926297cf2ad82efd476d5ccfd5fca17273897aee3ec746fccb2191",
+        "CF_ACCESS_AUD": "01db5eb79a8f4b4a97ee81903ace2d5537631664934ea2cc416ec99f82ec4912",
         "LOCAL_AUTH_BYPASS": "false"
       }
     }
