@@ -7,9 +7,10 @@ type AssetPanelProps = {
   onUpload?: ((file: File) => void) | undefined;
   onDownload?: ((assetId: string) => void) | undefined;
   onDelete?: ((assetId: string) => void) | undefined;
+  unavailableMessage?: string | undefined;
 };
 
-export function AssetPanel({ assets, onUpload, onDownload, onDelete }: AssetPanelProps) {
+export function AssetPanel({ assets, onUpload, onDownload, onDelete, unavailableMessage }: AssetPanelProps) {
   const [pendingDelete, setPendingDelete] = useState<EditorAsset | null>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
   const cancelButton = useRef<HTMLButtonElement | null>(null);
@@ -25,10 +26,11 @@ export function AssetPanel({ assets, onUpload, onDownload, onDelete }: AssetPane
     <aside className="knowledge-asset-panel" aria-labelledby="knowledge-attachments-heading">
       <div className="knowledge-editor__section-heading">
         <div><p className="knowledge-shell__eyebrow">Files</p><h2 id="knowledge-attachments-heading">Attachments</h2></div>
-        <label className="knowledge-upload-button" htmlFor="knowledge-asset-upload">Upload attachment
+        <label className="knowledge-upload-button" htmlFor="knowledge-asset-upload">附件上传
           <input id="knowledge-asset-upload" type="file" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload?.(file); event.currentTarget.value = ''; }} disabled={!onUpload} />
         </label>
       </div>
+      {unavailableMessage ? <p className="knowledge-shell__subtle">{unavailableMessage}</p> : null}
       {assets.length === 0 ? <p className="knowledge-empty-state">No attachments yet</p> : (
         <ul className="knowledge-asset-list">
           {assets.map((asset) => (

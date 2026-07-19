@@ -115,8 +115,8 @@ describe('knowledge editor mutation integration', () => {
 
   it('blocks attachment uploads until a new note has been saved', async () => {
     renderEditor('/knowledge/notes/new', 'create');
-    fireEvent.change(screen.getByLabelText('Upload attachment'), { target: { files: [new File(['x'], 'safe.png', { type: 'image/png' })] } });
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Save the note before uploading attachments.'));
+    expect(screen.getByLabelText('附件上传')).toBeDisabled();
+    expect(screen.getByText('附件上传会在笔记首次保存后可用。')).toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -125,7 +125,7 @@ describe('knowledge editor mutation integration', () => {
     renderEditor();
     await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue('Note'));
     vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: { asset: { id: 'asset-1', noteId: 'n1', originalName: 'safe.png', mimeType: 'image/png', sizeBytes: 3, createdAt: note.createdAt } } }, 201));
-    fireEvent.change(screen.getByLabelText('Upload attachment'), { target: { files: [new File(['png'], 'safe.png', { type: 'image/png' })] } });
+    fireEvent.change(screen.getByLabelText('附件上传'), { target: { files: [new File(['png'], 'safe.png', { type: 'image/png' })] } });
     await waitFor(() => expect(screen.getByText('safe.png')).toBeInTheDocument());
     const [, options] = vi.mocked(fetch).mock.calls.at(-1)!;
     expect(options).toMatchObject({ method: 'POST' });
@@ -147,8 +147,8 @@ describe('knowledge editor mutation integration', () => {
     let resolveUpload!: (value: Response) => void;
     vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveUpload = resolve; }));
     const file = new File(['png'], 'safe.png', { type: 'image/png' });
-    fireEvent.change(screen.getByLabelText('Upload attachment'), { target: { files: [file] } });
-    fireEvent.change(screen.getByLabelText('Upload attachment'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('附件上传'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('附件上传'), { target: { files: [file] } });
     expect(fetch).toHaveBeenCalledTimes(2);
     await act(async () => { resolveUpload(response({ success: true, data: { asset: { id: 'asset-2', noteId: 'n1', originalName: 'safe.png', mimeType: 'image/png', sizeBytes: 3, createdAt: note.createdAt } } }, 201)); });
   });

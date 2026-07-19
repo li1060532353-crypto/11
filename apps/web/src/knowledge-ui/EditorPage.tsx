@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link, useInRouterContext } from 'react-router-dom';
 
 import { AssetPanel } from './AssetPanel';
 import type { EditorViewModel, HighlightKind } from './editor-fixtures';
@@ -22,6 +23,8 @@ type EditorPageProps = {
   onUpload?: (file: File) => void;
   onDownload?: (assetId: string) => void;
   onDelete?: (assetId: string) => void;
+  attachmentUnavailableMessage?: string | undefined;
+  isNew?: boolean;
 };
 
 const stateLabels: Record<EditorPresentationState, string> = {
@@ -51,13 +54,22 @@ export function EditorPage({
   onUpload,
   onDownload,
   onDelete,
+  attachmentUnavailableMessage,
+  isNew = false,
 }: EditorPageProps) {
+  const inRouter = useInRouterContext();
+  const navigation = inRouter ? (
+    <nav className="knowledge-page-actions" aria-label="笔记导航"><Link className="knowledge-button knowledge-button--quiet" to="/knowledge">知识库概览</Link><Link className="knowledge-button knowledge-button--quiet" to="/knowledge/notes">笔记列表</Link></nav>
+  ) : (
+    <nav className="knowledge-page-actions" aria-label="笔记导航"><a className="knowledge-button knowledge-button--quiet" href="/knowledge">知识库概览</a><a className="knowledge-button knowledge-button--quiet" href="/knowledge/notes">笔记列表</a></nav>
+  );
   return (
     <main className="knowledge-shell knowledge-editor" aria-labelledby="knowledge-editor-title">
       <header className="knowledge-editor__header">
         <div>
           <p className="knowledge-shell__eyebrow">Private workspace</p>
-          <h1 id="knowledge-editor-title">Edit knowledge note</h1>
+          <h1 id="knowledge-editor-title">{isNew ? '新建笔记' : 'Edit knowledge note'}</h1>
+          {navigation}
         </div>
         <div className="knowledge-editor__actions">
           <span className={`knowledge-save-state knowledge-save-state--${state}`} role="status" aria-live="polite">{stateLabels[state]}</span>
@@ -91,7 +103,7 @@ export function EditorPage({
             {documentSlot ? <div className="knowledge-editor__slot">{documentSlot}</div> : <textarea aria-label="Document" value={model.contentJson} onChange={(event) => onContentChange?.(event.target.value)} readOnly={!onContentChange} rows={8} />}
           </section>
         </section>
-        <AssetPanel assets={model.assets} onUpload={onUpload} onDownload={onDownload} onDelete={onDelete} />
+        <AssetPanel assets={model.assets} onUpload={onUpload} onDownload={onDownload} onDelete={onDelete} unavailableMessage={attachmentUnavailableMessage} />
       </div>
     </main>
   );

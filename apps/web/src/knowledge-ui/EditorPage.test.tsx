@@ -73,7 +73,7 @@ describe('AssetPanel presentation', () => {
     render(<AssetPanel assets={[]} onUpload={onUpload} />);
 
     expect(screen.getByText('No attachments yet')).toBeInTheDocument();
-    const input = screen.getByLabelText('Upload attachment');
+    const input = screen.getByLabelText('附件上传');
     expect(input).toHaveAttribute('type', 'file');
     const file = new File(['hello'], 'notes.txt', { type: 'text/plain' });
     fireEvent.change(input, { target: { files: [file] } });

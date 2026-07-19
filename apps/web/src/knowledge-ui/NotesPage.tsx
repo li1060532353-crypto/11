@@ -1,4 +1,5 @@
 import type { NoteCardViewModel, NotesViewModel } from './fixtures';
+import { Link } from 'react-router-dom';
 import './knowledge.css';
 
 type NotesPresentationState = 'ready' | 'loading' | 'empty' | 'error';
@@ -12,7 +13,7 @@ type NotesPageProps = {
 
 function NoteCard({ note }: { note: NoteCardViewModel }) {
   return (
-    <article className={`knowledge-note-card${note.archived ? ' knowledge-note-card--archived' : ''}`} aria-label={note.title}>
+    <Link className={`knowledge-note-card${note.archived ? ' knowledge-note-card--archived' : ''}`} to={`/knowledge/notes/${note.id}`} aria-label={note.title}>
       <div className="knowledge-note-card__topline">
         <span>{note.category}</span>
         <div className="knowledge-note-card__states">
@@ -23,7 +24,7 @@ function NoteCard({ note }: { note: NoteCardViewModel }) {
       <h2>{note.title}</h2>
       <p>{note.summary}</p>
       <footer className="knowledge-note-card__footer"><span>{note.updatedLabel}</span></footer>
-    </article>
+    </Link>
   );
 }
 
@@ -33,6 +34,10 @@ export function NotesPage({ model, state = 'ready', onSearchChange, onClearSearc
       <header className="knowledge-shell__heading">
         <p className="knowledge-shell__eyebrow">Private workspace</p>
         <h1 id="knowledge-notes-title">Notes</h1>
+        <nav className="knowledge-page-actions" aria-label="笔记导航">
+          <Link className="knowledge-button knowledge-button--quiet" to="/knowledge">知识库概览</Link>
+          <Link className="knowledge-button knowledge-button--primary" to="/knowledge/notes/new">新建笔记</Link>
+        </nav>
       </header>
       <div className="knowledge-notes-controls">
         <label className="knowledge-search-field" htmlFor="knowledge-note-search">
@@ -48,6 +53,7 @@ export function NotesPage({ model, state = 'ready', onSearchChange, onClearSearc
         <section className="knowledge-empty-state" aria-labelledby="knowledge-empty-title">
           <h2 id="knowledge-empty-title">No notes yet</h2>
           <p>Your next note will appear here.</p>
+          <Link className="knowledge-button knowledge-button--primary" to="/knowledge/notes/new">创建第一篇笔记</Link>
         </section>
       ) : null}
       {state === 'ready' ? <div className="knowledge-note-grid">{model.notes.map((note) => <NoteCard key={note.id} note={note} />)}</div> : null}
