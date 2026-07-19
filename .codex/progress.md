@@ -96,3 +96,19 @@ Review verdict: independent Task 1 review APPROVED for binary route isolation, m
 Open findings: the unrelated untracked local-API/Docker plan remains preserved; the five baseline web content-query failures remain out of scope
 Dependencies: approved Wave 3 Task 1 only
 Next action: stop after Task 1; do not begin Task 2 without user direction.
+
+## Wave 3 - Task 2 private asset backend
+
+Task: W3-02 protected multipart upload, binary proxy download, and single-asset deletion
+Status: DONE
+Model: Terra controller
+Agent/worktree: `/root`, `E:\AIblog\personal-blog-source`, `codex/local-api-docker`
+Allowed files: `functions/lib/assets.ts`, `functions/api/assets/**`, `packages/shared/src/assets-route.test.ts`, `.codex/progress.md`
+Forbidden files: migrations, frontend, editor, dependency manifests, Access middleware, Cloudflare configuration, production resources
+Base commit: `36361d5`
+Head commit: pending Task 2 closure commit
+Tests: focused asset route/store tests PASS (8); shared tests PASS (33); Functions typecheck PASS; project typecheck PASS; lint PASS; production build PASS (existing chunk-size warning); Cloudflare configuration verifier PASS; `git diff --check` PASS
+Review verdict: independent Task 2 security review APPROVED for multipart/size/signature/filename validation, private R2-only operations, safe binary headers, stable failure envelopes, upload compensation, D1-first deletion/restoration, and unchanged global Access middleware; no Critical/Important findings
+Open findings: no distributed D1/R2 transaction exists; failed compensation can leave an orphan and is intentionally deferred to human-reviewed reconciliation. The unrelated untracked local-API/Docker plan remains preserved; baseline content-query failures remain out of scope.
+Dependencies: frozen Task 1 transport contracts
+Next action: stop after Task 2; do not begin the separate Task 3 review artifact or frontend/editor/import work without user direction.
