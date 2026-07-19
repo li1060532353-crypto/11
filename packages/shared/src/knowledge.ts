@@ -9,6 +9,8 @@ export type RoadmapItemStatus = (typeof roadmapItemStatuses)[number];
 
 export type ApiMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
+import type { ApiFailure } from './api';
+
 export type KnowledgeApiRoute = {
   method: ApiMethod;
   path: string;
@@ -40,6 +42,29 @@ export const knowledgeApiRoutes = [
   { method: 'GET', path: '/api/assets/:id' },
   { method: 'DELETE', path: '/api/assets/:id' },
 ] as const satisfies readonly KnowledgeApiRoute[];
+
+export type JsonRouteContract = {
+  transport: 'json';
+  method: ApiMethod;
+  path: string;
+  request: unknown;
+  response: unknown;
+};
+
+export type MultipartRouteContract = {
+  transport: 'multipart';
+  method: 'POST';
+  path: '/api/assets';
+  fields: { file: 'single-file'; noteId?: 'string' };
+  response: AssetUploadResult;
+};
+
+export type BinaryRouteContract = {
+  transport: 'binary';
+  method: 'GET';
+  path: '/api/assets/:id';
+  errorResponse: ApiFailure;
+};
 
 export type NoteRecord = {
   id: string;
@@ -96,13 +121,25 @@ export type CreateRoadmapItemRequest = Pick<RoadmapItemRecord, 'title' | 'descri
 export type UpdateRoadmapItemRequest = Partial<CreateRoadmapItemRequest>;
 export type MarkdownImportRequest = { filename: string; content: string };
 export type MarkdownImportResult = { status: 'imported' | 'skipped' | 'failed'; note?: NoteRecord; message?: string };
-export type AssetUploadRequest = { noteId?: string; originalName: string; mimeType: string; sizeBytes: number };
 export type AssetUploadResult = { asset: AssetRecord };
+export type AssetUploadRequest = MultipartRouteContract['fields'];
 export type ReorderRoadmapRequest = { itemIds: readonly string[] };
 export type EmptyResponse = Record<never, never>;
 export type SearchQuery = { q: string; page?: number; pageSize?: number };
 export type RoadmapListQuery = { status?: RoadmapStatus };
-export type AssetDownload = { asset: AssetRecord; body: ReadableStream<Uint8Array> };
+export const assetUploadRoute = {
+  transport: 'multipart',
+  method: 'POST',
+  path: '/api/assets',
+  fields: { file: 'single-file', noteId: 'string' },
+} as const satisfies Omit<MultipartRouteContract, 'response'>;
+
+export const assetDownloadRoute = {
+  transport: 'binary',
+  method: 'GET',
+  path: '/api/assets/:id',
+} as const satisfies Omit<BinaryRouteContract, 'errorResponse'>;
+
 export type ApiRouteContractMap = {
   'GET /api/notes': { request: NoteListQuery; response: Paginated<NoteRecord> };
   'POST /api/notes': { request: CreateNoteRequest; response: NoteRecord };
@@ -126,9 +163,11 @@ export type ApiRouteContractMap = {
   'POST /api/roadmaps/:id/reorder': { request: ReorderRoadmapRequest; response: readonly RoadmapItemRecord[] };
   'POST /api/import/markdown': { request: MarkdownImportRequest; response: MarkdownImportResult };
   'POST /api/assets': { request: AssetUploadRequest; response: AssetUploadResult };
-  'GET /api/assets/:id': { request: EmptyResponse; response: AssetDownload };
   'DELETE /api/assets/:id': { request: EmptyResponse; response: AssetRecord };
 };
 export type KnowledgeApiContractKey = keyof ApiRouteContractMap;
 export type ApiRequestFor<K extends KnowledgeApiContractKey> = ApiRouteContractMap[K]['request'];
 export type ApiResponseFor<K extends KnowledgeApiContractKey> = ApiRouteContractMap[K]['response'];
+
+type AssertNever<T extends never> = T;
+export type AssetDownloadIsNotJsonContract = AssertNever<Extract<KnowledgeApiContractKey, 'GET /api/assets/:id'>>;

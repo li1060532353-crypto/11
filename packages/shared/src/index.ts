@@ -1,6 +1,6 @@
 export { API_PREFIX, apiError, apiSuccess } from './api';
 export type { ApiFailure, ApiResponse, ApiSuccess } from './api';
-export { knowledgeApiRoutes, noteStatuses, roadmapItemStatuses, roadmapStatuses } from './knowledge';
+export { assetDownloadRoute, assetUploadRoute, knowledgeApiRoutes, noteStatuses, roadmapItemStatuses, roadmapStatuses } from './knowledge';
 export type {
   ApiMethod,
   AssetRecord,
@@ -27,11 +27,14 @@ export type {
   MarkdownImportResult,
   AssetUploadRequest,
   AssetUploadResult,
+  JsonRouteContract,
+  MultipartRouteContract,
+  BinaryRouteContract,
+  AssetDownloadIsNotJsonContract,
   ReorderRoadmapRequest,
   EmptyResponse,
   SearchQuery,
   RoadmapListQuery,
-  AssetDownload,
   ApiRouteContractMap,
   KnowledgeApiContractKey,
   ApiRequestFor,

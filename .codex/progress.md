@@ -80,3 +80,19 @@ Review verdict: independent review approved specification compliance and code qu
 Open findings: Minor review evidence record corrected; unrelated baseline web content-query mismatch remains outside this task
 Dependencies: frozen `GET /api/search` and `GET /api/stats` contracts; existing global Access middleware
 Next action: stop after Task 2; do not begin frontend integration without user direction.
+
+## Wave 3 - Task 1 transport contracts
+
+Task: W3-01 multipart upload and binary download contract isolation
+Status: DONE
+Model: Terra controller
+Agent/worktree: `/root`, `E:\AIblog\personal-blog-source`, `codex/local-api-docker`
+Allowed files: `packages/shared/src/{knowledge,index,knowledge.test}.ts`, `.codex/progress.md`
+Forbidden files: Functions, migrations, frontend, dependency manifests, Cloudflare configuration, production resources
+Base commit: `9fc0b70`
+Head commit: pending Task 1 closure commit
+Tests: focused shared contract test PASS (5); shared package build PASS; Functions typecheck PASS; project typecheck PASS; lint PASS; `git diff --check` PASS
+Review verdict: independent Task 1 review APPROVED for binary route isolation, multipart typing, JSON-map scope, and no Task 2/Wave 4 implementation; no Critical/Important findings
+Open findings: the unrelated untracked local-API/Docker plan remains preserved; the five baseline web content-query failures remain out of scope
+Dependencies: approved Wave 3 Task 1 only
+Next action: stop after Task 1; do not begin Task 2 without user direction.
