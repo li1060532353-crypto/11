@@ -7,7 +7,8 @@ export type EditorAsset = Pick<AssetRecord, 'id'> & {
   sizeLabel: string;
   state: 'uploading' | 'ready' | 'error';
   progress?: number;
-  errorMessage?: string;
+  errorMessage?: string | undefined;
+  busy?: 'download' | 'delete' | undefined;
 };
 
 export type EditorViewModel = {

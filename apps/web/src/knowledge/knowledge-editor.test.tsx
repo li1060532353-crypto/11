@@ -112,4 +112,44 @@ describe('knowledge editor mutation integration', () => {
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/versions'))).toHaveLength(1));
     expect(vi.mocked(fetch).mock.calls.map(([url]) => String(url)).slice(-2)).toEqual(['/api/notes/n1', '/api/notes/n1/versions']);
   });
+
+  it('blocks attachment uploads until a new note has been saved', async () => {
+    renderEditor('/knowledge/notes/new', 'create');
+    fireEvent.change(screen.getByLabelText('Upload attachment'), { target: { files: [new File(['x'], 'safe.png', { type: 'image/png' })] } });
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Save the note before uploading attachments.'));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('uploads an attachment with the persisted note id and retains it when deletion fails', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: note }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue('Note'));
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: { asset: { id: 'asset-1', noteId: 'n1', originalName: 'safe.png', mimeType: 'image/png', sizeBytes: 3, createdAt: note.createdAt } } }, 201));
+    fireEvent.change(screen.getByLabelText('Upload attachment'), { target: { files: [new File(['png'], 'safe.png', { type: 'image/png' })] } });
+    await waitFor(() => expect(screen.getByText('safe.png')).toBeInTheDocument());
+    const [, options] = vi.mocked(fetch).mock.calls.at(-1)!;
+    expect(options).toMatchObject({ method: 'POST' });
+    expect((options as RequestInit).headers).toEqual({ Accept: 'application/json' });
+    expect((options as RequestInit).body).toBeInstanceOf(FormData);
+    expect(((options as RequestInit).body as FormData).get('noteId')).toBe('n1');
+
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: false, error: { code: 'ASSET_STORAGE_DELETE_FAILED', message: 'raw' } }, 500));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete safe.png' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
+    await waitFor(() => expect(screen.getByText('safe.png')).toBeInTheDocument());
+    expect(screen.getByRole('alert')).toHaveTextContent('The attachment could not be deleted.');
+  });
+
+  it('suppresses duplicate uploads while an upload is pending', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: note }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue('Note'));
+    let resolveUpload!: (value: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveUpload = resolve; }));
+    const file = new File(['png'], 'safe.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Upload attachment'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Upload attachment'), { target: { files: [file] } });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await act(async () => { resolveUpload(response({ success: true, data: { asset: { id: 'asset-2', noteId: 'n1', originalName: 'safe.png', mimeType: 'image/png', sizeBytes: 3, createdAt: note.createdAt } } }, 201)); });
+  });
 });

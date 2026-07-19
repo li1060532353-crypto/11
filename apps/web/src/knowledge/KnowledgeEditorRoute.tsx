@@ -7,7 +7,7 @@ import { KnowledgeHighlight } from '../knowledge-editor/KnowledgeHighlight';
 import { EditorPage, type EditorPresentationState } from '../knowledge-ui/EditorPage';
 import type { EditorViewModel } from '../knowledge-ui/editor-fixtures';
 import type { CreateNoteRequest, NoteRecord, UpdateNoteRequest } from '@namdw/shared';
-import { createKnowledgeNote, createKnowledgeNoteVersion, getKnowledgeNote, type KnowledgeApiFailure, updateKnowledgeNote } from './knowledge-api';
+import { createKnowledgeNote, createKnowledgeNoteVersion, deleteKnowledgeAsset, downloadKnowledgeAsset, getKnowledgeNote, type KnowledgeApiFailure, updateKnowledgeNote, uploadKnowledgeAsset } from './knowledge-api';
 import { useNoteAutosave } from './useNoteAutosave';
 
 type Props = { mode: 'create' | 'edit' };
@@ -27,6 +27,8 @@ export function KnowledgeEditorRoute({ mode }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [createState, setCreateState] = useState<EditorPresentationState>('unchanged');
   const [versionState, setVersionState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+  const [assets, setAssets] = useState<EditorViewModel['assets']>([]);
+  const uploads = useRef(new Set<string>()); const downloads = useRef(new Set<string>()); const deletions = useRef(new Set<string>());
   const createBusy = useRef(false);
   const versionBusy = useRef(false);
   const draftKey = useMemo(() => keyOf(draft), [draft]);
@@ -59,7 +61,18 @@ export function KnowledgeEditorRoute({ mode }: Props) {
     try { if (!await autosave.saveCurrent()) throw new Error('save failed'); await createKnowledgeNoteVersion(noteId); setVersionState('saved'); } catch (reason) { setVersionState('failed'); setError(reason instanceof Error && reason.message === 'save failed' ? 'Save current changes before creating a version.' : messageFor(reason)); } finally { versionBusy.current = false; }
   }, [autosave, noteId]);
 
-  const model: EditorViewModel = { ...draft, tags: [], assets: [] };
+  const upload = useCallback(async (file: File) => {
+    if (!noteId) { setError('Save the note before uploading attachments.'); return; }
+    const key = `${file.name}:${file.size}:${file.lastModified}`; if (uploads.current.has(key)) return; uploads.current.add(key); setError(null);
+    const tempId = `upload-${key}`; setAssets((current) => [...current, { id: tempId, name: file.name, sizeLabel: `${file.size} bytes`, state: 'uploading' }]);
+    try { const { asset } = await uploadKnowledgeAsset(file, noteId); setAssets((current) => current.map((item) => item.id === tempId ? { id: asset.id, name: asset.originalName, sizeLabel: `${asset.sizeBytes} bytes`, state: 'ready' } : item)); }
+    catch { setAssets((current) => current.map((item) => item.id === tempId ? { ...item, state: 'error', errorMessage: 'The attachment could not be uploaded.' } : item)); }
+    finally { uploads.current.delete(key); }
+  }, [noteId]);
+  const download = useCallback(async (assetId: string) => { if (downloads.current.has(assetId)) return; const item = assets.find((asset) => asset.id === assetId); if (!item) return; downloads.current.add(assetId); setAssets((current) => current.map((asset) => asset.id === assetId ? { ...asset, busy: 'download', errorMessage: undefined } : asset)); try { await downloadKnowledgeAsset({ id: item.id, noteId, originalName: item.name, mimeType: '', sizeBytes: 0, createdAt: '' }); } catch { setAssets((current) => current.map((asset) => asset.id === assetId ? { ...asset, errorMessage: 'The attachment could not be downloaded.' } : asset)); } finally { downloads.current.delete(assetId); setAssets((current) => current.map((asset) => asset.id === assetId ? { ...asset, busy: undefined } : asset)); } }, [assets, noteId]);
+  const removeAsset = useCallback(async (assetId: string) => { if (deletions.current.has(assetId)) return; deletions.current.add(assetId); setAssets((current) => current.map((asset) => asset.id === assetId ? { ...asset, busy: 'delete', errorMessage: undefined } : asset)); try { await deleteKnowledgeAsset(assetId); setAssets((current) => current.filter((asset) => asset.id !== assetId)); } catch { setAssets((current) => current.map((asset) => asset.id === assetId ? { ...asset, errorMessage: 'The attachment could not be deleted.' } : asset)); } finally { deletions.current.delete(assetId); setAssets((current) => current.map((asset) => asset.id === assetId ? { ...asset, busy: undefined } : asset)); } }, []);
+
+  const model: EditorViewModel = { ...draft, tags: [], assets };
   const state: EditorPresentationState = mode === 'create' ? (createState === 'saving' || createState === 'failed' ? createState : draftKey === persistedKey ? 'unchanged' : 'unsaved') : autosave.state;
   if (loading) return <p className="knowledge-message" role="status">Loading note</p>;
   if (error && mode === 'edit' && !noteId) return <p className="knowledge-message knowledge-message--error" role="alert">{error}</p>;
@@ -68,6 +81,6 @@ export function KnowledgeEditorRoute({ mode }: Props) {
     {versionState === 'saving' ? <p role="status">Saving version</p> : null}
     {versionState === 'saved' ? <p role="status">Version saved</p> : null}
     {versionState === 'failed' ? <p role="alert">Version could not be saved</p> : null}
-    <EditorPage model={model} state={state} documentSlot={editor ? <EditorContent editor={editor} /> : <p>Loading document editor</p>} onTitleChange={(title) => { if (mode === 'create') setCreateState('unsaved'); setDraft((current) => ({ ...current, title })); }} onSummaryChange={(summary) => { if (mode === 'create') setCreateState('unsaved'); setDraft((current) => ({ ...current, summary })); }} onHighlight={(kind) => { if (mode === 'create') setCreateState('unsaved'); editor?.chain().focus().setMark('highlight', { kind }).run(); }} onRemoveHighlight={() => { if (mode === 'create') setCreateState('unsaved'); editor?.chain().focus().unsetHighlight().run(); }} onSave={() => { void manualSave(); }} {...(mode === 'edit' ? { onSaveVersion: () => { void saveVersion(); } } : {})} />
+    <EditorPage model={model} state={state} documentSlot={editor ? <EditorContent editor={editor} /> : <p>Loading document editor</p>} onTitleChange={(title) => { if (mode === 'create') setCreateState('unsaved'); setDraft((current) => ({ ...current, title })); }} onSummaryChange={(summary) => { if (mode === 'create') setCreateState('unsaved'); setDraft((current) => ({ ...current, summary })); }} onHighlight={(kind) => { if (mode === 'create') setCreateState('unsaved'); editor?.chain().focus().setMark('highlight', { kind }).run(); }} onRemoveHighlight={() => { if (mode === 'create') setCreateState('unsaved'); editor?.chain().focus().unsetHighlight().run(); }} onSave={() => { void manualSave(); }} onUpload={(file) => { void upload(file); }} onDownload={(assetId) => { void download(assetId); }} onDelete={(assetId) => { void removeAsset(assetId); }} {...(mode === 'edit' ? { onSaveVersion: () => { void saveVersion(); } } : {})} />
   </>;
 }
