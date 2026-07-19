@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "11",
+  "pages_build_output_dir": "./apps/web/dist",
+  "compatibility_date": "2026-07-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "personal-blog-db",
+      "database_id": "05e121a3-b61c-4da0-b09b-338ad28b7a2d",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "KB_ASSETS",
+      "bucket_name": "personal-blog-assets"
+    }
+  ],
+  "vars": {
+    "CF_ACCESS_TEAM_DOMAIN": "holy-mode-d41b.cloudflareaccess.com",
+    "CF_ACCESS_AUD": "4b0a80698926297cf2ad82efd476d5ccfd5fca17273897aee3ec746fccb2191",
+    "LOCAL_AUTH_BYPASS": "false"
+  },
+  "env": {
+    "preview": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "personal-blog-db-preview",
+          "database_id": "3ed8b013-75d8-4a7e-b278-c065e6b360c5",
+          "migrations_dir": "./migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "KB_ASSETS",
+          "bucket_name": "personal-blog-assets-preview"
+        }
+      ],
+      "vars": {
+        "CF_ACCESS_TEAM_DOMAIN": "holy-mode-d41b.cloudflareaccess.com",
+        "CF_ACCESS_AUD": "4b0a80698926297cf2ad82efd476d5ccfd5fca17273897aee3ec746fccb2191",
+        "LOCAL_AUTH_BYPASS": "false"
+      }
+    }
+  }
+}
