@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createNoteService, NoteDomainError, parseTiptapDocument, projectTiptapDocumentText, type NoteStore } from '../../../functions/lib/notes';
 
@@ -25,6 +25,22 @@ describe('note service', () => {
     expect((await service.get(created.id))?.title).toBe('First note');
     expect((await service.update(created.id, { title: 'Renamed' }))?.title).toBe('Renamed');
     expect((await service.archive(created.id))?.status).toBe('archived');
+  });
+
+  it('invokes the default UUID generator with the Workers crypto receiver', async () => {
+    const workersCrypto = {
+      randomUUID(this: unknown) {
+        if (this !== workersCrypto) throw new TypeError('Illegal invocation');
+        return 'workers-id';
+      },
+    };
+    vi.stubGlobal('crypto', workersCrypto);
+    try {
+      const created = await createNoteService(store().noteStore).create(base);
+      expect(created.id).toBe('workers-id');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('rejects empty updates and returns null for absent notes', async () => {

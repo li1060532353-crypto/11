@@ -128,7 +128,7 @@ export type NoteStore = {
   listVersions(noteId: string): Promise<readonly NoteVersionRecord[]>;
 };
 
-export function createNoteService(store: NoteStore, id = crypto.randomUUID, now = () => new Date().toISOString()) {
+export function createNoteService(store: NoteStore, id = () => crypto.randomUUID(), now = () => new Date().toISOString()) {
   return {
     list: (query: ApiRequestFor<'GET /api/notes'> = {}) => store.list(query),
     get: (noteId: string) => store.find(noteId),
