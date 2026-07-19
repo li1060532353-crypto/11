@@ -1,6 +1,7 @@
 import {
   type ApiRequestFor,
   type ApiResponseFor,
+  highlightKinds,
   type NoteRecord,
   type NoteVersionRecord,
 } from '../../packages/shared/src/index';
@@ -8,6 +9,115 @@ import {
 export class NoteDomainError extends Error {
   constructor(readonly code: string, message: string) { super(message); }
 }
+
+export const maximumDocumentBytes = 256 * 1024;
+export const maximumDocumentDepth = 32;
+export const maximumDocumentNodes = 10_000;
+export const maximumDocumentStringLength = 16 * 1024;
+export const maximumMarksPerTextNode = 16;
+
+type TiptapNode = { type: string; attrs?: Record<string, unknown>; content?: TiptapNode[]; text?: string; marks?: TiptapMark[] };
+type TiptapMark = { type: string; attrs?: Record<string, unknown> };
+export type TiptapDocument = TiptapNode & { type: 'doc'; content: TiptapNode[] };
+
+const highlightKindSet = new Set<string>(highlightKinds);
+const blockTypes = new Set(['paragraph', 'heading', 'bulletList', 'orderedList', 'blockquote', 'codeBlock']);
+const inlineTypes = new Set(['text', 'hardBreak']);
+const basicMarkTypes = new Set(['bold', 'italic', 'strike', 'code']);
+
+function documentError(message = 'Invalid document'): never { throw new NoteDomainError('VALIDATION_ERROR', message); }
+function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
+function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]) { return Object.keys(value).every((key) => keys.includes(key)); }
+function readString(value: unknown) { if (typeof value !== 'string' || value.length > maximumDocumentStringLength) documentError(); return value; }
+function optionalContent(value: Record<string, unknown>) { if (value.content === undefined) return []; if (!Array.isArray(value.content)) documentError(); return value.content; }
+function requiredContent(value: Record<string, unknown>) { if (!Array.isArray(value.content)) documentError(); return value.content; }
+function isHighlightKind(value: unknown): value is string { return typeof value === 'string' && highlightKindSet.has(value); }
+
+export function parseTiptapDocument(json: string): TiptapDocument {
+  if (typeof json !== 'string' || new TextEncoder().encode(json).byteLength > maximumDocumentBytes) documentError();
+  let root: unknown;
+  try { root = JSON.parse(json); } catch { documentError(); }
+  let nodeCount = 0;
+  const validateMarks = (value: unknown) => {
+    if (value === undefined) return;
+    if (!Array.isArray(value) || value.length > maximumMarksPerTextNode) documentError();
+    const seen = new Set<string>();
+    for (const mark of value) {
+      if (!isRecord(mark) || typeof mark.type !== 'string' || !hasOnlyKeys(mark, ['type', 'attrs']) || seen.has(mark.type)) documentError();
+      seen.add(mark.type);
+      if (basicMarkTypes.has(mark.type)) { if (mark.attrs !== undefined) documentError(); continue; }
+      if (mark.type !== 'highlight' || !isRecord(mark.attrs) || !hasOnlyKeys(mark.attrs, ['kind']) || !isHighlightKind(mark.attrs.kind)) documentError();
+    }
+  };
+  const validateNodes = (values: unknown[], allowed: ReadonlySet<string>, depth: number) => {
+    for (const value of values) validateNode(value, allowed, depth);
+  };
+  const validateNode = (value: unknown, allowed: ReadonlySet<string>, depth: number): TiptapNode => {
+    if (!isRecord(value) || typeof value.type !== 'string' || !allowed.has(value.type) || depth > maximumDocumentDepth || ++nodeCount > maximumDocumentNodes) documentError();
+    switch (value.type) {
+      case 'doc':
+        if (!hasOnlyKeys(value, ['type', 'content'])) documentError();
+        validateNodes(requiredContent(value), blockTypes, depth + 1);
+        break;
+      case 'paragraph':
+        if (!hasOnlyKeys(value, ['type', 'content'])) documentError();
+        validateNodes(optionalContent(value), inlineTypes, depth + 1);
+        break;
+      case 'heading': {
+        if (!hasOnlyKeys(value, ['type', 'attrs', 'content'])) documentError();
+        if (value.attrs !== undefined && (!isRecord(value.attrs) || !hasOnlyKeys(value.attrs, ['level']) || !Number.isInteger(value.attrs.level) || Number(value.attrs.level) < 1 || Number(value.attrs.level) > 6)) documentError();
+        validateNodes(optionalContent(value), inlineTypes, depth + 1);
+        break;
+      }
+      case 'bulletList':
+        if (!hasOnlyKeys(value, ['type', 'content']) || requiredContent(value).length === 0) documentError();
+        validateNodes(requiredContent(value), new Set(['listItem']), depth + 1);
+        break;
+      case 'orderedList': {
+        if (!hasOnlyKeys(value, ['type', 'attrs', 'content']) || requiredContent(value).length === 0) documentError();
+        if (value.attrs !== undefined && (!isRecord(value.attrs) || !hasOnlyKeys(value.attrs, ['start']) || !Number.isSafeInteger(value.attrs.start) || Number(value.attrs.start) < 1)) documentError();
+        validateNodes(requiredContent(value), new Set(['listItem']), depth + 1);
+        break;
+      }
+      case 'listItem':
+        if (!hasOnlyKeys(value, ['type', 'content']) || requiredContent(value).length === 0) documentError();
+        validateNodes(requiredContent(value), new Set(['paragraph', 'bulletList', 'orderedList', 'blockquote', 'codeBlock']), depth + 1);
+        break;
+      case 'blockquote':
+        if (!hasOnlyKeys(value, ['type', 'content']) || requiredContent(value).length === 0) documentError();
+        validateNodes(requiredContent(value), blockTypes, depth + 1);
+        break;
+      case 'codeBlock': {
+        if (!hasOnlyKeys(value, ['type', 'attrs', 'content'])) documentError();
+        if (value.attrs !== undefined && (!isRecord(value.attrs) || !hasOnlyKeys(value.attrs, ['language']) || (value.attrs.language !== null && typeof value.attrs.language !== 'string') || (typeof value.attrs.language === 'string' && value.attrs.language.length > maximumDocumentStringLength))) documentError();
+        validateNodes(optionalContent(value), inlineTypes, depth + 1);
+        break;
+      }
+      case 'hardBreak':
+        if (!hasOnlyKeys(value, ['type'])) documentError();
+        break;
+      case 'text':
+        if (!hasOnlyKeys(value, ['type', 'text', 'marks']) || readString(value.text).length === 0) documentError();
+        validateMarks(value.marks);
+        break;
+      default: documentError();
+    }
+    return value as TiptapNode;
+  };
+  return validateNode(root, new Set(['doc']), 0) as TiptapDocument;
+}
+
+export function projectTiptapDocumentText(document: TiptapDocument): string {
+  const inline = (nodes: readonly TiptapNode[] = []): string => nodes.map((node) => node.type === 'text' ? node.text ?? '' : node.type === 'hardBreak' ? '\n' : '').join('');
+  const block = (node: TiptapNode): string => {
+    if (node.type === 'paragraph' || node.type === 'heading' || node.type === 'codeBlock') return inline(node.content);
+    if (node.type === 'bulletList' || node.type === 'orderedList' || node.type === 'blockquote' || node.type === 'listItem') return (node.content ?? []).map(block).filter(Boolean).join('\n');
+    return '';
+  };
+  return document.content.map(block).filter(Boolean).join('\n\n');
+}
+
+export function contentTextFromTiptapJson(json: string) { return projectTiptapDocumentText(parseTiptapDocument(json)); }
 
 export type NoteStore = {
   list(query: ApiRequestFor<'GET /api/notes'>): Promise<ApiResponseFor<'GET /api/notes'>>;
@@ -32,7 +142,7 @@ export function createNoteService(store: NoteStore, id = crypto.randomUUID, now 
         title: input.title,
         summary: input.summary,
         contentJson: input.contentJson,
-        contentText: toText(input.contentJson),
+        contentText: contentTextFromTiptapJson(input.contentJson),
         category: input.category,
         status: input.status,
         isPinned: input.isPinned,
@@ -53,7 +163,7 @@ export function createNoteService(store: NoteStore, id = crypto.randomUUID, now 
         ...existing,
         ...changes,
         contentJson,
-        contentText: changes.contentJson === undefined ? existing.contentText : toText(contentJson),
+        contentText: changes.contentJson === undefined ? existing.contentText : contentTextFromTiptapJson(contentJson),
         updatedAt: now(),
       }, tags);
     },
@@ -177,8 +287,7 @@ export function parseNoteListQuery(request: Request): ApiRequestFor<'GET /api/no
 }
 
 function slugify(value: string) { return value.normalize('NFKC').toLowerCase().replace(/[^\p{Letter}\p{Number}\s-]/gu, '').trim().replace(/[\s-]+/gu, '-') || 'note'; }
-function toText(json: string) { try { const walk = (value: unknown): string[] => typeof value === 'string' ? [value] : Array.isArray(value) ? value.flatMap(walk) : value && typeof value === 'object' ? Object.values(value).flatMap(walk) : []; return walk(JSON.parse(json)).join(' ').trim(); } catch { return ''; } }
 function validTags(value: unknown) { return value === undefined || (Array.isArray(value) && value.every((tag) => typeof tag === 'string' && tag.trim())); }
-function validJson(value: unknown) { if (typeof value !== 'string') return false; try { JSON.parse(value); return true; } catch { return false; } }
-function validateCreate(value: unknown): asserts value is ApiRequestFor<'POST /api/notes'> { if (!value || typeof value !== 'object' || Array.isArray(value)) throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload'); const input = value as Record<string, unknown>; if (typeof input.title !== 'string' || !input.title.trim() || typeof input.summary !== 'string' || !validJson(input.contentJson) || typeof input.category !== 'string' || !['draft', 'published', 'archived'].includes(String(input.status)) || typeof input.isPinned !== 'boolean' || !validTags(input.tags)) throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload'); }
-function validateUpdate(value: unknown): asserts value is ApiRequestFor<'PATCH /api/notes/:id'> { if (!value || typeof value !== 'object' || Array.isArray(value)) throw new NoteDomainError('VALIDATION_ERROR', 'Invalid update payload'); const input = value as Record<string, unknown>; const allowed = ['title', 'summary', 'contentJson', 'category', 'status', 'isPinned', 'tags']; if (!Object.keys(input).length || Object.keys(input).some((key) => !allowed.includes(key)) || (input.title !== undefined && (typeof input.title !== 'string' || !input.title.trim())) || (input.summary !== undefined && typeof input.summary !== 'string') || (input.contentJson !== undefined && !validJson(input.contentJson)) || (input.category !== undefined && typeof input.category !== 'string') || (input.status !== undefined && !['draft', 'published', 'archived'].includes(String(input.status))) || (input.isPinned !== undefined && typeof input.isPinned !== 'boolean') || !validTags(input.tags)) throw new NoteDomainError('VALIDATION_ERROR', 'Invalid update payload'); }
+function validDocumentJson(value: unknown) { if (typeof value !== 'string') return false; try { parseTiptapDocument(value); return true; } catch { return false; } }
+function validateCreate(value: unknown): asserts value is ApiRequestFor<'POST /api/notes'> { if (!value || typeof value !== 'object' || Array.isArray(value)) throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload'); const input = value as Record<string, unknown>; if (typeof input.title !== 'string' || !input.title.trim() || typeof input.summary !== 'string' || !validDocumentJson(input.contentJson) || typeof input.category !== 'string' || !['draft', 'published', 'archived'].includes(String(input.status)) || typeof input.isPinned !== 'boolean' || !validTags(input.tags)) throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload'); }
+function validateUpdate(value: unknown): asserts value is ApiRequestFor<'PATCH /api/notes/:id'> { if (!value || typeof value !== 'object' || Array.isArray(value)) throw new NoteDomainError('VALIDATION_ERROR', 'Invalid update payload'); const input = value as Record<string, unknown>; const allowed = ['title', 'summary', 'contentJson', 'category', 'status', 'isPinned', 'tags']; if (!Object.keys(input).length || Object.keys(input).some((key) => !allowed.includes(key)) || (input.title !== undefined && (typeof input.title !== 'string' || !input.title.trim())) || (input.summary !== undefined && typeof input.summary !== 'string') || (input.contentJson !== undefined && !validDocumentJson(input.contentJson)) || (input.category !== undefined && typeof input.category !== 'string') || (input.status !== undefined && !['draft', 'published', 'archived'].includes(String(input.status))) || (input.isPinned !== undefined && typeof input.isPinned !== 'boolean') || !validTags(input.tags)) throw new NoteDomainError('VALIDATION_ERROR', 'Invalid update payload'); }

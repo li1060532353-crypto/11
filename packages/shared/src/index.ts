@@ -1,10 +1,11 @@
 export { API_PREFIX, apiError, apiSuccess } from './api';
 export type { ApiFailure, ApiResponse, ApiSuccess } from './api';
-export { assetDownloadRoute, assetUploadRoute, knowledgeApiRoutes, noteStatuses, roadmapItemStatuses, roadmapStatuses } from './knowledge';
+export { assetDownloadRoute, assetUploadRoute, highlightKinds, knowledgeApiRoutes, noteStatuses, roadmapItemStatuses, roadmapStatuses } from './knowledge';
 export type {
   ApiMethod,
   AssetRecord,
   KnowledgeApiRoute,
+  HighlightKind,
   NoteRecord,
   NoteStatus,
   RoadmapItemRecord,

@@ -124,3 +124,17 @@ Tests: focused `EditorPage.test.tsx` PASS (12); web typecheck PASS; lint PASS; p
 Review verdict: independent Task 3 review APPROVED for fixture/props isolation, accessible editor/highlight/save/attachment presentation, confirmation behavior, responsive CSS, no network/API integration, and no backend or contract changes; no Critical or Important findings
 Open findings: none for Task 3; the unrelated untracked local-API/Docker plan remains preserved; baseline content-query failures remain out of scope
 Next action: stop after Task 3; Terra owns the separately authorized integration task, which has not started.
+
+## Wave 3 - Terra foundation: canonical documents and semantic highlights
+
+Task: W3-04 authoritative Tiptap document validation, derived text projection, and isolated KnowledgeHighlight extension
+Status: DONE
+Model: Terra controller
+Allowed files: Notes domain/tests, minimal shared `HighlightKind` export, isolated `apps/web/src/knowledge-editor/**`, direct Tiptap dependencies, existing fixture type import, lockfile, and this progress record
+Forbidden files: editor routes, API/mutation clients, autosave, asset frontend integration, router changes, D1 schema, API contracts/routes, Access middleware, Cloudflare configuration, import/Markdown work, production operations, and Wave 4 work
+Validation: accepts only doc, paragraph, heading levels 1-6, bullet/ordered lists, list items, blockquotes, code blocks, hard breaks, text, basic bold/italic/strike/code marks, and exact five-kind highlight marks; rejects unknown attributes and unsupported structures. Limits: 256 KiB UTF-8 payload, depth 32, 10,000 nodes, 16 KiB strings, 16 marks/text node.
+Projection: visible reading-order text only; top-level blocks use blank lines, nested/list/quote blocks use newlines, hard breaks remain newlines, and empty blocks contribute no text. Create/PATCH do not snapshot; only the existing explicit version operation does.
+Tests: focused Notes validation/projection tests PASS (18); focused KnowledgeHighlight tests PASS (7); shared tests PASS (44); Functions typecheck PASS; web typecheck PASS; project typecheck PASS; lint PASS; production build PASS (existing Vite chunk-size warning); `git diff --check` PASS
+Review verdict: independent narrow review APPROVED for authoritative validation, DoS bounds, unsafe-shape rejection, deterministic projection, semantic persistence, unchanged version semantics, and no integration/scope expansion; no Critical or Important findings
+Open findings: no foundation-task findings; the unrelated untracked local-API/Docker plan remains preserved; baseline content-query failures remain out of scope
+Next action: stop after this foundation task; later editor/API/assets integration remains separately authorized and has not started.

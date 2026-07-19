@@ -1,6 +1,9 @@
 export const noteStatuses = ['draft', 'published', 'archived'] as const;
 export type NoteStatus = (typeof noteStatuses)[number];
 
+export const highlightKinds = ['core', 'mistake', 'mastered', 'method', 'investigate'] as const;
+export type HighlightKind = (typeof highlightKinds)[number];
+
 export const roadmapStatuses = ['active', 'archived'] as const;
 export type RoadmapStatus = (typeof roadmapStatuses)[number];
 

@@ -1,7 +1,6 @@
-import type { AssetRecord } from '@namdw/shared';
+import { highlightKinds, type AssetRecord, type HighlightKind } from '@namdw/shared';
 
-export type HighlightKind = 'core' | 'mistake' | 'mastered' | 'method' | 'investigate';
-export const highlightKinds: readonly HighlightKind[] = ['core', 'mistake', 'mastered', 'method', 'investigate'];
+export { highlightKinds, type HighlightKind };
 
 export type EditorAsset = Pick<AssetRecord, 'id'> & {
   name: string;

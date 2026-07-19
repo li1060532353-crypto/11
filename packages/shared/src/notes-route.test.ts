@@ -15,7 +15,7 @@ function mockDb(rows: Row[] = [], fail = false) {
   return { db: { prepare, async batch(statements: Array<{ sql: string; values: unknown[] }>) { if (fail) throw new Error('db'); batches.push(statements); return []; } } as unknown as D1Database, batches, runs };
 }
 function context(request: Request, db: D1Database, path?: string[]) { return { request, env: { DB: db, KB_ASSETS: {} } as never, params: { path } }; }
-const body = { title: 'New', summary: '', contentJson: '{"content":[{"text":"hello"}]}', category: 'x', status: 'draft', isPinned: false };
+const body = { title: 'New', summary: '', contentJson: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"hello"}]}]}', category: 'x', status: 'draft', isPinned: false };
 beforeEach(() => vi.stubGlobal('crypto', { randomUUID: () => 'version-id' }));
 
 describe('notes Pages route', () => {
