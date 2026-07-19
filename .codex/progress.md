@@ -112,3 +112,15 @@ Review verdict: independent Task 2 security review APPROVED for multipart/size/s
 Open findings: no distributed D1/R2 transaction exists; failed compensation can leave an orphan and is intentionally deferred to human-reviewed reconciliation. The unrelated untracked local-API/Docker plan remains preserved; baseline content-query failures remain out of scope.
 Dependencies: frozen Task 1 transport contracts
 Next action: stop after Task 2; do not begin the separate Task 3 review artifact or frontend/editor/import work without user direction.
+
+## Wave 3 - Task 3 fixture-only editor and attachment presentation
+
+Task: W3-03 controlled editor presentation and asset states (Luna frontend scope)
+Status: DONE
+Model: Luna-level frontend scope
+Allowed files: `apps/web/src/knowledge-ui/{EditorPage.tsx,AssetPanel.tsx,editor-fixtures.ts,EditorPage.test.tsx,knowledge.css}`, this progress record
+Forbidden files: API clients/routes, `fetch`, router integration, Tiptap, Functions, shared contracts, migrations, Access middleware, R2 behavior, Cloudflare configuration, production operations, import/rewrite work, and version semantics
+Tests: focused `EditorPage.test.tsx` PASS (12); web typecheck PASS; lint PASS; production build PASS (existing Vite chunk-size warning); `git diff --check` PASS
+Review verdict: independent Task 3 review APPROVED for fixture/props isolation, accessible editor/highlight/save/attachment presentation, confirmation behavior, responsive CSS, no network/API integration, and no backend or contract changes; no Critical or Important findings
+Open findings: none for Task 3; the unrelated untracked local-API/Docker plan remains preserved; baseline content-query failures remain out of scope
+Next action: stop after Task 3; Terra owns the separately authorized integration task, which has not started.
