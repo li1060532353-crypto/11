@@ -22,13 +22,16 @@ describe('EditorPage presentation', () => {
 
     expect(screen.getByRole('heading', { name: 'Edit knowledge note' })).toBeInTheDocument();
     expect(screen.getByLabelText('Title')).toHaveValue(editorFixture.title);
-    expect(screen.getByRole('textbox', { name: 'Document' })).toBeInTheDocument();
     expect(screen.getByTestId('document-slot')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Document' })).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Changed title' } });
-    fireEvent.input(screen.getByRole('textbox', { name: 'Document' }), { target: { value: '{"type":"doc"}' } });
     expect(onTitleChange).toHaveBeenCalledWith('Changed title');
+
+    const { rerender } = render(<EditorPage model={editorFixture} onContentChange={onContentChange} />);
+    fireEvent.input(screen.getByRole('textbox', { name: 'Document' }), { target: { value: '{"type":"doc"}' } });
     expect(onContentChange).toHaveBeenCalledWith('{"type":"doc"}');
+    rerender(<EditorPage model={editorFixture} />);
   });
 
   it('exposes all semantic highlight actions and the selected action', () => {

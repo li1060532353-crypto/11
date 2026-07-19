@@ -88,8 +88,7 @@ export function EditorPage({
                 <button type="button" className="knowledge-button--quiet" onClick={onRemoveHighlight}>Remove highlight</button>
               </div>
             </div>
-            <textarea aria-label="Document" value={model.contentJson} onChange={(event) => onContentChange?.(event.target.value)} readOnly={!onContentChange} rows={8} />
-            {documentSlot ? <div className="knowledge-editor__slot">{documentSlot}</div> : null}
+            {documentSlot ? <div className="knowledge-editor__slot">{documentSlot}</div> : <textarea aria-label="Document" value={model.contentJson} onChange={(event) => onContentChange?.(event.target.value)} readOnly={!onContentChange} rows={8} />}
           </section>
         </section>
         <AssetPanel assets={model.assets} onUpload={onUpload} onDownload={onDownload} onDelete={onDelete} />

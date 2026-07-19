@@ -27,6 +27,7 @@ import { TagIndexPage } from './pages/posts/TagIndexPage';
 import { TagPostsPage } from './pages/posts/TagPostsPage';
 import { KnowledgeDashboardRoute } from './knowledge/KnowledgeDashboardRoute';
 import { KnowledgeNotesRoute } from './knowledge/KnowledgeNotesRoute';
+import { KnowledgeEditorRoute } from './knowledge/KnowledgeEditorRoute';
 
 export const publicRoutes = [
   { path: '/', element: <HomePage /> },
@@ -58,6 +59,8 @@ export const publicRoutes = [
   },
   { path: '/knowledge', element: <KnowledgeDashboardRoute /> },
   { path: '/knowledge/notes', element: <KnowledgeNotesRoute /> },
+  { path: '/knowledge/notes/new', element: <KnowledgeEditorRoute mode="create" /> },
+  { path: '/knowledge/notes/:id', element: <KnowledgeEditorRoute mode="edit" /> },
   { path: '*', element: <NotFoundPage /> },
 ] as const;
 

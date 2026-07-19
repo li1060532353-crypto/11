@@ -138,3 +138,17 @@ Tests: focused Notes validation/projection tests PASS (18); focused KnowledgeHig
 Review verdict: independent narrow review APPROVED for authoritative validation, DoS bounds, unsafe-shape rejection, deterministic projection, semantic persistence, unchanged version semantics, and no integration/scope expansion; no Critical or Important findings
 Open findings: no foundation-task findings; the unrelated untracked local-API/Docker plan remains preserved; baseline content-query failures remain out of scope
 Next action: stop after this foundation task; later editor/API/assets integration remains separately authorized and has not started.
+
+## Wave 3 - Terra Notes editor mutation integration
+
+Task: W3-05 Notes create/load/PATCH/autosave/explicit-version integration only
+Status: DONE
+Model: Terra controller
+Allowed files: Notes web client, editor route/autosave/tests, approved editor route entries, minimal presentation slot integration, direct Tiptap React dependency, lockfile, and this progress record
+Forbidden files: asset API integration or attachment behavior, Functions/backend/schema/contracts, Access middleware, Cloudflare configuration, Markdown/import work, production operations, and Wave 4 work
+Routes: `/knowledge/notes/new` and `/knowledge/notes/:id` are registered before the wildcard route.
+Mutation semantics: typed JSON-envelope client calls only GET/POST/PATCH Notes routes; existing notes autosave after 1500 ms, serialize one active request, ignore disposed/stale results, reschedule newer edits after stale completion, and keep failed saves dirty without automatic retry. Create has duplicate-call protection and transitions to the persisted identity. Create/PATCH never call `/versions`; explicit Save Version first persists current edits and then posts only to the existing version route, with duplicate-click protection.
+Tests: focused API/editor/presentation tests PASS (21); shared tests PASS (44); web typecheck PASS; project typecheck PASS; lint PASS; build PASS (Vite emitted its chunk-size advisory); git diff --check PASS.
+Review verdict: independent narrow review APPROVED for mutation contract safety, autosave races, version semantics, canonical document use, error-envelope safety, unsaved warning, and no asset/Wave 4 scope expansion; no Critical or Important findings
+Open findings: no editor-mutation findings; the unrelated untracked local-API/Docker plan remains preserved; baseline content-query failures remain out of scope
+Next action: stop after Notes editor integration; asset frontend integration remains explicitly excluded and has not started.
