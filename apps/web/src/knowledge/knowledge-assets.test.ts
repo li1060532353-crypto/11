@@ -16,6 +16,11 @@ describe('knowledge asset client', () => {
     expect((options as RequestInit).body).toBeInstanceOf(FormData);
   });
 
+  it('rejects malformed returned asset metadata before it can be rendered', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: { asset: { ...asset, originalName: '../private-key.png' } } }, 201));
+    await expect(uploadKnowledgeAsset(new File(['png'], 'safe.png', { type: 'image/png' }), 'note-1')).rejects.toEqual({ kind: 'malformed' });
+  });
+
   it('downloads binary data, uses a safe filename fallback, and revokes its temporary object URL', async () => {
     const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:temporary'); const revoke = vi.spyOn(URL, 'revokeObjectURL');
     vi.mocked(fetch).mockResolvedValueOnce(new Response(new Blob(['png']), { headers: { 'Content-Disposition': "attachment; filename*=UTF-8''safe%20name.png" } }));

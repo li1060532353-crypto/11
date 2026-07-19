@@ -119,6 +119,21 @@ describe('AssetPanel presentation', () => {
     expect(onDelete).toHaveBeenCalledWith('ready');
   });
 
+  it('moves focus into the delete dialog, supports Escape, and restores the trigger focus', () => {
+    render(<AssetPanel assets={[{ id: 'ready', name: 'reference.pdf', sizeLabel: '2 KB', state: 'ready' }]} onDelete={vi.fn()} />);
+    const trigger = screen.getByRole('button', { name: 'Delete reference.pdf' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Cancel' }), { key: 'Tab', shiftKey: true });
+    expect(screen.getByRole('button', { name: 'Confirm delete' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Confirm delete' }), { key: 'Tab' });
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
   it('keeps controls keyboard accessible and makes no network calls', () => {
     const onDelete = vi.fn();
     const onDownload = vi.fn();
