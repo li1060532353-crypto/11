@@ -121,9 +121,11 @@ describe('visual CSS contract', () => {
 
     expect(readStyle('./global.css')).toContain('color-scheme: light dark');
     expect(sharedStyles).not.toMatch(/(?:linear|radial)-gradient\s*\(/i);
-    const heavySharedShadow = /box-shadow:\s*[^;}]*(?:[\s(])(?:[3-9]|\d{2,})rem/i;
+    const heavySharedShadow =
+      /box-shadow:\s*[^;}]*(?:[\s(])(?:[3-9](?:\.\d+)?|\d{2,}(?:\.\d+)?)rem/i;
 
     expect('box-shadow: 0 1rem 4rem rgba(0, 0, 0, 0.08);').toMatch(heavySharedShadow);
+    expect('box-shadow: 0 1rem 4.5rem rgba(0, 0, 0, .08);').toMatch(heavySharedShadow);
     expect(sharedStyles).not.toMatch(heavySharedShadow);
     expect(sharedStyles).not.toMatch(/--shadow[^:]*:[^;}]*(?:[\s(])(?:[3-9]|\d{2,})rem/i);
   });
