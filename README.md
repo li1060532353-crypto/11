@@ -119,13 +119,10 @@ pnpm test
 pnpm build
 ```
 
-The repository-wide linter currently traverses local Wrangler output when it
-exists, even though `.wrangler/` is ignored by Git; use the scoped source lint
-command documented in the release report while that baseline tooling issue
-remains unresolved. The full web test suite also has pre-existing static
-content-count expectations that do not match the committed content set. Both
-conditions are documented as known baseline failures rather than release
-changes.
+The repository-wide lint and test commands are part of the release gate. ESLint
+explicitly ignores Wrangler's generated runtime tree while continuing to lint
+all repository source files. Content-query assertions track the committed
+eight-post static content set, including generated Markdown-import output.
 
 ## Current limitations
 

@@ -42,6 +42,26 @@ gzip sizes with the release evidence; the most recent verified public entry was
 (`124.92 kB` gzip). Filenames are content-hashed and will change on a later
 build.
 
+## Release-candidate verification status
+
+The release-candidate cleanup resolved the previously recorded baseline
+issues:
+
+- `contentQueries.test.ts` now asserts the committed eight-post source of
+  truth: six legacy posts plus two generated Markdown-import posts. Its
+  featured and archive expectations include the generated selected article and
+  the July 2026 archive group.
+- ESLint now ignores only `**/.wrangler/**`, the generated Wrangler runtime
+  tree already excluded from Git. Source lint rules and source-directory
+  coverage are unchanged.
+- The retained NestJS health unit and E2E assertions now match the existing
+  shared `ApiSuccess` envelope, `{ success: true, data }`; the controller and
+  API contract were not changed.
+
+Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, and
+`pnpm cloudflare:verify-config` before creating a release artifact. No
+production deployment has been performed by this repository workflow.
+
 ## Preview verification checklist
 
 After an explicitly approved deployment, verify the following in the target
@@ -72,12 +92,6 @@ that permits mutations. This document does not authorize production writes.
 - Vite reports a chunk-size advisory for the public entry bundle. The knowledge
   and editor dependencies are already separated into lazy route chunks; no
   broad refactor is included in release preparation.
-- `pnpm lint` can report generated `.wrangler/tmp` files when local Wrangler
-  state exists because ESLint does not honor `.gitignore` for that invocation.
-  The scoped source lint command above is the reproducible release check.
-- The full web suite has five pre-existing content-query expectation failures:
-  it expects six static posts while the committed content set contains eight.
-  This phase does not alter content fixtures or tests.
 
 ## Repository hygiene
 
