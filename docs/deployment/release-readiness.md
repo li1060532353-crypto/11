@@ -105,8 +105,10 @@ release cleanup.
 ## Recommended next steps
 
 1. Obtain separate approval for a Preview deployment and run the checklist.
-2. Resolve the static content-query test expectations in a focused maintenance
-   change.
+2. Use the [Demo Walkthrough](../showcase/demo-walkthrough.md),
+   [Architecture Overview](../showcase/architecture.md), and
+   [Showcase Checklist](../showcase/showcase-checklist.md) for a live demo or
+   handoff.
 3. Decide whether public knowledge reads are required. If so, design the
    authentication/API boundary before changing middleware or Cloudflare Access.
 4. Design persistent asset references only if product requirements require a
