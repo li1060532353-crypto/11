@@ -69,7 +69,7 @@ describe('knowledge read-only integration', () => {
 
   it('archives and restores listed notes through the existing protected endpoints', async () => {
     const activeNote = { ...note, status: 'draft' as const };
-    const archivedNote = { ...note, id: 'n2', slug: 'note-n2' };
+    const archivedNote = { ...note, id: 'n2', slug: 'note-n2', title: 'Archived note' };
     vi.mocked(fetch)
       .mockResolvedValueOnce(response({ success: true, data: { items: [activeNote, archivedNote], page: 1, pageSize: 20, totalItems: 2, totalPages: 1 } }))
       .mockResolvedValueOnce(response({ success: true, data: { ...activeNote, status: 'archived' } }))
@@ -82,8 +82,8 @@ describe('knowledge read-only integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Archive Note' }));
     await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/notes/n1', expect.objectContaining({ method: 'DELETE' })));
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Restore Note' })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'Restore Note' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Restore Archived note' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Archived note' }));
     await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/notes/n2/restore', expect.objectContaining({ method: 'POST' })));
   });
 
