@@ -152,3 +152,19 @@ Tests: focused API/editor/presentation tests PASS (21); shared tests PASS (44); 
 Review verdict: independent narrow review APPROVED for mutation contract safety, autosave races, version semantics, canonical document use, error-envelope safety, unsaved warning, and no asset/Wave 4 scope expansion; no Critical or Important findings
 Open findings: no editor-mutation findings; the unrelated untracked local-API/Docker plan remains preserved; baseline content-query failures remain out of scope
 Next action: stop after Notes editor integration; asset frontend integration remains explicitly excluded and has not started.
+
+## Wave 4 - Product Experience Redesign Phase 1
+
+Task: W4-01 design tokens and shared visual shell
+Status: NEEDS_REVIEW
+Model: gpt-5.6-terra implementer with independent review
+Agent/worktree: gpt-5.6-terra implementer and gpt-5.6-sol reviewer, `E:\AIblog\personal-blog-source`, `codex/local-api-docker`
+Allowed files: `apps/web/src/styles/{tokens,global,shell,motion}.css`, `apps/web/src/styles/visual-contract.test.ts`, new focused `apps/web/src/components/ui/**`, and `.superpowers/sdd/**`
+Forbidden files: Functions, API clients/contracts, router, D1/R2 schemas, Cloudflare configuration, Tiptap/autosave/persistence, dependency manifests, and unrelated documents
+Base commit: `adab2c6`
+Head commits: `b2a9472`, `bddfc45`, `a8b226f`
+Tests: Phase 1 visual/primitives PASS (19); route shell fallback PASS (28, with existing jsdom `scrollTo` notices); web typecheck PASS; lint PASS; web build PASS with existing >500 KB chunk advisory; diff check PASS.
+Contract impact: none observed; only CSS, visual-contract tests, and native shared primitives changed.
+Review verdict: independent review APPROVED for specification compliance and code quality/safety; no Critical or Important findings. Minor: the scoped EmptyState accessibility enhancement modified an existing primitive while the brief literally listed only new UI files.
+Open findings: preview/browser connection refused, so screenshot automation used the approved manual route/viewport fallback; unrelated local API/Docker plan remains untracked and preserved.
+Next action: Phase 1 checkpoint presented; wait for user approval before Phase 2.
