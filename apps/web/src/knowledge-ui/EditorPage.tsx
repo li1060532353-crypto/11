@@ -7,10 +7,12 @@ import { highlightKinds } from './editor-fixtures';
 import './knowledge.css';
 
 export type EditorPresentationState = 'unchanged' | 'unsaved' | 'saving' | 'saved' | 'failed';
+export type VersionPresentationState = 'idle' | 'saving' | 'saved' | 'failed';
 
 type EditorPageProps = {
   model: EditorViewModel;
   state?: EditorPresentationState;
+  versionState?: VersionPresentationState;
   selectedHighlight?: HighlightKind | null;
   documentSlot?: ReactNode;
   onTitleChange?: (value: string) => void;
@@ -35,6 +37,12 @@ const stateLabels: Record<EditorPresentationState, string> = {
   failed: 'Save failed',
 };
 
+const versionStateLabels: Record<Exclude<VersionPresentationState, 'idle'>, string> = {
+  saving: 'Saving version',
+  saved: 'Version saved',
+  failed: 'Version could not be saved',
+};
+
 function labelForKind(kind: HighlightKind) {
   return kind.charAt(0).toUpperCase() + kind.slice(1);
 }
@@ -42,6 +50,7 @@ function labelForKind(kind: HighlightKind) {
 export function EditorPage({
   model,
   state = 'unchanged',
+  versionState = 'idle',
   selectedHighlight = null,
   documentSlot,
   onTitleChange,
@@ -67,14 +76,15 @@ export function EditorPage({
     <main className="knowledge-shell knowledge-editor" aria-labelledby="knowledge-editor-title">
       <header className="knowledge-editor__header">
         <div>
-          <p className="knowledge-shell__eyebrow">Private workspace</p>
-          <h1 id="knowledge-editor-title">{isNew ? '新建笔记' : 'Edit knowledge note'}</h1>
+          <p className="knowledge-shell__eyebrow">Knowledge workspace</p>
+          <h1 id="knowledge-editor-title">{isNew ? 'New article' : 'Edit article'}</h1>
           {navigation}
         </div>
         <div className="knowledge-editor__actions">
           <span className={`knowledge-save-state knowledge-save-state--${state}`} role="status" aria-live="polite">{stateLabels[state]}</span>
           <button type="button" onClick={onSave} disabled={!onSave || state === 'saving'}>Save</button>
-          <button type="button" className="knowledge-button--secondary" onClick={onSaveVersion} disabled={!onSaveVersion || state === 'saving'}>Save Version</button>
+          <button type="button" className="knowledge-button--secondary" onClick={onSaveVersion} disabled={!onSaveVersion || state === 'saving' || versionState === 'saving'}>Save Version</button>
+          {versionState !== 'idle' ? <span className={`knowledge-version-state knowledge-version-state--${versionState}`} role={versionState === 'failed' ? 'alert' : 'status'} aria-live="polite">{versionStateLabels[versionState]}</span> : null}
         </div>
       </header>
 

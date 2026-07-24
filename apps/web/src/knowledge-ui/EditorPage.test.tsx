@@ -20,7 +20,7 @@ describe('EditorPage presentation', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'Edit knowledge note' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Edit article' })).toBeInTheDocument();
     expect(screen.getByLabelText('Title')).toHaveValue(editorFixture.title);
     expect(screen.getByTestId('document-slot')).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Document' })).not.toBeInTheDocument();
@@ -64,6 +64,13 @@ describe('EditorPage presentation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Version' }));
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSaveVersion).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps version feedback in the editor actions and labels attachments as session-only', () => {
+    render(<EditorPage model={editorFixture} state="saved" versionState="saved" />);
+
+    expect(screen.getByText('Version saved')).toBeInTheDocument();
+    expect(screen.getByText('Uploads shown here are for this editor session only. They are not embedded in this article or restored after a refresh.')).toBeInTheDocument();
   });
 });
 

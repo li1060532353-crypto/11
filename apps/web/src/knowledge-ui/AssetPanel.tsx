@@ -30,6 +30,7 @@ export function AssetPanel({ assets, onUpload, onDownload, onDelete, unavailable
           <input id="knowledge-asset-upload" type="file" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload?.(file); event.currentTarget.value = ''; }} disabled={!onUpload} />
         </label>
       </div>
+      <p className="knowledge-asset-panel__boundary">Uploads shown here are for this editor session only. They are not embedded in this article or restored after a refresh.</p>
       {unavailableMessage ? <p className="knowledge-shell__subtle">{unavailableMessage}</p> : null}
       {assets.length === 0 ? <p className="knowledge-empty-state">No attachments yet</p> : (
         <ul className="knowledge-asset-list">
