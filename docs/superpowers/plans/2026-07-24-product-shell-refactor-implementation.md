@@ -69,6 +69,7 @@
 - [ ] Update discovery, category, tag, archive, and search pages to use accessible SearchInput/filter/list/empty/skeleton states while preserving query parameters and fallback notices.
 - [ ] Refine article reading into a 720–760px body column with reading progress, responsive TOC, active-section treatment, copy-link/back-to-top affordances, previous/next navigation, and related-content presentation where existing data supports it.
 - [ ] Keep `MarkdownRenderer` safe: raw HTML remains disabled; code, tables, math, headings, and external-link behavior retain existing contracts.
+- [ ] Treat `MarkdownRenderer` changes as presentation-only: typography, spacing, visual wrappers, and responsive reading layout are allowed; parsing rules, sanitization behavior, generated content structure, and existing Markdown rendering semantics are forbidden.
 - [ ] Run focused public tests: `pnpm --filter @namdw/web test -- SiteHeader.test.tsx DiscoveryPages.test.tsx PostDetailPage.test.tsx MarkdownRenderer.test.tsx TableOfContents.test.tsx ReadingProgress.test.tsx`.
 - [ ] Run `pnpm --filter @namdw/web typecheck`, `pnpm lint`, and `pnpm --filter @namdw/web build`; smoke `/`, `/posts`, `/posts/:slug`, `/search`, `/projects`, and `/about` in built preview.
 - [ ] Checkpoint: capture 1440px, 1024px, 390px, and 320px public screenshots; verify no dashboard statistics above the fold and no uncontrolled horizontal scrolling.
@@ -106,6 +107,7 @@
 **Rollback:** Revert Phase 4 commits; the existing Notes page and API client still provide the previous management workflow.
 
 - [ ] Rename visible product language from Notes to Articles while retaining `NoteRecord`, existing client method names, and API URLs internally.
+- [ ] Treat “Article” solely as a presentation and navigation concept: internal `NoteRecord` types, API paths, database fields, fixtures, and persistence semantics remain unchanged.
 - [ ] Build a light desktop list/table with search, existing supported filters, title, category, status, updated time, and an ellipsis menu for low-frequency presentation actions.
 - [ ] Show only filter controls backed by the current client/API; do not add unpublished API parameters, taxonomy mutations, or fabricated tags/reading metadata.
 - [ ] Render mobile article cards below 768px instead of a scrollable desktop table.
@@ -171,6 +173,7 @@
 - [ ] Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, `pnpm cloudflare:verify-config`, and `pnpm smoke` only when their documented prerequisites are available; record unmet prerequisites rather than changing infrastructure.
 - [ ] Run public route smoke checks, SPA deep-link fallback, and inspect Vite build output for chunks over 500 KB. Use route/feature splitting only when it preserves behavior.
 - [ ] Capture final key-page screenshots at all required widths and compile `git diff --stat`, `git status --short`, changed-file list, test/build outputs, bundle sizes, incomplete items, known limitations, and a declaration of no deployment/API/data/Cloudflare changes.
+- [ ] If screenshot automation is unavailable, provide route-verification output, a viewport checklist, and manual verification evidence instead; do not block implementation solely because automated screenshots cannot be produced.
 - [ ] Checkpoint: require all applicable checks to pass or clearly list pre-existing/infrastructure-blocked checks. Do not proceed to deployment; wait for explicit user approval.
 
 ## Plan Self-Review
