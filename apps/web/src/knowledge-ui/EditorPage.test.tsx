@@ -6,6 +6,12 @@ import { EditorPage } from './EditorPage';
 import { editorFixture } from './editor-fixtures';
 
 describe('EditorPage presentation', () => {
+  it('does not create a nested main landmark inside the application route shell', () => {
+    render(<EditorPage model={editorFixture} />);
+
+    expect(screen.queryAllByRole('main')).toHaveLength(0);
+  });
+
   it('renders accessible title and document controls from props', () => {
     const onTitleChange = vi.fn();
     const onContentChange = vi.fn();

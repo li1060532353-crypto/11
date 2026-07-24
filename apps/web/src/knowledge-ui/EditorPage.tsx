@@ -73,7 +73,7 @@ export function EditorPage({
     <nav className="knowledge-page-actions" aria-label="笔记导航"><a className="knowledge-button knowledge-button--quiet" href="/knowledge">知识库概览</a><a className="knowledge-button knowledge-button--quiet" href="/knowledge/notes">笔记列表</a></nav>
   );
   return (
-    <main className="knowledge-shell knowledge-editor" aria-labelledby="knowledge-editor-title">
+    <section className="knowledge-shell knowledge-editor" aria-labelledby="knowledge-editor-title">
       <header className="knowledge-editor__header">
         <div>
           <p className="knowledge-shell__eyebrow">Knowledge workspace</p>
@@ -115,6 +115,6 @@ export function EditorPage({
         </section>
         <AssetPanel assets={model.assets} onUpload={onUpload} onDownload={onDownload} onDelete={onDelete} unavailableMessage={attachmentUnavailableMessage} />
       </div>
-    </main>
+    </section>
   );
 }
