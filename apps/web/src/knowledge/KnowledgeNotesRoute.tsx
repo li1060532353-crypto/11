@@ -13,6 +13,7 @@ export function KnowledgeNotesRoute() {
   const [mutatingNoteId, setMutatingNoteId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const generation = useRef(0);
+  const mutationLock = useRef(false);
 
   useEffect(() => {
     const current = ++generation.current;
@@ -29,7 +30,8 @@ export function KnowledgeNotesRoute() {
   }, [searchTerm, page, refresh]);
 
   const mutate = useCallback(async (noteId: string, operation: (id: string) => Promise<unknown>) => {
-    if (mutatingNoteId) return;
+    if (mutationLock.current) return;
+    mutationLock.current = true;
     setMutatingNoteId(noteId);
     setMutationError(null);
     try {
@@ -38,9 +40,10 @@ export function KnowledgeNotesRoute() {
     } catch {
       setMutationError('The note could not be updated.');
     } finally {
+      mutationLock.current = false;
       setMutatingNoteId(null);
     }
-  }, [mutatingNoteId]);
+  }, []);
 
   return <NotesPage model={model} state={state} onSearchChange={(value) => { setSearchTerm(value); setPage(1); }} onClearSearch={() => { setSearchTerm(''); setPage(1); }} onArchive={(noteId) => { void mutate(noteId, archiveKnowledgeNote); }} onRestore={(noteId) => { void mutate(noteId, restoreKnowledgeNote); }} mutatingNoteId={mutatingNoteId} mutationError={mutationError} />;
 }

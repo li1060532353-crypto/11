@@ -87,6 +87,24 @@ describe('knowledge read-only integration', () => {
     await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/notes/n2/restore', expect.objectContaining({ method: 'POST' })));
   });
 
+  it('sends only one archive request when the action is clicked again before the mutation resolves', async () => {
+    const activeNote = { ...note, status: 'draft' as const };
+    let resolveArchive!: (value: Response) => void;
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(response({ success: true, data: { items: [activeNote], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveArchive = resolve; }))
+      .mockResolvedValueOnce(response({ success: true, data: { items: [{ ...activeNote, status: 'archived' }], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }));
+    render(<MemoryRouter><KnowledgeNotesRoute /></MemoryRouter>);
+    const archive = await screen.findByRole('button', { name: 'Archive Note' });
+
+    fireEvent.click(archive);
+    fireEvent.click(archive);
+    expect(vi.mocked(fetch).mock.calls.filter(([url, init]) => url === '/api/notes/n1' && init?.method === 'DELETE')).toHaveLength(1);
+
+    resolveArchive(response({ success: true, data: { ...activeNote, status: 'archived' } }));
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/notes?page=1&pageSize=20', expect.any(Object)));
+  });
+
   it('does not allow an older deferred response to replace a newer search result', async () => {
     let resolveOld!: (value: Response) => void;
     let resolveNew!: (value: Response) => void;
