@@ -171,6 +171,17 @@ describe('visual CSS contract', () => {
     expect(readStyle('./motion.css')).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
+  it('keeps product-polish typography, empty states, and editor feedback restrained', () => {
+    const home = readStyle('./home.css');
+    const knowledge = readStyle('../knowledge-ui/knowledge.css');
+
+    expect(declaration(home, '.hero h1', 'text-wrap')).toBe('balance');
+    expect(declaration(home, '.hero__actions', 'flex-wrap')).toBe('wrap');
+    expect(declaration(knowledge, '.knowledge-empty-state', 'display')).toBe('grid');
+    expect(declaration(knowledge, '.knowledge-editor__actions button, .knowledge-highlight-toolbar button, .knowledge-asset-row button, .knowledge-upload-button, .knowledge-dialog button', 'transition')).toContain('background-color');
+    expect(declaration(knowledge, '.knowledge-editor__actions .knowledge-button--secondary:not(:disabled):hover', 'background')).toBe('var(--color-ink, #1d1d1f)');
+  });
+
   it('preserves the 320px and reduced-motion source contracts', () => {
     const styles = ['global.css', 'shell.css', 'home.css', 'content.css', 'reading.css']
       .map((name) => readStyle(`./${name}`))
