@@ -32,15 +32,15 @@ describe('FeaturedContent', () => {
 
     const articles = await screen.findByRole('region', { name: '近期文章' });
     const projects = screen.getByRole('region', { name: '精选项目' });
-    expect(within(articles).getByRole('heading', { name: 'Existing article' }).closest('a')).toHaveAttribute(
-      'href',
-      '/posts/existing-article',
-    );
-    expect(within(projects).getByRole('heading', { name: 'Existing project' }).closest('a')).toHaveAttribute(
-      'href',
-      '/projects/existing-project',
-    );
-    expect(within(articles).queryByRole('heading', { name: 'Existing project' })).toBeNull();
+    expect(
+      within(articles).getByRole('heading', { level: 4, name: 'Existing article' }).closest('a'),
+    ).toHaveAttribute('href', '/posts/existing-article');
+    expect(
+      within(projects).getByRole('heading', { level: 4, name: 'Existing project' }).closest('a'),
+    ).toHaveAttribute('href', '/projects/existing-project');
+    expect(
+      within(articles).queryByRole('heading', { level: 4, name: 'Existing project' }),
+    ).toBeNull();
   });
 
   it('omits a grouping whose kind is unavailable from the existing projection', async () => {

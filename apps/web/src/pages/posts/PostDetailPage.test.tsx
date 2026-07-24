@@ -163,7 +163,14 @@ describe('PostDetailPage', () => {
     const readingCss = readFileSync(resolve(process.cwd(), 'src/styles/reading.css'), 'utf8');
     const motionCss = readFileSync(resolve(process.cwd(), 'src/styles/motion.css'), 'utf8');
 
-    expect(readingCss).toContain('var(--reading-max)');
+    expect(readingCss).toContain('var(--reader-body-width)');
+    expect(readingCss).toMatch(/--reader-body-width:\s*46rem/);
+    expect(readingCss).toMatch(
+      /\.post-detail__layout\s*{[\s\S]*?grid-template-columns:[\s\S]*?var\(--reader-body-width\)/,
+    );
+    expect(readingCss).toMatch(
+      /\.markdown-body\s*{[\s\S]*?max-width:\s*var\(--reader-body-width\)/,
+    );
     expect(readingCss).toContain('@media (max-width: 47.99rem)');
     expect(readingCss).toContain("@import 'highlight.js/styles/github-dark.css'");
     const highlightTheme = readFileSync(

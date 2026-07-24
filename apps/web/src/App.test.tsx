@@ -57,7 +57,7 @@ describe('App visual shell', () => {
       screen.getByRole('heading', { level: 2, name: '正在构建，也持续记录。' }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByRole('heading', { level: 3, name: '智能冷链仓储系统' }),
+      await screen.findByRole('heading', { level: 4, name: '智能冷链仓储系统' }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 2, name: '工程、学习与长期主义。' }),

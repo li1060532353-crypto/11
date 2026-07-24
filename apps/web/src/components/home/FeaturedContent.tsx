@@ -36,7 +36,7 @@ export function FeaturedContent() {
                       <div className="feature-card__visual" aria-hidden="true" />
                       <div className="feature-card__body">
                         <p className="feature-card__meta">{item.meta}</p>
-                        <h3>{item.title}</h3>
+                        <h4>{item.title}</h4>
                         <p className="feature-card__summary">{item.summary}</p>
                       </div>
                     </a>
@@ -56,7 +56,7 @@ export function FeaturedContent() {
                       <div className="feature-card__visual" aria-hidden="true" />
                       <div className="feature-card__body">
                         <p className="feature-card__meta">{item.meta}</p>
-                        <h3>{item.title}</h3>
+                        <h4>{item.title}</h4>
                         <p className="feature-card__summary">{item.summary}</p>
                       </div>
                     </a>
