@@ -5,6 +5,23 @@ import { extractHeadings, MarkdownRenderer } from './MarkdownRenderer';
 import { TableOfContents } from './TableOfContents';
 
 describe('TableOfContents', () => {
+  it('marks the current heading link for an active-section treatment', () => {
+    window.history.replaceState(null, '', '#details');
+
+    render(
+      <TableOfContents
+        headings={[
+          { id: 'overview', level: 2, text: 'Overview' },
+          { id: 'details', level: 3, text: 'Details' },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('aria-current', 'location');
+    expect(screen.getByRole('link', { name: 'Overview' })).not.toHaveAttribute('aria-current');
+    window.history.replaceState(null, '', '/');
+  });
+
   it('links extracted h2 and h3 headings to matching stable IDs', () => {
     const headings = extractHeadings(`
 # 页面标题

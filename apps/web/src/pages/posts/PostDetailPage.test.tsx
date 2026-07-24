@@ -174,6 +174,12 @@ describe('PostDetailPage', () => {
     expect(readingCss).toMatch(
       /\.markdown-body \.katex-display\s*{[\s\S]*?max-width:\s*100%[\s\S]*?overflow-x:\s*auto/,
     );
+    expect(readingCss).toMatch(
+      /\.table-of-contents a\[aria-current='location'\]\s*{[\s\S]*?border-left:/,
+    );
+    expect(readingCss).toMatch(
+      /\.markdown-body > table\s*{[\s\S]*?border-radius:[\s\S]*?box-shadow:/,
+    );
     expect(motionCss).toMatch(/prefers-reduced-motion:\s*reduce[\s\S]*reading-progress/);
     expect(motionCss).toMatch(/prefers-reduced-motion:\s*reduce[\s\S]*scroll-behavior:\s*auto/);
   });

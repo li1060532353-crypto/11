@@ -3,17 +3,21 @@
 }
 .post-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: 1fr;
+  gap: 0;
+  border-top: 1px solid var(--color-border);
 }
 .post-card {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.38fr) minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
   background: var(--color-surface);
 }
 .post-card__visual {
-  min-height: 9rem;
+  min-height: 100%;
   background: linear-gradient(135deg, #d8e8ff, #f5f5f7);
 }
 .post-card__visual--violet {
@@ -26,7 +30,7 @@
   background: linear-gradient(135deg, #ffe5c1, #f5f5f7);
 }
 .post-card__body {
-  padding: 1.5rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
 }
 .post-card h2 {
   margin: 0.85rem 0;
@@ -55,10 +59,10 @@
   color: var(--color-accent-text-on-light);
 }
 .filter-bar {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  margin-bottom: 2.5rem;
+  padding: 0 0 1.25rem;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
 }
 .filter-bar label {
   display: grid;
@@ -99,14 +103,16 @@
 .taxonomy-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 1px;
+  border: 1px solid var(--color-border);
+  background: var(--color-border);
 }
 .taxonomy-list a {
   display: flex;
   justify-content: space-between;
   padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  border: 0;
+  border-radius: 0;
   background: var(--color-surface);
 }
 .archive-list section + section {
@@ -155,11 +161,13 @@
 .project-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1px;
+  border: 1px solid var(--color-border);
+  background: var(--color-border);
 }
 .project-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  border: 0;
+  border-radius: 0;
   background: var(--color-surface);
 }
 .project-card__body {
@@ -254,9 +262,14 @@
 }
 @media (max-width: 47.99rem) {
   .post-grid,
-  .taxonomy-list,
   .project-grid {
     grid-template-columns: 1fr;
+  }
+  .post-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .post-card__visual {
+    min-height: 8rem;
   }
   .filter-bar {
     align-items: stretch;

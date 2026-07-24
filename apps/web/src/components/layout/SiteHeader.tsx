@@ -5,6 +5,7 @@ import { Container } from '../ui/Container';
 
 const navigation = [
   { label: '文章', href: '/posts' },
+  { label: '知识库', href: '/knowledge' },
   { label: '项目', href: '/projects' },
   { label: '关于', href: '/about' },
 ] as const;
