@@ -18,11 +18,11 @@ export function Input({ className = '', error, hint, id, label, ...props }: Inpu
         {label}
       </label>
       <input
+        {...props}
         aria-describedby={messageId}
         aria-invalid={error ? true : undefined}
         className={classes}
         id={id}
-        {...props}
       />
       {message ? (
         <p className={`ui-input-message${error ? ' ui-input-message--error' : ''}`} id={messageId}>

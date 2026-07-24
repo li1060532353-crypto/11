@@ -4,7 +4,7 @@ export function Skeleton({ 'aria-label': ariaLabel = 'Loading', className = '', 
   const classes = ['ui-skeleton', className].filter(Boolean).join(' ');
 
   return (
-    <div aria-label={ariaLabel} className={classes} role="status" {...props}>
+    <div {...props} aria-label={ariaLabel} aria-live="polite" className={classes} role="status">
       <span aria-hidden="true" className="ui-skeleton__shape" data-testid="skeleton-shape" />
     </div>
   );

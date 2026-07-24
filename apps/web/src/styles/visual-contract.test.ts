@@ -121,8 +121,33 @@ describe('visual CSS contract', () => {
 
     expect(readStyle('./global.css')).toContain('color-scheme: light dark');
     expect(sharedStyles).not.toMatch(/(?:linear|radial)-gradient\s*\(/i);
-    expect(sharedStyles).not.toMatch(/box-shadow:\s*0\s+(?:[3-9]|\d{2,})rem/i);
+    const heavySharedShadow = /box-shadow:\s*[^;}]*(?:[\s(])(?:[3-9]|\d{2,})rem/i;
+
+    expect('box-shadow: 0 1rem 4rem rgba(0, 0, 0, 0.08);').toMatch(heavySharedShadow);
+    expect(sharedStyles).not.toMatch(heavySharedShadow);
     expect(sharedStyles).not.toMatch(/--shadow[^:]*:[^;}]*(?:[\s(])(?:[3-9]|\d{2,})rem/i);
+  });
+
+  it('keeps input borders and warning badge text readable on the light raised surface', () => {
+    const tokens = readStyle('./tokens.css');
+    const global = readStyle('./global.css');
+
+    expect(declaration(global, '.ui-input', 'border')).toBe('1px solid var(--border-subtle)');
+    expect(declaration(global, '.ui-status-badge--warning', 'color')).toBe(
+      'var(--status-warning)',
+    );
+    expect(
+      contrastRatio(
+        customProperty(tokens, '--border-subtle'),
+        customProperty(tokens, '--surface-raised'),
+      ),
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      contrastRatio(
+        customProperty(tokens, '--status-warning'),
+        customProperty(tokens, '--surface-raised'),
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 
   it('defines the approved Apple-inspired palette and page scale', () => {
