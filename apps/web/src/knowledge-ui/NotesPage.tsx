@@ -1,5 +1,6 @@
 import type { NoteCardViewModel, NotesViewModel } from './fixtures';
 import { Link } from 'react-router-dom';
+import { KnowledgeShell } from './KnowledgeShell';
 import './knowledge.css';
 
 type NotesPresentationState = 'ready' | 'loading' | 'empty' | 'error';
@@ -39,6 +40,7 @@ function NoteCard({ note, onArchive, onRestore, mutatingNoteId }: { note: NoteCa
 
 export function NotesPage({ model, state = 'ready', onSearchChange, onClearSearch, onArchive, onRestore, mutatingNoteId, mutationError }: NotesPageProps) {
   return (
+    <KnowledgeShell title="Knowledge workspace">
     <section className="knowledge-shell" aria-labelledby="knowledge-notes-title">
       <header className="knowledge-shell__heading">
         <p className="knowledge-shell__eyebrow">Private workspace</p>
@@ -68,5 +70,6 @@ export function NotesPage({ model, state = 'ready', onSearchChange, onClearSearc
       ) : null}
       {state === 'ready' ? <div className="knowledge-note-grid">{model.notes.map((note) => <NoteCard key={note.id} note={note} {...(onArchive ? { onArchive } : {})} {...(onRestore ? { onRestore } : {})} {...(mutatingNoteId !== undefined ? { mutatingNoteId } : {})} />)}</div> : null}
     </section>
+    </KnowledgeShell>
   );
 }

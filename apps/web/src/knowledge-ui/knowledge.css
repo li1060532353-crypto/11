@@ -6,6 +6,18 @@
   padding: clamp(1.5rem, 4vw, 4rem) clamp(1rem, 3vw, 2rem);
 }
 
+.knowledge-workspace { background: var(--surface-canvas); color: var(--text-primary); display: grid; grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr); min-height: min(46rem, calc(100vh - var(--header-height))); }
+.knowledge-workspace__sidebar { border-right: 1px solid var(--color-border); padding: var(--space-5) var(--space-4); }
+.knowledge-workspace__sidebar-header { align-items: center; display: flex; justify-content: space-between; }
+.knowledge-workspace__label { font-size: 0.82rem; font-weight: 700; letter-spacing: 0.08em; margin: 0; text-transform: uppercase; }
+.knowledge-workspace__toggle { background: transparent; border: 0; color: var(--accent-solid); display: none; font: inherit; font-weight: 700; padding: var(--space-2); }
+.knowledge-workspace__navigation { display: grid; gap: var(--space-1); margin-top: var(--space-5); }
+.knowledge-workspace__navigation a, .knowledge-workspace__navigation span { border-radius: var(--radius-1); color: var(--text-secondary); display: block; font-weight: 650; padding: var(--space-2) var(--space-3); text-decoration: none; }
+.knowledge-workspace__navigation a[aria-current="page"] { background: var(--surface-sunken); color: var(--text-primary); }
+.knowledge-workspace__navigation span[aria-disabled="true"] { cursor: not-allowed; opacity: 0.55; }
+.knowledge-workspace__navigation a:focus-visible, .knowledge-workspace__toggle:focus-visible { outline: 3px solid var(--color-focus-on-light); outline-offset: 2px; }
+.knowledge-workspace__content { min-width: 0; }
+
 .knowledge-shell *, .knowledge-shell *::before, .knowledge-shell *::after { box-sizing: inherit; }
 .knowledge-shell__heading { margin-bottom: 1.75rem; }
 .knowledge-shell__heading h1 { font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -0.04em; margin: 0.25rem 0; }
@@ -93,6 +105,11 @@
 }
 
 @media (max-width: 760px) {
+  .knowledge-workspace { display: block; min-height: auto; }
+  .knowledge-workspace__sidebar { border-bottom: 1px solid var(--color-border); border-right: 0; padding: var(--space-3) var(--space-4); }
+  .knowledge-workspace__toggle { display: inline-flex; }
+  .knowledge-workspace__navigation { display: none; margin-top: var(--space-3); }
+  .knowledge-workspace__sidebar[data-open="true"] .knowledge-workspace__navigation { display: grid; }
   .knowledge-editor__header { flex-direction: column; }
   .knowledge-editor__actions { justify-content: flex-start; }
   .knowledge-editor__layout { grid-template-columns: 1fr; }

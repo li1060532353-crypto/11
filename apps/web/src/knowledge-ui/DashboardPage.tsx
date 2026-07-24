@@ -1,5 +1,6 @@
 import type { DashboardViewModel } from './fixtures';
 import { Link } from 'react-router-dom';
+import { KnowledgeShell } from './KnowledgeShell';
 import './knowledge.css';
 
 type DashboardPageProps = {
@@ -9,6 +10,7 @@ type DashboardPageProps = {
 
 export function DashboardPage({ model, state = 'ready' }: DashboardPageProps) {
   return (
+    <KnowledgeShell title="Knowledge workspace">
     <section className="knowledge-shell" aria-labelledby="knowledge-dashboard-title">
       <header className="knowledge-shell__heading">
         <p className="knowledge-shell__eyebrow">Private workspace</p>
@@ -31,5 +33,6 @@ export function DashboardPage({ model, state = 'ready' }: DashboardPageProps) {
         ))}
       </div> : null}
     </section>
+    </KnowledgeShell>
   );
 }

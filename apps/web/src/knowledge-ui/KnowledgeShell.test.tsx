@@ -3,10 +3,33 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DashboardPage } from './DashboardPage';
+import { KnowledgeShell } from './KnowledgeShell';
 import { NotesPage } from './NotesPage';
 import { dashboardFixture, emptyNotesFixture, notesFixture } from './fixtures';
 
 describe('knowledge presentation shell', () => {
+  it('provides overview, articles, and settings navigation without creating a nested main landmark', () => {
+    render(<MemoryRouter><KnowledgeShell title="Knowledge workspace"><p>Runtime content</p></KnowledgeShell></MemoryRouter>);
+
+    expect(screen.getByRole('region', { name: 'Knowledge workspace' })).toHaveTextContent('Runtime content');
+    expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/knowledge');
+    expect(screen.getByRole('link', { name: 'Articles' })).toHaveAttribute('href', '/knowledge/notes');
+    expect(screen.getByText('Settings')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryAllByRole('main')).toHaveLength(0);
+  });
+
+  it('opens and closes the mobile knowledge navigation', () => {
+    render(<MemoryRouter><KnowledgeShell title="Knowledge workspace"><p>Runtime content</p></KnowledgeShell></MemoryRouter>);
+
+    const toggle = screen.getByRole('button', { name: 'Open knowledge navigation' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('navigation', { name: 'Knowledge navigation' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close knowledge navigation' }));
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('renders dashboard statistics with an accessible heading', () => {
     render(<MemoryRouter><DashboardPage model={dashboardFixture} /></MemoryRouter>);
 
