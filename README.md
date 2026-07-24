@@ -1,113 +1,144 @@
-# Personal Blog
+# Personal Blog and Knowledge Workspace
 
-Apple-inspired personal blog built as a pnpm monorepo with React, Vite, NestJS, and PostgreSQL.
+This repository contains a React/Vite personal blog and a knowledge workspace
+served by Cloudflare Pages Functions. The public blog can fall back to bundled
+content; the knowledge workspace uses the existing Pages Functions, D1, and
+private R2 bindings.
+
+## Runtime boundaries
+
+- Public blog routes: `/`, `/posts/*`, `/projects/*`, `/about`, and `/search`.
+  Their content client uses `VITE_API_BASE_URL` (default: `/api/v1`) and falls
+  back to bundled static content if that legacy content API is unavailable.
+- Knowledge UI routes: `/knowledge`, `/knowledge/notes`, and
+  `/knowledge/notes/:id` (including `/new`). They call the existing `/api/*`
+  Pages Functions for note, search, stats, version, and asset operations.
+- API boundary: the current Functions middleware requires a valid Cloudflare
+  Access assertion for **every** `/api/*` request. This includes knowledge read
+  requests as well as mutations. Local Pages development may use the explicit
+  `LOCAL_AUTH_BYPASS=true` setting in `.dev.vars`.
+- Storage: D1 is bound as `DB`; R2 is bound as `KB_ASSETS` and stays private.
+  Assets are downloaded through the authenticated API and never receive public
+  R2 URLs.
+
+The previous NestJS/PostgreSQL application remains in the monorepo for its
+own development path. It is not the deployment target for the Pages knowledge
+workspace described below.
 
 ## Requirements
 
-- Node.js 24
-- Corepack
-- Docker, for local PostgreSQL
+- Node.js 24 or later
+- Corepack with pnpm 11.13.0
+- Cloudflare account access only when preparing Pages, D1, R2, or Access
+  settings (not required for a frontend-only build)
 
-## Setup
+Install dependencies:
 
 ```bash
 corepack enable
 corepack prepare pnpm@11.13.0 --activate
-pnpm install
-cp .env.example .env
+pnpm install --frozen-lockfile
 ```
 
-Set `DATABASE_URL` in `.env` to the local PostgreSQL database:
+## Local development
+
+### Public blog only
 
 ```bash
-DATABASE_URL="postgresql://personal_blog:personal_blog@localhost:5432/personal_blog?schema=public"
+pnpm --filter @namdw/web dev
 ```
 
-Start PostgreSQL, apply migrations, and seed the content API data:
+Open `http://127.0.0.1:5173`. Without a separately running legacy content
+API, public blog pages use bundled static content and display the existing
+fallback notice where applicable.
+
+### Pages Functions with local D1/R2 emulation
+
+This is the supported workflow for exercising the knowledge API locally.
 
 ```bash
-docker compose up -d postgres
-pnpm --filter @namdw/api prisma:migrate -- --name local_content_api
-pnpm --filter @namdw/api prisma:seed
+Copy-Item .dev.vars.example .dev.vars
+pnpm d1:migrate:local
+pnpm --filter @namdw/web build
+pnpm pages:dev
 ```
 
-## Development
+`LOCAL_AUTH_BYPASS=true` is allowed only by the local hostname check in the
+Functions middleware. Never commit `.dev.vars` and never set that value to
+`true` in a deployed environment.
+
+Use the local Pages URL printed by Wrangler to verify `/knowledge` and its API
+flows. The checked-in `wrangler.jsonc` supplies the non-secret binding mapping;
+the `--local` migration creates local Wrangler state only.
+
+## Environment and bindings
+
+| Location | Name | Purpose |
+| --- | --- | --- |
+| `.dev.vars` (local only) | `LOCAL_AUTH_BYPASS=true` | Allows local Functions requests without an Access assertion. |
+| `wrangler.jsonc` Production and Preview vars | `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD` | Cloudflare Access JWT verification. |
+| `wrangler.jsonc` Production and Preview vars | `LOCAL_AUTH_BYPASS=false` | Prevents a deployed bypass. |
+| `wrangler.jsonc` Production and Preview bindings | `DB`, `KB_ASSETS` | D1 knowledge data and private R2 asset storage. |
+| `.env` (legacy standalone API only) | `DATABASE_URL`, `API_HOST`, `API_PORT`, `VITE_API_BASE_URL` | Supports the retained NestJS/PostgreSQL content API workflow; it is not read by Pages Functions. |
+
+`CF_ACCESS_AUD`, D1 database IDs, and R2 bucket names are deployment
+configuration values, not browser-exposed variables. Do not copy them into
+`VITE_*` values.
+
+## Cloudflare Pages release workflow
+
+1. Review the Pages configuration without contacting or changing Cloudflare:
+
+   ```bash
+   pnpm cloudflare:verify-config
+   ```
+
+2. Run the release checks below and build `apps/web/dist`.
+3. In Cloudflare Pages, use repository root as the root directory, the build
+   command `corepack pnpm install --frozen-lockfile && corepack pnpm --filter @namdw/web build`,
+   and `apps/web/dist` as the output directory.
+4. Confirm Production and Preview each have distinct D1 and R2 resources with
+   the exact binding names `DB` and `KB_ASSETS`. Keep R2 private.
+5. Confirm the deployed Pages project uses the same Access team-domain and AUD
+   variables as `wrangler.jsonc`, with `LOCAL_AUTH_BYPASS=false`.
+6. Deploy through the approved release process. This repository does not deploy
+   automatically.
+7. Run the preview verification checklist in
+   [`docs/deployment/release-readiness.md`](docs/deployment/release-readiness.md).
+
+`apps/web/public/_redirects` is included in the Vite output and supplies the
+SPA deep-link fallback (`/* /index.html 200`).
+
+## Release checks
 
 ```bash
-pnpm dev
-```
-
-- Web: `http://127.0.0.1:5173`
-- API health: `http://127.0.0.1:3000/api/v1/health`
-- API posts: `http://127.0.0.1:3000/api/v1/content/posts`
-
-The web app requests content from `VITE_API_BASE_URL`, which defaults to `/api/v1`.
-For API-backed local content, keep PostgreSQL running, apply Prisma migrations, and seed the
-database before starting development:
-
-```bash
-docker compose up -d postgres
-pnpm --filter @namdw/api prisma:migrate -- --name local_content_api
-pnpm --filter @namdw/api prisma:seed
-```
-
-If the API or database is unavailable, the frontend still renders from the bundled static
-content fallback and shows a fallback notice on API-backed content surfaces.
-
-To run only the built API against the local database:
-
-```bash
-pnpm --filter @namdw/shared build
-pnpm --filter @namdw/api build
-API_HOST=127.0.0.1 API_PORT=3100 pnpm --filter @namdw/api start
-```
-
-## Quality checks
-
-```bash
-pnpm lint
-pnpm format:check
+pnpm cloudflare:verify-config
 pnpm typecheck
+pnpm lint
 pnpm test
 pnpm build
-pnpm smoke
 ```
 
-`pnpm test` runs the package unit tests, the API end-to-end suite, and focused smoke-script tests.
-`pnpm smoke` verifies the built API health endpoint, public content posts endpoint, and Vite preview,
-so run `pnpm build` first and keep local PostgreSQL running with seeded data. Frontend fallback
-behavior for API unavailability is covered by the web content gateway tests rather than the
-process-level smoke script.
+The repository-wide linter currently traverses local Wrangler output when it
+exists, even though `.wrangler/` is ignored by Git; use the scoped source lint
+command documented in the release report while that baseline tooling issue
+remains unresolved. The full web test suite also has pre-existing static
+content-count expectations that do not match the committed content set. Both
+conditions are documented as known baseline failures rather than release
+changes.
 
-The detailed product design and module plans are stored under `docs/superpowers/`.
+## Current limitations
 
-## Free static deployment
+- There is no persistent note-to-asset relationship.
+- There is no media library or asset-list API.
+- Markdown import is not implemented for the knowledge workspace.
+- The Tiptap schema does not store asset references.
+- R2 objects have no public URLs.
+- Because the current middleware protects all `/api/*`, an unauthenticated
+  production visitor can open the knowledge route shell but cannot load
+  knowledge data. Making public knowledge reads available requires a later,
+  separately approved authentication-boundary change.
 
-For the lowest-cost public deployment, use Cloudflare Pages and deploy only the frontend. The
-frontend will automatically use bundled static content when the API/database is not deployed.
-
-- Build command: `corepack pnpm install --frozen-lockfile && corepack pnpm --filter @namdw/web build`
-- Build output directory: `apps/web/dist`
-- Root directory: repository root
-- Optional environment variable: `VITE_API_BASE_URL=/api/v1`
-
-Detailed steps are in `docs/deployment/cloudflare-pages-static.md`.
-
-## Static content import
-
-To add or update articles without the API/database, use the local Markdown import workflow:
-
-- Article template: `content/posts/_template/index.md`
-- Import guide: `docs/deployment/static-content-import.md`
-- Validate content: `pnpm content:check`
-- Generate static content: `pnpm content:import`
-- Preview locally: `pnpm content:preview`
-
-## Current implementation
-
-- Module 1: pnpm monorepo, shared API contracts, React/Vite web app, NestJS health API
-- Module 2: Apple-inspired responsive homepage shell, accessible navigation, design tokens, and reduced-motion support
-- Module 3: React Router public pages, typed static articles/projects, discovery filters, search, and safe Markdown reading experience
-- Module 4: PostgreSQL-backed content API, Prisma data access, public content endpoints, and production smoke coverage
-- Module 5: frontend API-first content gateway with static fallback for no-backend deployments
-- Module 6: Cloudflare Pages static deployment path for the free public blog
+See [Cloudflare Pages setup](docs/cloudflare-setup.md) for the configuration
+mapping and [release readiness](docs/deployment/release-readiness.md) for the
+handoff checklist and verification record.

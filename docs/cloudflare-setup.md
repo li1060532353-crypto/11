@@ -1,29 +1,77 @@
-# Cloudflare Pages Knowledge-Base Setup
+# Cloudflare Pages, D1, R2, and Access Setup
 
-This runbook is intentionally not executable until H2 approval. It does not contain secrets.
+This is a configuration runbook. It describes the checked-in application
+requirements but does not change the Cloudflare Dashboard, deploy code, or
+apply migrations remotely.
 
-1. In Workers & Pages, create one D1 database and one R2 bucket. Keep the R2 bucket private; do not enable a public bucket URL.
-2. Copy `wrangler.example.jsonc` to `wrangler.jsonc`, replace every `REPLACE_WITH_*` value with dashboard values, run `pnpm cloudflare:verify-config`, and review it before deployment. A checked-in Wrangler file becomes Pages configuration source of truth.
-3. Pages uses top-level bindings for Production and `env.preview` for Preview. Both environments use the same variable and binding names (`DB`, `KB_ASSETS`, `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, and `LOCAL_AUTH_BYPASS=false`), but point to separate D1/R2 resources. `ASSETS` is reserved by Pages and must not be used.
-4. Apply `migrations/0001_knowledge_base.sql` through Wrangler. Before content import, export/back up D1 and retain the backup outside the repository.
-5. In Zero Trust > Access > Applications, add a Self-hosted application for the production `https://<project>.pages.dev` hostname and create an Allow policy for exactly the owner email/identity. Add a separate preview hostname/policy as needed. Preview protection does not protect production.
-6. In the Pages project > Settings > Variables and Secrets, set `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` for both Production and Preview; set `LOCAL_AUTH_BYPASS=false` for both. The audience is the Access application AUD tag, not an email.
-7. Redeploy. In a private browser window, verify the Access login challenge; then verify an authenticated API request succeeds and a direct unauthenticated `/api/*` request receives HTTP 403.
+## Checked-in configuration
 
-The Functions middleware validates the `Cf-Access-Jwt-Assertion` signature through the team JWKS, issuer, and audience. Browser cookies or frontend-supplied identity fields are not accepted as proof.
+`wrangler.jsonc` is the source of truth for the Pages project mapping:
 
-For local development, copy `.dev.vars.example` to `.dev.vars`, set only `LOCAL_AUTH_BYPASS=true`, copy the Wrangler template with local resource values, build the web application, run `pnpm d1:migrate:local`, then run `pnpm pages:dev`. Never deploy template placeholders. The legacy Nest API remains under `/api/v1`; all new knowledge-base Functions use `/api`, so frontend integration must use a separate client base path.
+| Environment | D1 binding | R2 binding | Access variables |
+| --- | --- | --- | --- |
+| Production (top level) | `DB` → `personal-blog-db` | `KB_ASSETS` → `personal-blog-assets` | `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `LOCAL_AUTH_BYPASS=false` |
+| Preview (`env.preview`) | `DB` → `personal-blog-db-preview` | `KB_ASSETS` → `personal-blog-assets-preview` | Same names, Preview-specific Access audience, `LOCAL_AUTH_BYPASS=false` |
 
-## Preview deployment checkpoint
+`KB_ASSETS` is intentionally private. `ASSETS` must not be used as the binding
+name because Pages reserves it. The config validator checks binding names,
+distinct Production/Preview resources, concrete D1 IDs, required variables,
+and the `apps/web/dist` Pages build output:
 
-The Preview D1 ID was obtained through a read-only PowerShell/Wrangler control-plane command; no deployment or schema initialization was performed. The Pages project is `11`, the production hostname is `11-9tc.pages.dev`, and the targeted Preview branch is `codex/local-api-docker`. Preview D1 schema initialization remains a separate human-approved checkpoint.
-
-After configuration review and a clean tracked working tree, the future human-approved Preview command is:
-
-```powershell
-if (git status --porcelain --untracked-files=no) { throw 'Tracked files must be clean before Preview deployment.' }
-pnpm --filter @namdw/web build
-.\node_modules\.bin\wrangler.cmd pages deploy .\apps\web\dist --project-name 11 --branch codex/local-api-docker --commit-hash 410f0c2e1a0248b449ede30b68b8eec830bd68b4
+```bash
+pnpm cloudflare:verify-config
 ```
 
-Do not run that command until the separate Preview deployment approval is given.
+The validator proves configuration structure only. It does not assert that a
+remote resource exists and does not make a control-plane request.
+
+## Dashboard verification before a later deployment
+
+1. In Workers & Pages, ensure the Pages project matches the `name` field in
+   `wrangler.jsonc` and uses `apps/web/dist` as its output directory.
+2. Ensure Production has D1 binding `DB` and R2 binding `KB_ASSETS`; ensure
+   Preview has the corresponding distinct resources.
+3. Keep the R2 buckets private. The application accesses them only through the
+   existing authenticated asset Functions; do not enable a public bucket URL.
+4. Set the three Access variables in both Pages environments. The AUD is the
+   Access application audience tag, not an identity or email address.
+5. Keep `LOCAL_AUTH_BYPASS=false` for Production and Preview.
+6. Verify `migrations/0001_knowledge_base.sql` has been applied to each target
+   D1 database by the separately approved data-release process. Do not apply a
+   migration merely to perform this documentation review.
+
+## Current Access boundary
+
+`functions/_middleware.ts` validates every `/api/*` request using the
+`Cf-Access-Jwt-Assertion` header. It does not add a client-side login gate and
+does not protect non-API SPA routes.
+
+This means the current deployed behavior is:
+
+- public blog routes can render, including their static-content fallback;
+- `/knowledge/*` routes can load their SPA shell without a route guard;
+- knowledge list, detail, stats, version, and asset requests require Access,
+  because all of them use `/api/*`;
+- create, update, archive/restore, version creation, and asset mutations also
+  require Access.
+
+An eventual public-read/protected-mutation split is not configured by this
+runbook and must be designed and approved independently.
+
+## Local Functions verification
+
+```powershell
+Copy-Item .dev.vars.example .dev.vars
+pnpm d1:migrate:local
+pnpm --filter @namdw/web build
+pnpm pages:dev
+```
+
+The copied `.dev.vars` enables the local-only bypass. Wrangler creates local
+state under `.wrangler/`; that directory is generated, ignored, and should not
+be committed. Remove it only as local runtime cleanup, never as a deployment
+step.
+
+After `pages:dev` reports a local URL, verify a blog route, `/knowledge`, and
+the existing note CRUD flow. See
+[release readiness](deployment/release-readiness.md) for the full checklist.

@@ -1,56 +1,41 @@
-# Cloudflare Pages Static Deployment
+# Cloudflare Pages Static Blog Mode
 
-This is the lowest-cost deployment path for the blog. It deploys only the Vite frontend to Cloudflare Pages and does not deploy the NestJS API or PostgreSQL database.
+This optional mode deploys only the Vite output for the public blog. It is not
+the full knowledge-workspace release path.
 
-The frontend is already API-first with static fallback. On this static deployment, `/api/v1` will not exist, so the public pages render from the bundled static content.
+With no Pages Functions/D1 deployment, `/api/v1` is unavailable and public
+blog surfaces use their bundled static-content fallback. The `/knowledge/*`
+route shell may still resolve through the SPA fallback, but knowledge data and
+editing will not work because the required `/api/*` Functions are absent.
 
-## Cloudflare Pages settings
+## Pages settings
 
-Use these settings when creating the Pages project from GitHub:
+| Setting | Value |
+| --- | --- |
+| Framework preset | None / Vite |
+| Build command | `corepack pnpm install --frozen-lockfile && corepack pnpm --filter @namdw/web build` |
+| Build output directory | `apps/web/dist` |
+| Root directory | repository root |
+| Node.js version | `24` |
 
-| Setting                | Value                                                                                |
-| ---------------------- | ------------------------------------------------------------------------------------ |
-| Framework preset       | None / Vite                                                                          |
-| Build command          | `corepack pnpm install --frozen-lockfile && corepack pnpm --filter @namdw/web build` |
-| Build output directory | `apps/web/dist`                                                                      |
-| Root directory         | repository root                                                                      |
-| Node.js version        | `24`                                                                                 |
+`VITE_API_BASE_URL=/api/v1` is optional and is already the application default.
+It affects the retained legacy public-content client, not the knowledge API.
 
-Environment variables are optional for the static-only deployment. If Cloudflare asks for one, use:
+## SPA fallback
 
-```text
-VITE_API_BASE_URL=/api/v1
-```
+`apps/web/public/_redirects` is copied to the Vite output and serves
+`index.html` for deep links, including `/posts`, `/projects`, `/search`, and
+`/knowledge`.
 
-## SPA route fallback
+## Verify after a static-only deployment
 
-`apps/web/public/_redirects` is copied into the Vite build output and tells Cloudflare Pages to serve `index.html` for deep links such as:
+1. Load `/`, `/posts`, one public article, `/projects`, and `/search`.
+2. Refresh each route directly to confirm the SPA fallback.
+3. Confirm public pages show their existing fallback notice rather than a hard
+   failure when their legacy content API is unavailable.
+4. Do not treat static-only mode as verification of D1, R2, Pages Functions,
+   or knowledge CRUD.
 
-- `/posts`
-- `/posts/prisma-seeding-patterns`
-- `/projects`
-- `/tags/workflow`
-
-## Deployment steps
-
-1. Push this repository to GitHub.
-2. Open Cloudflare Dashboard → Workers & Pages → Create → Pages.
-3. Connect the GitHub repository.
-4. Fill in the settings above.
-5. Deploy.
-6. Open the generated `*.pages.dev` URL and test:
-   - homepage;
-   - `/posts`;
-   - one article detail page;
-   - `/projects`;
-   - `/search`.
-
-## Later API deployment
-
-When a backend and PostgreSQL are deployed later, set `VITE_API_BASE_URL` to the public API prefix, for example:
-
-```text
-VITE_API_BASE_URL=https://api.example.com/api/v1
-```
-
-Until then, the static fallback keeps the public blog usable on the free Pages deployment.
+For the full release workflow, use
+[Cloudflare setup](../cloudflare-setup.md) and
+[release readiness](release-readiness.md).
