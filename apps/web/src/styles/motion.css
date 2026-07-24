@@ -3,9 +3,9 @@
 .hero-device,
 .reading-progress__bar {
   transition:
-    transform 240ms ease,
-    box-shadow 240ms ease,
-    background-color 180ms ease;
+    transform var(--motion-slow) ease,
+    box-shadow var(--motion-slow) ease,
+    background-color var(--motion-normal) ease;
 }
 
 .feature-card:hover {

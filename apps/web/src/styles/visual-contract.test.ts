@@ -69,6 +69,62 @@ function rgbToHex(color: Rgb) {
 }
 
 describe('visual CSS contract', () => {
+  it('defines semantic light and dark token groups without losing legacy aliases', () => {
+    const tokens = readStyle('./tokens.css');
+
+    for (const name of [
+      '--surface-canvas',
+      '--surface-raised',
+      '--text-primary',
+      '--text-secondary',
+      '--border-subtle',
+      '--accent-solid',
+      '--status-success',
+      '--space-4',
+      '--radius-2',
+      '--shadow-1',
+      '--font-body',
+      '--z-header',
+      '--motion-fast',
+    ]) {
+      expect(tokens).toContain(name);
+    }
+
+    expect(tokens).toContain('[data-theme="dark"]');
+    expect(tokens).toContain('--color-canvas:');
+    expect(tokens).toContain('--color-ink:');
+  });
+
+  it('keeps semantic text readable on both canvas themes', () => {
+    const tokens = readStyle('./tokens.css');
+    const darkTokens = tokens.match(/\[data-theme="dark"\]\s*\{([\s\S]*?)\}/)?.[1];
+
+    expect(darkTokens).toBeDefined();
+    expect(
+      contrastRatio(
+        customProperty(tokens, '--text-primary'),
+        customProperty(tokens, '--surface-canvas'),
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(
+        customProperty(darkTokens!, '--text-primary'),
+        customProperty(darkTokens!, '--surface-canvas'),
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('uses color-scheme support and rejects shared large gradients and heavy shadows', () => {
+    const sharedStyles = ['tokens.css', 'global.css', 'shell.css', 'motion.css']
+      .map((name) => readStyle(`./${name}`))
+      .join('\n');
+
+    expect(readStyle('./global.css')).toContain('color-scheme: light dark');
+    expect(sharedStyles).not.toMatch(/(?:linear|radial)-gradient\s*\(/i);
+    expect(sharedStyles).not.toMatch(/box-shadow:\s*0\s+(?:[3-9]|\d{2,})rem/i);
+    expect(sharedStyles).not.toMatch(/--shadow[^:]*:[^;}]*(?:[\s(])(?:[3-9]|\d{2,})rem/i);
+  });
+
   it('defines the approved Apple-inspired palette and page scale', () => {
     const tokens = readStyle('./tokens.css');
 
