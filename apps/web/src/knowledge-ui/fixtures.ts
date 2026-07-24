@@ -12,6 +12,7 @@ export type NoteCardViewModel = {
   updatedLabel: string;
   pinned?: boolean;
   archived?: boolean;
+  status?: 'draft' | 'published' | 'archived';
 };
 
 export type NotesViewModel = {
@@ -41,6 +42,7 @@ export const notesFixture: NotesViewModel = {
       category: 'Work',
       updatedLabel: 'Updated today',
       pinned: true,
+      status: 'draft',
     },
     {
       id: 'research-archive',
@@ -49,6 +51,7 @@ export const notesFixture: NotesViewModel = {
       category: 'Learning',
       updatedLabel: 'Archived last week',
       archived: true,
+      status: 'archived',
     },
   ],
 };

@@ -62,9 +62,21 @@ describe('knowledge read-only integration', () => {
   it('renders loading, empty, error, and ready notes states without mutation calls', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: { items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0 } }));
     render(<MemoryRouter><KnowledgeNotesRoute /></MemoryRouter>);
-    expect(screen.getByRole('status')).toHaveTextContent('Loading notes');
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'No notes yet' })).toBeInTheDocument());
+    expect(screen.getByRole('status')).toHaveTextContent('Loading articles');
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'No articles yet' })).toBeInTheDocument());
     expect(vi.mocked(fetch).mock.calls.every(([url]) => String(url).startsWith('/api/notes') || String(url).startsWith('/api/search'))).toBe(true);
+  });
+
+  it('presents Notes API records as articles with their existing status and edit route', async () => {
+    const draftNote = { ...note, status: 'draft' as const };
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: { items: [draftNote], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }));
+
+    render(<MemoryRouter><KnowledgeNotesRoute /></MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: 'Articles' })).toBeInTheDocument();
+    expect(screen.getByText('Draft')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Edit Note' })).toHaveAttribute('href', '/knowledge/notes/n1');
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/notes?page=1&pageSize=20', expect.any(Object));
   });
 
   it('archives and restores listed notes through the existing protected endpoints', async () => {
@@ -110,7 +122,7 @@ describe('knowledge read-only integration', () => {
     let resolveNew!: (value: Response) => void;
     vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveOld = resolve; })).mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveNew = resolve; }));
     render(<MemoryRouter><KnowledgeNotesRoute /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText('Search notes'), { target: { value: 'new' } });
+    fireEvent.change(screen.getByLabelText('Search articles'), { target: { value: 'new' } });
     resolveNew(response({ success: true, data: { items: [{ id: 'n1', title: 'New result', slug: 'n1', summary: 'x', category: 'x', updatedAt: '2026-01-02T00:00:00.000Z', excerpt: 'x', tags: [] }], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }));
     await waitFor(() => expect(screen.getByText('New result')).toBeInTheDocument());
     resolveOld(response({ success: true, data: { items: [{ ...note, title: 'Old result' }], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }));

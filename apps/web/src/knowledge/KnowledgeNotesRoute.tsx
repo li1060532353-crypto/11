@@ -3,7 +3,7 @@ import { NotesPage } from '../knowledge-ui/NotesPage';
 import type { NotesViewModel } from '../knowledge-ui/fixtures';
 import { mapNoteToCard } from './knowledge-adapter';
 import { archiveKnowledgeNote, loadKnowledgeNotes, restoreKnowledgeNote } from './knowledge-api';
-const initial: NotesViewModel = { searchTerm: '', filterLabel: 'All notes', notes: [] };
+const initial: NotesViewModel = { searchTerm: '', filterLabel: 'All articles', notes: [] };
 export function KnowledgeNotesRoute() {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -22,7 +22,7 @@ export function KnowledgeNotesRoute() {
       .then((result) => {
         if (generation.current !== current) return;
         const notes = result.items.map(mapNoteToCard);
-        setModel({ searchTerm, filterLabel: 'All notes', notes });
+        setModel({ searchTerm, filterLabel: 'All articles', notes });
         setState(notes.length ? 'ready' : 'empty');
       })
       .catch(() => { if (generation.current === current) setState('error'); });
