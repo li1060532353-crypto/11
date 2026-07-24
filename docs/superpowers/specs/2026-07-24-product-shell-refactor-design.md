@@ -1,7 +1,7 @@
 ﻿# Progressive Product Shell Refactor Design
 
 Date: 2026-07-24
-Status: Awaiting user review
+Status: Approved
 
 ## 1. Goal
 
@@ -275,3 +275,13 @@ Key route coverage includes `/`, `/posts`, `/posts/:slug`, `/search`, `/projects
 ## 15. Acceptance Criteria
 
 The redesign is accepted only when the public blog is accessible without login, the knowledge workspace and existing management APIs are private, compatibility redirects work, the approved visual direction is consistently tokenized, public and knowledge experiences have distinct appropriate shells, the editor is focused without changing persistence behavior, all target sizes remain usable, and the applicable quality/build/smoke checks pass. No API, data-model, Cloudflare Dashboard, production-resource, or deployment change may be claimed as part of acceptance unless separately approved and evidenced.
+
+## 16. Visual Implementation Guardrails
+
+The generated UI must prioritize product coherence over component quantity.
+
+Avoid excessive rounded cards, repeated bordered containers, dashboard widget grids, generic SaaS templates, unnecessary empty panels, decorative gradients, oversized hero sections, and fake statistics.
+
+Prefer typography hierarchy, whitespace, alignment, subtle borders, meaningful grouping, and controlled content density.
+
+A page with fewer elements and stronger hierarchy is preferred over a page with more visible features.
