@@ -168,3 +168,22 @@ Contract impact: none observed; only CSS, visual-contract tests, and native shar
 Review verdict: independent review APPROVED for specification compliance and code quality/safety; no Critical or Important findings. Minor: the scoped EmptyState accessibility enhancement modified an existing primitive while the brief literally listed only new UI files.
 Open findings: preview/browser connection refused, so screenshot automation used the approved manual route/viewport fallback; unrelated local API/Docker plan remains untracked and preserved.
 Next action: Phase 1 checkpoint presented; wait for user approval before Phase 2.
+
+## Wave 4 - Product Experience Redesign Phase 2
+
+Task: W4-02 public blog experience
+Status: DONE
+Model: gpt-5.6-terra implementer with independent review
+Agent/worktree: gpt-5.6-terra implementer and gpt-5.6-sol reviewer, `E:\AIblog\personal-blog-source`, `codex/local-api-docker`
+Allowed files: public layout/home/content/reading/page presentation files and focused public tests; `.superpowers/sdd/**`
+Forbidden files: `apps/web/src/content/**`, Functions, API/data adapters, query parameters, router, contracts, D1/R2 schemas, Cloudflare configuration, Tiptap/autosave/persistence, dependencies, and unrelated documents
+Base commit: `1a162bd`
+Head commits: `5f0b1c1`, `90d3b1a`, `489652b`
+Changed scope: public header/footer, featured-content composition, About presentation, reading/TOC presentation, public styles, and focused tests only.
+Renderer inspection: current parser uses remark-parse/GFM/math, heading IDs are derived before rendering, rehype-highlight and rehype-katex remain enabled, and external links retain `rel="noreferrer"`.
+Tests: focused public/reader suite PASS (10 files / 60 tests); project typecheck PASS; lint PASS; production web build PASS with the existing >500 KB chunk advisory; `git diff --check` PASS.
+Route smoke: production preview verification recorded one `main`, no not-found state, and no horizontal overflow for `/posts`, `/search`, `/projects`, and `/about` at 1024x768. Homepage manual checks passed at 1440x900 and 320x720, including responsive navigation and no 320px overflow. The second direct `/posts/:slug` preview pass was unavailable after the transient preview ended; focused post/renderer/TOC/progress tests passed.
+Review verdict: independent final review PASS; no Critical or Important findings. The approved screenshot fallback is fully evidenced with route output, viewport checklist, and manual production-preview observations.
+Contract impact: none observed. API requests, query parameters, data adapters, Markdown parsing/sanitization/generated content structure, data model, authentication, Cloudflare configuration, and persistence behavior remain unchanged.
+Open findings: the unrelated untracked local API/Docker plan remains preserved; Vite's non-failing chunk-size advisory remains unchanged.
+Next action: Phase 2 checkpoint presented; wait for user approval before Phase 3.
