@@ -1,4 +1,4 @@
-# Progressive Product Shell Refactor Design
+﻿# Progressive Product Shell Refactor Design
 
 Date: 2026-07-24
 Status: Awaiting user review
@@ -8,6 +8,33 @@ Status: Awaiting user review
 Redesign the existing personal blog and private knowledge-management product as a calm, content-first experience without replacing its working application architecture. The public blog must be available without login. The private knowledge workspace and its management APIs remain protected by Cloudflare Access.
 
 The visual direction draws from Apple, Linear, Medium, and Notion: generous whitespace and typography, dense but restrained management workflows, a focused reading surface, and an immersive low-distraction editor. The supplied “Personal Knowledge Base and Public Blog UI Reference Board” is a reference for hierarchy, whitespace, and content priority only; its fake content, literal layout, and decorative treatments are not copied.
+
+## Visual Reference
+
+The approved visual reference is `个人知识库与公开博客界面设计.png`.
+
+It guides information hierarchy, whitespace rhythm, typography density, content-first layout, editorial presentation, and the overall calm product feeling. It is visual-language guidance, not a pixel-copy specification.
+
+Implementation must not copy generated text, fake content, placeholder images, exact card layouts, or unrealistic generated UI structures from the reference board.
+
+## Design Priority Order
+
+When design decisions conflict, implementation follows this order:
+
+1. Content readability
+2. Visual consistency
+3. Existing architecture stability
+4. Accessibility
+5. Performance
+6. Feature completeness
+
+Readability and architecture stability must never be traded for decorative UI effects.
+
+## Product Personality Constraint
+
+The knowledge workspace is a personal studio, not an enterprise administration panel. It should feel like a writing environment and a long-term thinking archive.
+
+Avoid excessive CRUD appearance, database-like interfaces, unnecessary tables, large dashboard metric walls, overly dense management layouts, and technical implementation terminology exposed to users.
 
 ## 2. Confirmed Constraints
 
@@ -128,6 +155,10 @@ The hero centers the purpose: “Build, learn, and leave reusable thinking behin
 
 Recent updates use an editorial layout: one lead story beside two supporting stories on large screens, collapsing to a single column on small screens. Project and about sections use simple content groupings rather than uniform card grids.
 
+## Homepage Visual Acceptance
+
+The homepage is accepted visually only when its first screen communicates a personal knowledge identity, keeps articles and ideas as the primary focus, and makes search visible but secondary. It must not place dashboard statistics or large analytics panels above the fold. Whitespace is a primary design element, and the page must feel editorial rather than transactional.
+
 ### 6.2 Discovery and search
 
 Article lists contain a page title and description, prominent search input, category/topic filters, article summaries, tags, update time, reading time, loading skeletons, empty states, and error states. They remain editorial lists, not administrative tables.
@@ -206,6 +237,12 @@ Implementation proceeds in this order. Each phase is independently reviewed befo
 | 6 | Responsive, accessibility, bundle, full test/build/config validation, obsolete visual-code cleanup | full verification record and final diff/status |
 
 At every checkpoint, report completed content, changed files, test results, screenshot or visual evidence, unfinished work, and `git status --short`. A failed acceptance checkpoint stops the next phase.
+
+## Phase 1 Restrictions
+
+Phase 1 is limited to design tokens, CSS variables, shared visual primitives, layout wrappers, typography system, spacing system, and visual-consistency cleanup.
+
+Phase 1 must not change API calls, database models, authentication flow, Cloudflare Access behavior, Tiptap persistence behavior, autosave logic, version logic, or content contracts. Any discovery that requires one of these changes stops the phase and requires explicit approval.
 
 ## 12. Validation Plan
 
