@@ -41,6 +41,7 @@ Do not change `content_json`, the Tiptap schema, asset endpoints, D1 schema, R2 
 
 | Area | Files | Responsibility |
 | --- | --- | --- |
+| Knowledge shell | `apps/web/src/knowledge-ui/KnowledgeShell.tsx`, `knowledge.css`, `KnowledgeShell.test.tsx`, `DashboardPage.tsx`, `NotesPage.tsx` | Shared visual frame, restrained navigation, page hierarchy, and responsive shell behavior without route/auth changes. |
 | Knowledge overview | `apps/web/src/knowledge-ui/DashboardPage.tsx`, `apps/web/src/knowledge/KnowledgeDashboardRoute.tsx`, `apps/web/src/knowledge-ui/knowledge.css`, `apps/web/src/knowledge/knowledge-integration.test.tsx` | Content-first overview using real stats/loading/error state only. |
 | Article browsing | `apps/web/src/knowledge-ui/NotesPage.tsx`, `apps/web/src/knowledge/KnowledgeNotesRoute.tsx`, `apps/web/src/knowledge/knowledge-adapter.ts`, `knowledge.css`, `knowledge-integration.test.tsx`, `KnowledgeShell.test.tsx` | Present existing Notes as Articles without modifying the Notes API or routes. |
 | Editor experience | `apps/web/src/knowledge-ui/EditorPage.tsx`, `apps/web/src/knowledge/KnowledgeEditorRoute.tsx`, `apps/web/src/knowledge-ui/AssetPanel.tsx`, `knowledge.css`, `knowledge-editor.test.tsx`, `EditorPage.test.tsx`, `knowledge-assets.test.ts` | Improve current save/version/attachment-state presentation without changing document JSON or asset semantics. |
@@ -62,7 +63,51 @@ Do not change `content_json`, the Tiptap schema, asset endpoints, D1 schema, R2 
 
 ## Phase Breakdown
 
-### Task 1: Runtime-Safe Knowledge Overview
+### Phase 4.1 / Task 1: Knowledge Shell
+
+**Files:**
+- Create: `apps/web/src/knowledge-ui/KnowledgeShell.tsx`
+- Modify: `apps/web/src/knowledge-ui/DashboardPage.tsx`, `apps/web/src/knowledge-ui/NotesPage.tsx`, `apps/web/src/knowledge-ui/knowledge.css`, `apps/web/src/knowledge-ui/KnowledgeShell.test.tsx`
+- Do not modify: `apps/web/src/router.tsx`, `apps/web/src/knowledge/knowledge-api.ts`, `functions/**`, `packages/shared/**`
+
+**Consumes:** Existing dashboard and notes presentation components, existing `/knowledge` and `/knowledge/notes` URLs, and the global application `main` landmark.
+
+**Produces:** A shared `KnowledgeShell` section-level frame with user-facing navigation/copy only. It does not add routes, guards, authentication state, or API requests.
+
+- [ ] **Step 1: Write the failing shell composition test**
+
+```tsx
+it('wraps overview and article content in one labelled knowledge shell without a nested main landmark', () => {
+  render(<MemoryRouter><KnowledgeShell title="Knowledge"><p>Runtime content</p></KnowledgeShell></MemoryRouter>);
+  expect(screen.getByRole('region', { name: 'Knowledge' })).toHaveTextContent('Runtime content');
+  expect(screen.queryAllByRole('main')).toHaveLength(0);
+});
+```
+
+- [ ] **Step 2: Verify RED**
+
+Run: `pnpm --filter @namdw/web test -- KnowledgeShell.test.tsx`
+
+Expected: FAIL because `KnowledgeShell` does not yet exist.
+
+- [ ] **Step 3: Implement the minimum shell**
+
+Create a presentational `KnowledgeShell` with a `section` root, `aria-label={title}`, optional eyebrow/actions slots, and a compact navigation area containing only already-valid destinations. Do not add a Media destination because no media-list contract exists. Apply the shell in `DashboardPage` and `NotesPage`; keep their route ownership, data loading, and action callbacks unchanged. Use CSS for a desktop side/inline hierarchy and a narrow-width stacked form without horizontal overflow.
+
+- [ ] **Step 4: Verify GREEN**
+
+Run: `pnpm --filter @namdw/web test -- KnowledgeShell.test.tsx knowledge-integration.test.tsx`
+
+Expected: PASS; existing dashboard and note request assertions remain unchanged and the shell adds no nested `main` landmark.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/web/src/knowledge-ui/KnowledgeShell.tsx apps/web/src/knowledge-ui/DashboardPage.tsx apps/web/src/knowledge-ui/NotesPage.tsx apps/web/src/knowledge-ui/knowledge.css apps/web/src/knowledge-ui/KnowledgeShell.test.tsx
+git commit -m "feat(web): add knowledge workspace shell"
+```
+
+### Phase 4.2 / Task 2: Runtime-Safe Knowledge Overview
 
 **Files:**
 - Modify: `apps/web/src/knowledge-ui/DashboardPage.tsx`, `apps/web/src/knowledge-ui/knowledge.css`, `apps/web/src/knowledge/knowledge-integration.test.tsx`
@@ -109,7 +154,7 @@ git add apps/web/src/knowledge-ui/DashboardPage.tsx apps/web/src/knowledge-ui/kn
 git commit -m "feat(web): refine knowledge overview hierarchy"
 ```
 
-### Task 2: Article Browsing and Existing Management Actions
+### Phase 4.3 / Task 3: Article Browsing and Existing Management Actions
 
 **Files:**
 - Modify: `apps/web/src/knowledge-ui/NotesPage.tsx`, `apps/web/src/knowledge/KnowledgeNotesRoute.tsx`, `apps/web/src/knowledge/knowledge-adapter.ts`, `apps/web/src/knowledge-ui/knowledge.css`, `apps/web/src/knowledge/knowledge-integration.test.tsx`, `apps/web/src/knowledge-ui/KnowledgeShell.test.tsx`
@@ -154,7 +199,7 @@ git add apps/web/src/knowledge-ui/NotesPage.tsx apps/web/src/knowledge/Knowledge
 git commit -m "feat(web): present knowledge notes as articles"
 ```
 
-### Task 3: Focused Editor and Session-Scoped Attachment Feedback
+### Phase 4.4 / Task 4: Focused Editor and Session-Scoped Attachment Feedback
 
 **Files:**
 - Modify: `apps/web/src/knowledge-ui/EditorPage.tsx`, `apps/web/src/knowledge-ui/AssetPanel.tsx`, `apps/web/src/knowledge/KnowledgeEditorRoute.tsx`, `apps/web/src/knowledge-ui/knowledge.css`, `apps/web/src/knowledge/knowledge-editor.test.tsx`, `apps/web/src/knowledge-ui/EditorPage.test.tsx`, `apps/web/src/knowledge/knowledge-assets.test.ts`
@@ -202,13 +247,13 @@ git add apps/web/src/knowledge-ui/EditorPage.tsx apps/web/src/knowledge-ui/Asset
 git commit -m "feat(web): clarify knowledge editor workflow"
 ```
 
-### Task 4: Responsive and Runtime Regression Checkpoint
+### Phase 4.5 / Task 5: Responsive and Runtime Regression Checkpoint
 
 **Files:**
 - Modify only defect-specific Phase 4 files and their associated tests.
 - Do not modify: API client contracts, Functions, shared types, migrations, `wrangler.jsonc`, `_middleware.ts`, or dependency manifests.
 
-**Consumes:** Completed Task 1–3 UI changes and existing runtime routes.
+**Consumes:** Completed Task 1–4 UI changes and existing runtime routes.
 
 **Produces:** Evidence that the UI remains functional at desktop and mobile widths without unauthorized architectural changes.
 
@@ -261,7 +306,7 @@ git add -- apps/web/src/knowledge-ui/DashboardPage.tsx apps/web/src/knowledge-ui
 git commit -m "fix(web): refine knowledge responsive layout"
 ```
 
-Do not run this commit command if Task 4 needs no source change.
+Do not run this commit command if Phase 4.5 needs no source change.
 
 ## Phase 4 Checkpoint Report
 
@@ -275,6 +320,7 @@ Report changed files and their purpose; a route/API matrix; test/typecheck/lint/
 
 ## Plan Self-Review
 
+- **Phase sequence coverage:** Phase 4.1 is the shell; Phase 4.2 is the overview; Phase 4.3 is the articles list; Phase 4.4 is the editor experience; Phase 4.5 is responsive and regression validation.
 - **Capability coverage:** Tasks use only stats, notes/search, note mutations/versions, and the existing protected asset upload/download/delete flows. The three unavailable capabilities are explicit non-goals and stop conditions.
 - **Contract protection:** No task touches Functions, shared contracts, migrations, R2 configuration, Cloudflare, authentication, `contentJson`, or the Tiptap schema.
 - **Product scope:** The plan improves real overview, article-list, and editor presentation without a media library, fake metadata, placeholder analytics, or a new content workflow.
