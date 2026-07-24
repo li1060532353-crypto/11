@@ -22,6 +22,15 @@ describe('TableOfContents', () => {
     window.history.replaceState(null, '', '/');
   });
 
+  it('marks a Chinese heading when the location hash is percent encoded', () => {
+    window.history.replaceState(null, '', '#%E7%AC%AC%E4%B8%80%E8%8A%82');
+
+    render(<TableOfContents headings={[{ id: '第一节', level: 2, text: '第一节' }]} />);
+
+    expect(screen.getByRole('link', { name: '第一节' })).toHaveAttribute('aria-current', 'location');
+    window.history.replaceState(null, '', '/');
+  });
+
   it('links extracted h2 and h3 headings to matching stable IDs', () => {
     const headings = extractHeadings(`
 # 页面标题

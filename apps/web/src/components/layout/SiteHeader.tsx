@@ -39,7 +39,8 @@ export function SiteHeader() {
     <header className="site-header">
       <Container className="site-header__inner">
         <a className="brand" href="/" aria-label="namdw 首页">
-          namdw.
+          <span>namdw.</span>
+          <span className="site-header__context">工程学习笔记</span>
         </a>
         <nav className="desktop-nav" aria-label="主导航">
           <NavigationLinks />

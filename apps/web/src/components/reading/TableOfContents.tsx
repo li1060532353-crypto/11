@@ -2,11 +2,20 @@ import { useEffect, useState } from 'react';
 
 import type { ArticleHeading } from './MarkdownRenderer';
 
+function currentHeadingId(): string {
+  const hash = window.location.hash.slice(1);
+  try {
+    return decodeURIComponent(hash);
+  } catch {
+    return hash;
+  }
+}
+
 export function TableOfContents({ headings }: { headings: readonly ArticleHeading[] }) {
-  const [activeId, setActiveId] = useState(() => window.location.hash.slice(1));
+  const [activeId, setActiveId] = useState(currentHeadingId);
 
   useEffect(() => {
-    const syncActiveId = () => setActiveId(window.location.hash.slice(1));
+    const syncActiveId = () => setActiveId(currentHeadingId());
     window.addEventListener('hashchange', syncActiveId);
     return () => window.removeEventListener('hashchange', syncActiveId);
   }, []);

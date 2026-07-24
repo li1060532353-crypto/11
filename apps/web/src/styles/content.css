@@ -225,11 +225,21 @@
 }
 .about-page {
   display: grid;
-  gap: 2.5rem;
+  grid-template-columns: minmax(0, 1.25fr) minmax(16rem, 0.75fr);
+  gap: clamp(2.5rem, 8vw, 7rem);
   max-width: var(--content-max);
 }
-.about-page section {
+.about-page__statement {
   max-width: 44rem;
+}
+.about-page__details {
+  display: grid;
+  align-content: start;
+  gap: 2rem;
+}
+.about-page__detail {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
 }
 .about-page ul:not(.contact-list) {
   display: grid;
@@ -270,6 +280,9 @@
   }
   .post-card__visual {
     min-height: 8rem;
+  }
+  .about-page {
+    grid-template-columns: 1fr;
   }
   .filter-bar {
     align-items: stretch;

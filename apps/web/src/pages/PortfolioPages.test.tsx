@@ -83,6 +83,12 @@ describe('portfolio pages', () => {
       'rel',
       'noreferrer',
     );
+    expect(screen.getByRole('heading', { name: '自我介绍' }).closest('section')).toHaveClass(
+      'about-page__statement',
+    );
+    expect(screen.getByRole('heading', { name: '关注方向' }).closest('section')).toHaveClass(
+      'about-page__detail',
+    );
   });
 
   it('renders a project detail from the content repository with metadata', async () => {

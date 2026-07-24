@@ -19,6 +19,12 @@ describe('SiteHeader', () => {
     );
   });
 
+  it('includes the editorial context beside the site name', () => {
+    render(<SiteHeader />);
+
+    expect(screen.getByText('工程学习笔记')).toHaveClass('site-header__context');
+  });
+
   it('opens and closes the labeled mobile navigation', async () => {
     const user = userEvent.setup();
     render(<SiteHeader />);
