@@ -1,6 +1,7 @@
 export type DashboardViewModel = {
   updatedLabel: string;
   statistics: readonly { label: string; value: string; detail: string }[];
+  recentArticles?: readonly NoteCardViewModel[];
 };
 
 export type NoteCardViewModel = {

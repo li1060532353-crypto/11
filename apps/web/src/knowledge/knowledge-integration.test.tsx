@@ -119,16 +119,32 @@ describe('knowledge read-only integration', () => {
 
   it('renders dashboard loading, real API statistics, and an explicit error without fixture fallback', async () => {
     let resolveStats!: (value: Response) => void;
-    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveStats = resolve; }));
+    const emptyNotes = { success: true, data: { items: [], page: 1, pageSize: 4, totalItems: 0, totalPages: 1 } };
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveStats = resolve; })).mockResolvedValueOnce(response(emptyNotes));
     const { rerender } = render(<MemoryRouter><KnowledgeDashboardRoute /></MemoryRouter>);
     expect(screen.getByRole('status')).toHaveTextContent('Loading dashboard');
     expect(screen.queryByText('24')).not.toBeInTheDocument();
     resolveStats(response({ success: true, data: { total: 7, draft: 1, published: 4, archived: 2, pinned: 2, roadmapProgress: 40 } }));
     await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
 
-    vi.mocked(fetch).mockResolvedValueOnce(response({ success: false, error: { code: 'NOTE_REPOSITORY_FAILURE', message: 'raw' } }, 500));
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: false, error: { code: 'NOTE_REPOSITORY_FAILURE', message: 'raw' } }, 500)).mockResolvedValueOnce(response(emptyNotes));
     rerender(<MemoryRouter><KnowledgeDashboardRoute key="failed-dashboard" /></MemoryRouter>);
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Knowledge dashboard could not be loaded'));
     expect(screen.queryByText('24')).not.toBeInTheDocument();
+  });
+
+  it('builds the overview from existing stats and recently edited notes only', async () => {
+    const recent = { ...note, status: 'draft' as const, title: 'Recently edited note' };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(response({ success: true, data: { total: 7, draft: 2, published: 4, archived: 1, pinned: 1, roadmapProgress: 40 } }))
+      .mockResolvedValueOnce(response({ success: true, data: { items: [recent], page: 1, pageSize: 4, totalItems: 1, totalPages: 1 } }));
+
+    render(<MemoryRouter><KnowledgeDashboardRoute /></MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: 'Recently edited articles' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Recently edited note' })).toHaveAttribute('href', '/knowledge/notes/n1');
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/stats', expect.objectContaining({ method: 'GET' }));
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/notes?page=1&pageSize=4', expect.objectContaining({ method: 'GET' }));
+    expect(screen.queryByText(/views|popularity/i)).not.toBeInTheDocument();
   });
 });

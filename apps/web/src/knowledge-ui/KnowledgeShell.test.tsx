@@ -33,7 +33,7 @@ describe('knowledge presentation shell', () => {
   it('renders dashboard statistics with an accessible heading', () => {
     render(<MemoryRouter><DashboardPage model={dashboardFixture} /></MemoryRouter>);
 
-    expect(screen.getByRole('heading', { name: 'Knowledge dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
     expect(screen.getByText('Total notes')).toBeInTheDocument();
     expect(screen.getByText('24')).toBeInTheDocument();
   });
