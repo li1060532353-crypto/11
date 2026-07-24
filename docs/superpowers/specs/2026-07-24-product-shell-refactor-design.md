@@ -5,7 +5,7 @@ Status: Approved
 
 ## 1. Goal
 
-Redesign the existing personal blog and private knowledge-management product as a calm, content-first experience without replacing its working application architecture. The public blog must be available without login. The private knowledge workspace and its management APIs remain protected by Cloudflare Access.
+Redesign the existing personal blog and public knowledge experience as a calm, content-first product without replacing its working application architecture. Public knowledge reading and browsing are available without login; mutation and management API boundaries remain protected by Cloudflare Access.
 
 The visual direction draws from Apple, Linear, Medium, and Notion: generous whitespace and typography, dense but restrained management workflows, a focused reading surface, and an immersive low-distraction editor. The supplied “Personal Knowledge Base and Public Blog UI Reference Board” is a reference for hierarchy, whitespace, and content priority only; its fake content, literal layout, and decorative treatments are not copied.
 
@@ -60,28 +60,29 @@ The visitor-facing experience remains public and does not require Cloudflare Acc
 | `/projects`, `/projects/:slug`, `/about` | Portfolio and personal context |
 | `/search` | Public content search |
 
-The public header links to the public information architecture and provides a clearly labeled “Knowledge workspace” action to `/knowledge`. It is an entry point, not a login flow; Cloudflare Access determines whether the visitor can proceed.
+The public header links to the public information architecture and provides a clearly labeled “Knowledge workspace” action to `/knowledge`. It is a public reading and browsing entry point, not a login flow.
 
-### 3.2 Private knowledge workspace
+### 3.2 Public knowledge workspace with protected mutations
 
-The Cloudflare Access-protected product surface is consolidated under `/knowledge`:
+`/knowledge/*` is a public knowledge experience. Visitors can browse knowledge pages, read published articles, and use public knowledge search without Cloudflare Access authentication. Its routes include:
 
 | Route | Purpose |
 | --- | --- |
-| `/knowledge` | Overview dashboard |
-| `/knowledge/articles` | Article management |
-| `/knowledge/articles/new` | Create article |
-| `/knowledge/articles/:id/edit` | Edit an existing article |
-| `/knowledge/media` | Private media management |
-| `/knowledge/settings` | Workspace and publishing settings |
+| `/knowledge` | Public knowledge overview |
+| `/knowledge/articles` | Public article browsing |
+| `/knowledge/articles/:id` | Public article reading |
+| `/knowledge/articles/new` and `/knowledge/articles/:id/edit` | Publicly reachable management entry points; their API mutations remain protected |
+| `/knowledge/media` and `/knowledge/settings` | Publicly reachable management entry points; their API mutations remain protected |
 
-Existing APIs remain at their frozen routes. The private API boundary includes the existing knowledge-management routes (currently under `/api/notes`, `/api/search`, `/api/stats`, and `/api/assets`) in addition to any pre-existing protected management API routes. This design does not rename them to `/api/admin/*`; that would violate the frozen-contract constraint.
+The frontend has no login gate, authentication state, or private-page guard. Authorization happens only at the existing `/api/*` boundary. Existing APIs remain at their frozen routes, including `/api/notes`, `/api/search`, `/api/stats`, and `/api/assets`; this design does not rename them to `/api/admin/*`.
+
+Cloudflare Access must not protect the entire Pages hostname. The required human-managed Access application is `flare-stack-blog-api` with destination `11-9tc.pages.dev/api/*`; whole-host protection for `11-9tc.pages.dev` must be removed. This records the target configuration only: no Cloudflare Dashboard, Access-policy, middleware, or authentication-protocol change is authorized by this design.
 
 ### 3.3 Compatibility
 
 `/knowledge/notes`, `/knowledge/notes/new`, and `/knowledge/notes/:id` remain compatibility entry points. They redirect client-side to `/knowledge/articles`, `/knowledge/articles/new`, and `/knowledge/articles/:id/edit`, respectively. Existing note data retains its existing IDs and semantics; “article” is a product-language and navigation change, not a schema or API rename.
 
-Before changing middleware behavior, implementation must verify the current Access middleware and Pages configuration. Public page routes must be reachable without authentication while private pages and management APIs fail closed. This is a routing/access-shell concern only; it does not authorize a Cloudflare policy or Dashboard change.
+Implementation must verify that the current middleware remains API-only and that public page routes are not covered by a hostname-wide Access application. Published reading and browsing must work without authentication; API requests, including mutations, remain protected. This verification does not authorize a Cloudflare policy or Dashboard change.
 
 ## 4. Information Architecture
 
@@ -90,7 +91,7 @@ Before changing middleware behavior, implementation must verify the current Acce
 The system has two distinct shells that share tokens and primitive components:
 
 - **Public shell:** minimal header, content-width container, editorial footer, and quiet route transitions.
-- **Knowledge shell:** compact side navigation on desktop, a mobile drawer below 1024px, page headers, scoped actions, and high-density work areas.
+- **Knowledge shell:** a public compact side navigation on desktop, a mobile drawer below 1024px, page headers, scoped actions, and high-density reading/browsing areas. Management entries do not imply a frontend login gate.
 - **Editor shell:** a dedicated focus layout without the persistent knowledge sidebar. It exposes only return navigation, save state, preview, article settings, and publish controls in its top bar.
 
 Public pages never inherit administrative navigation, tables, metrics, or controls. The knowledge workspace never adopts the public hero or magazine layout for operational screens.
@@ -171,15 +172,15 @@ Article reading remains centered in a 720–760px body column. It supports headi
 
 The page includes reading progress, generated table of contents, active-section indication, mobile table-of-contents behavior, back-to-top action, previous/next articles, related articles, and copy-link action. The implementation builds on the existing safe Markdown renderer and does not render untrusted raw HTML.
 
-## 7. Knowledge Experience
+## 7. Public Knowledge Experience
 
 ### 7.1 Overview
 
-The overview opens with a personal welcome and immediate actions for creating an article and importing Markdown. It presents four compact metrics—total articles, drafts, published, and updated this week—followed by recent edits and recent activity. It explicitly avoids complex charts and oversized dashboard treatments.
+The overview opens with a personal welcome, public knowledge entry points, and any truthful existing summary available to the public surface. Management entry points for creating or importing may be visible, but their existing API operations remain protected. It explicitly avoids complex charts, oversized dashboard treatments, fake analytics, and invented fields.
 
 ### 7.2 Article management
 
-The articles page header provides search, import, and create actions. Status tabs or filters are All, Draft, Published, and Archived. Desktop uses a lightweight list/table that favors title, category, tags, updated time, reading metadata, status, and a compact action menu. Lower-frequency actions live in an ellipsis menu. Batch controls appear only after selection.
+The articles page is public browsing and reading. It presents only published content and metadata that the existing public source actually exposes. Management actions may be linked without adding a login flow; any protected API response is handled by existing API error behavior. Lower-frequency management actions remain scoped to their entry points rather than becoming public analytics or administrative UI.
 
 At narrow widths, the same content becomes article cards rather than a horizontally scrolling table. Loading, empty, and error states are designed and keyboard reachable.
 
@@ -268,13 +269,13 @@ Key route coverage includes `/`, `/posts`, `/posts/:slug`, `/search`, `/projects
 
 ## 14. Known Design Risks and Decisions Needed During Implementation
 
-1. The current Access middleware was originally designed for a private knowledge base. Phase 1 must verify its route filtering so public browser routes remain reachable while management routes and existing private APIs remain fail-closed. If this cannot be achieved without a change to the approved authentication contract or Cloudflare Dashboard policy, stop at the checkpoint and request approval.
-2. Current data and APIs use “note” terminology. The interface uses “article” in private navigation while preserving existing API/schema names and IDs. Any request to rename the contract is out of scope.
+1. The current Access middleware is API-only, but the external Access application must be path-scoped to `11-9tc.pages.dev/api/*`. A hostname-wide Access application would block the approved public knowledge experience. Dashboard configuration is human-managed and must be verified separately; implementation must not change it.
+2. Current data and APIs use “note” terminology. The interface uses “article” in public navigation while preserving existing API/schema names and IDs. Any request to rename the contract is out of scope.
 3. Current editor capabilities and available Tiptap extensions determine whether Bubble Menu and slash command behavior can be implemented locally without a new dependency. If a requested interaction requires a large dependency or a canonical-document change, preserve the current behavior and surface the gap at the phase checkpoint.
 
 ## 15. Acceptance Criteria
 
-The redesign is accepted only when the public blog is accessible without login, the knowledge workspace and existing management APIs are private, compatibility redirects work, the approved visual direction is consistently tokenized, public and knowledge experiences have distinct appropriate shells, the editor is focused without changing persistence behavior, all target sizes remain usable, and the applicable quality/build/smoke checks pass. No API, data-model, Cloudflare Dashboard, production-resource, or deployment change may be claimed as part of acceptance unless separately approved and evidenced.
+The redesign is accepted only when the public blog and public knowledge reading/browsing are accessible without login, `/api/*` remains Cloudflare Access-protected, compatibility redirects work, the approved visual direction is consistently tokenized, public and knowledge experiences have distinct appropriate shells, the editor is focused without changing persistence behavior, all target sizes remain usable, and the applicable quality/build/smoke checks pass. No API, data-model, Cloudflare Dashboard, production-resource, or deployment change may be claimed as part of acceptance unless separately approved and evidenced.
 
 ## 16. Visual Implementation Guardrails
 

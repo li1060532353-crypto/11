@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver a content-first public blog and private knowledge workspace through a gradual visual-shell refactor without changing API contracts, data models, authentication behavior, or persistence semantics.
+**Goal:** Deliver a content-first public blog and public knowledge experience with protected API boundaries through a gradual visual-shell refactor without changing API contracts, data models, authentication behavior, or persistence semantics.
 
-**Architecture:** The existing React application keeps its router, content gateway, API client, Cloudflare Pages Functions, and Tiptap persistence flow. Semantic CSS tokens and small reusable UI primitives underpin separate public, knowledge, and editor shells. Route aliases preserve the existing knowledge-note URLs while the visible product language becomes “articles”.
+**Architecture:** The existing React application keeps its router, content gateway, API client, Cloudflare Pages Functions, and Tiptap persistence flow. Semantic CSS tokens and small reusable UI primitives underpin public blog, public knowledge, and editor shells. Route aliases preserve the existing knowledge-note URLs while the visible product language becomes “articles”; authorization remains only at `/api/*`.
 
 **Tech Stack:** React 19, React Router 7, TypeScript, Vite, Vitest, Testing Library, CSS custom properties, Tiptap, Cloudflare Pages Functions, D1, private R2.
 
@@ -74,25 +74,25 @@
 - [ ] Run `pnpm --filter @namdw/web typecheck`, `pnpm lint`, and `pnpm --filter @namdw/web build`; smoke `/`, `/posts`, `/posts/:slug`, `/search`, `/projects`, and `/about` in built preview.
 - [ ] Checkpoint: capture 1440px, 1024px, 390px, and 320px public screenshots; verify no dashboard statistics above the fold and no uncontrolled horizontal scrolling.
 
-## Phase 3: Knowledge Workspace Shell
+## Phase 3: Public Knowledge Experience Shell
 
 **Files:**
 - Modify: `apps/web/src/router.tsx`, `apps/web/src/knowledge/KnowledgeDashboardRoute.tsx`, `KnowledgeNotesRoute.tsx`, `apps/web/src/knowledge-ui/DashboardPage.tsx`, `NotesPage.tsx`, `knowledge.css`, `KnowledgeShell.test.tsx`, and route recovery tests
 - Create: `apps/web/src/knowledge-ui/KnowledgeShell.tsx`, `AdminSidebar.tsx`, `PageHeader.tsx`, `KnowledgeMobileNav.tsx`, `KnowledgeShell.test.tsx` additions
 
-**Dependencies:** Phase 1 primitives; existing knowledge API client and Notes view models; current API-only Access middleware.
+**Dependencies:** Phase 1 primitives; existing public-content source and knowledge view models; current API-only Access middleware.
 
-**Risks:** Rebranding notes as articles can leak into API calls; route migration can break existing bookmarks; an Access policy that protects an entire hostname cannot be changed in code without separate approval.
+**Risks:** Rebranding notes as articles can leak into API calls; route migration can break existing bookmarks; public browsing cannot rely on protected `/api/*` reads unless an existing public source supports it; a hostname-wide Access policy must be changed only by a separately approved human Dashboard operation.
 
 **Rollback:** Revert Phase 3 commits; legacy `/knowledge/notes*` routes remain available until the redirect tests pass.
 
-- [ ] Add a desktop private shell with exactly Overview, Articles, Media, and Settings as first-level destinations; render a keyboard-accessible mobile drawer below 1024px.
-- [ ] Register new visible routes for `/knowledge/articles`, `/knowledge/articles/new`, and `/knowledge/articles/:id/edit` using the existing route components and API client.
-- [ ] Turn `/knowledge/notes`, `/knowledge/notes/new`, and `/knowledge/notes/:id` into client-side compatibility redirects to the new article URLs; retain IDs unchanged.
-- [ ] Refactor the overview to welcome the owner, offer create/import actions, and show only compact, truthful metrics plus recent editing/activity—never fake analytics or a metric wall.
-- [ ] Verify `functions/_middleware.ts` remains API-only and does not change. Record whether an external Cloudflare Access hostname policy prevents the approved public/private split; if it does, stop and request a separate configuration approval rather than changing the policy.
+- [ ] Add a desktop public knowledge shell with exactly Overview, Articles, Media, and Settings as first-level destinations; render a keyboard-accessible mobile drawer below 1024px. Do not add a client-side login gate, frontend authentication state, or private-page guard.
+- [ ] Register public browsing routes for `/knowledge/articles` and `/knowledge/articles/:id` only when they can read from an existing public source. Keep management entry routes compatible without adding a new API request, query parameter, or authentication flow.
+- [ ] Turn `/knowledge/notes`, `/knowledge/notes/new`, and `/knowledge/notes/:id` into client-side compatibility redirects to their existing article URLs; retain IDs and NoteRecord semantics unchanged.
+- [ ] Refactor the overview as a public knowledge entry surface. It may expose create/import management entry points and truthful existing public content; it must not fabricate analytics, unavailable fields, or access state.
+- [ ] Verify `functions/_middleware.ts` remains API-only and does not change. Record the required human-managed Access configuration: application `flare-stack-blog-api`, destination `11-9tc.pages.dev/api/*`, and removal of whole-host protection for `11-9tc.pages.dev`. Do not alter Cloudflare Dashboard configuration.
 - [ ] Run `pnpm --filter @namdw/web test -- KnowledgeShell.test.tsx knowledge-integration.test.tsx RouteRecovery.test.tsx`, then typecheck/lint/build.
-- [ ] Checkpoint: test new and legacy URLs, keyboard navigation, 1024px sidebar collapse, and 390px menu behavior; record the Access-policy verification result separately from code tests.
+- [ ] Checkpoint: test public `/knowledge` and article-browsing URLs plus legacy redirects, keyboard navigation, 1024px sidebar collapse, and 390px menu behavior. Record public-route verification and protected-API verification separately; no knowledge-route Access check is required.
 
 ## Phase 4: Article Management
 
@@ -178,7 +178,7 @@
 
 ## Plan Self-Review
 
-- **Spec coverage:** Phase 1 establishes tokens and boundaries; Phase 2 covers public editorial surfaces; Phase 3 creates the private shell and compatibility URLs; Phase 4 covers article management; Phase 5 preserves the immersive editor semantics; Phase 6 gates import/media UI on existing contracts; Phase 7 validates responsiveness, accessibility, performance, and configuration.
+- **Spec coverage:** Phase 1 establishes tokens and boundaries; Phase 2 covers public editorial surfaces; Phase 3 creates the public knowledge shell and compatibility URLs; Phase 4 covers article management; Phase 5 preserves the immersive editor semantics; Phase 6 gates import/media UI on existing contracts; Phase 7 validates responsiveness, accessibility, performance, and configuration.
 - **Boundary coverage:** Every phase prohibits API, data-model, authentication, Cloudflare, and persistence changes. The Access-policy and missing-endpoint cases explicitly stop for approval.
 - **Rollback coverage:** Each phase uses code-only, commit-level rollback and explicitly excludes destructive operations.
 - **Placeholder scan:** No task relies on an unspecified dependency, API mutation, or later hidden implementation. Unsupported current endpoints are stop conditions, not assumed work.
