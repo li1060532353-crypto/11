@@ -23,6 +23,6 @@ describe('health endpoint', () => {
     await request(app.getHttpServer())
       .get('/api/v1/health')
       .expect(200)
-      .expect({ data: { status: 'ok' } });
+      .expect({ success: true, data: { status: 'ok' } });
   });
 });

@@ -16,6 +16,8 @@ describe('content queries', () => {
     const result = listPosts({ pageSize: 12 });
 
     expect(result.items.map((post) => post.slug)).toEqual([
+      'english-reading-training-plan',
+      'sample-markdown-post',
       'stm32-esp01s',
       'smart-cold-chain-iotda',
       'rsa-in-practice',
@@ -33,6 +35,13 @@ describe('content queries', () => {
         summary: '从传感器、RFID 到云端物联网平台，把嵌入式系统连接成可观察的完整链路。',
         meta: 'STM32 · IoTDA · RFID',
         href: '/projects/smart-cold-chain',
+      },
+      {
+        kind: '文章',
+        title: '考研英语阅读四周强化训练计划',
+        summary: '一套围绕词汇、长难句、定位、逻辑与错题复盘展开的四周英语阅读训练方案。',
+        meta: '英语学习 · 15 分钟',
+        href: '/posts/english-reading-training-plan',
       },
       {
         kind: '文章',
@@ -71,7 +80,7 @@ describe('content queries', () => {
     expect(result.page).toBe(result.totalPages);
     expect(result.items).toHaveLength(2);
     expect(result.pageSize).toBe(2);
-    expect(result.totalItems).toBe(6);
+    expect(result.totalItems).toBe(8);
   });
 
   it('normalizes non-finite pagination values', () => {
@@ -87,7 +96,7 @@ describe('content queries', () => {
       'smart-cold-chain-iotda',
     ]);
     expect(listPosts({ tag: '线性代数' }).items.map((post) => post.slug)).toEqual(['matrix-rank']);
-    expect(listPosts({ year: 2026 }).totalItems).toBe(3);
+    expect(listPosts({ year: 2026 }).totalItems).toBe(5);
     expect(listPosts({ year: 2026, month: 2 }).items.map((post) => post.slug)).toEqual([
       'stm32-esp01s',
       'smart-cold-chain-iotda',
@@ -128,6 +137,7 @@ describe('content queries', () => {
     expect(
       groupPostsByArchive().map((group) => [group.year, group.month, group.posts.length]),
     ).toEqual([
+      [2026, 7, 2],
       [2026, 2, 2],
       [2026, 1, 1],
       [2025, 12, 2],
