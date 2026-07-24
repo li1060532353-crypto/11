@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createKnowledgeNote, createKnowledgeNoteVersion, getKnowledgeNote, updateKnowledgeNote } from './knowledge-api';
+import { archiveKnowledgeNote, createKnowledgeNote, createKnowledgeNoteVersion, getKnowledgeNote, listKnowledgeNoteVersions, restoreKnowledgeNote, updateKnowledgeNote } from './knowledge-api';
 
 const note = { id: 'n1', title: 'Note', slug: 'note-n1', summary: '', contentJson: '{"type":"doc","content":[]}', contentText: '', category: 'Learning', status: 'draft', isPinned: false, reviewCount: 0, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastReviewedAt: null };
 const create = { title: note.title, summary: note.summary, contentJson: note.contentJson, category: note.category, status: 'draft' as const, isPinned: note.isPinned };
@@ -34,5 +34,20 @@ describe('knowledge mutation API client', () => {
     await expect(getKnowledgeNote('n1')).rejects.toMatchObject({ kind: 'malformed' });
     vi.mocked(fetch).mockResolvedValueOnce(new Response('not json'));
     await expect(getKnowledgeNote('n1')).rejects.toMatchObject({ kind: 'malformed' });
+  });
+
+  it('uses existing archive, restore, and version-list contracts without changing note semantics', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: { ...note, status: 'archived' } }));
+    await expect(archiveKnowledgeNote('n1')).resolves.toMatchObject({ status: 'archived' });
+    expect(fetch).toHaveBeenLastCalledWith('/api/notes/n1', expect.objectContaining({ method: 'DELETE' }));
+
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: note }));
+    await expect(restoreKnowledgeNote('n1')).resolves.toEqual(note);
+    expect(fetch).toHaveBeenLastCalledWith('/api/notes/n1/restore', expect.objectContaining({ method: 'POST' }));
+
+    const version = { id: 'v1', contentJson: note.contentJson, contentText: note.contentText, createdAt: note.updatedAt };
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: [version] }));
+    await expect(listKnowledgeNoteVersions('n1')).resolves.toEqual([version]);
+    expect(fetch).toHaveBeenLastCalledWith('/api/notes/n1/versions', expect.objectContaining({ method: 'GET' }));
   });
 });

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { mapNoteToCard, mapStatsToDashboard } from './knowledge-adapter';
 import { loadKnowledgeNotes, loadKnowledgeStats } from './knowledge-api';
 import type { KnowledgeApiFailure } from './knowledge-api';
+import { KnowledgeDashboardRoute } from './KnowledgeDashboardRoute';
 import { KnowledgeNotesRoute } from './KnowledgeNotesRoute';
 
 const note = { id: 'n1', title: 'Note', slug: 'note-n1', summary: 'Summary', contentJson: '{}', contentText: '', category: 'Work', status: 'archived' as const, isPinned: true, reviewCount: 0, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-02T00:00:00.000Z', lastReviewedAt: null };
@@ -24,6 +25,12 @@ describe('knowledge read-only integration', () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/search?q=design&page=1&pageSize=20', expect.any(Object));
   });
 
+  it('loads the existing statistics envelope from its dedicated endpoint', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: { total: 4, draft: 1, published: 2, archived: 1, pinned: 1, roadmapProgress: 50 } }));
+    await expect(loadKnowledgeStats()).resolves.toMatchObject({ total: 4, published: 2 });
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/stats', expect.objectContaining({ method: 'GET' }));
+  });
+
   it('rejects malformed note/search items and pagination metadata without partial acceptance', async () => {
     const invalidPage = { items: [{ ...note, status: 'wrong' }], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 };
     vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: invalidPage }));
@@ -38,7 +45,7 @@ describe('knowledge read-only integration', () => {
 
   it('maps failed, malformed, and access responses to stable categories', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(response({ success: false, error: { code: 'NOTE_NOT_FOUND', message: 'raw' } }));
-    await expect(loadKnowledgeStats()).rejects.toMatchObject({ kind: 'request' } satisfies Partial<KnowledgeApiFailure>);
+    await expect(loadKnowledgeStats()).rejects.toMatchObject({ kind: 'not-found' } satisfies Partial<KnowledgeApiFailure>);
     vi.mocked(fetch).mockResolvedValueOnce(new Response('not json'));
     await expect(loadKnowledgeStats()).rejects.toMatchObject({ kind: 'malformed' } satisfies Partial<KnowledgeApiFailure>);
     vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: {} }));
@@ -60,6 +67,26 @@ describe('knowledge read-only integration', () => {
     expect(vi.mocked(fetch).mock.calls.every(([url]) => String(url).startsWith('/api/notes') || String(url).startsWith('/api/search'))).toBe(true);
   });
 
+  it('archives and restores listed notes through the existing protected endpoints', async () => {
+    const activeNote = { ...note, status: 'draft' as const };
+    const archivedNote = { ...note, id: 'n2', slug: 'note-n2' };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(response({ success: true, data: { items: [activeNote, archivedNote], page: 1, pageSize: 20, totalItems: 2, totalPages: 1 } }))
+      .mockResolvedValueOnce(response({ success: true, data: { ...activeNote, status: 'archived' } }))
+      .mockResolvedValueOnce(response({ success: true, data: { items: [{ ...activeNote, status: 'archived' }, archivedNote], page: 1, pageSize: 20, totalItems: 2, totalPages: 1 } }))
+      .mockResolvedValueOnce(response({ success: true, data: { ...archivedNote, status: 'draft' } }))
+      .mockResolvedValueOnce(response({ success: true, data: { items: [activeNote, archivedNote], page: 1, pageSize: 20, totalItems: 2, totalPages: 1 } }));
+    render(<MemoryRouter><KnowledgeNotesRoute /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Archive Note' })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive Note' }));
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/notes/n1', expect.objectContaining({ method: 'DELETE' })));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Restore Note' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Note' }));
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/notes/n2/restore', expect.objectContaining({ method: 'POST' })));
+  });
+
   it('does not allow an older deferred response to replace a newer search result', async () => {
     let resolveOld!: (value: Response) => void;
     let resolveNew!: (value: Response) => void;
@@ -70,5 +97,20 @@ describe('knowledge read-only integration', () => {
     await waitFor(() => expect(screen.getByText('New result')).toBeInTheDocument());
     resolveOld(response({ success: true, data: { items: [{ ...note, title: 'Old result' }], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }));
     await waitFor(() => expect(screen.queryByText('Old result')).not.toBeInTheDocument());
+  });
+
+  it('renders dashboard loading, real API statistics, and an explicit error without fixture fallback', async () => {
+    let resolveStats!: (value: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveStats = resolve; }));
+    const { rerender } = render(<MemoryRouter><KnowledgeDashboardRoute /></MemoryRouter>);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading dashboard');
+    expect(screen.queryByText('24')).not.toBeInTheDocument();
+    resolveStats(response({ success: true, data: { total: 7, draft: 1, published: 4, archived: 2, pinned: 2, roadmapProgress: 40 } }));
+    await waitFor(() => expect(screen.getByText('7')).toBeInTheDocument());
+
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: false, error: { code: 'NOTE_REPOSITORY_FAILURE', message: 'raw' } }, 500));
+    rerender(<MemoryRouter><KnowledgeDashboardRoute key="failed-dashboard" /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Knowledge dashboard could not be loaded'));
+    expect(screen.queryByText('24')).not.toBeInTheDocument();
   });
 });

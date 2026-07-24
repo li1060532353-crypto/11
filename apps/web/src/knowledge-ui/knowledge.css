@@ -28,6 +28,8 @@
 .knowledge-filter-label { color: var(--color-muted, #6e6e73); margin: 0 0 0.7rem; }
 
 .knowledge-note-card { color: inherit; display: flex; flex-direction: column; gap: 0.75rem; min-height: 220px; text-decoration: none; }
+.knowledge-note-card-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
+.knowledge-note-card__action { align-self: flex-start; }
 .knowledge-note-card:focus-visible, .knowledge-button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
 .knowledge-note-card--archived { opacity: 0.72; }
 .knowledge-note-card__topline, .knowledge-note-card__footer { align-items: center; display: flex; font-size: 0.85rem; justify-content: space-between; gap: 0.75rem; }

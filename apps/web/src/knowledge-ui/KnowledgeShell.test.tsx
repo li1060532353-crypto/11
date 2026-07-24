@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { DashboardPage } from './DashboardPage';
 import { NotesPage } from './NotesPage';
@@ -44,6 +44,19 @@ describe('knowledge presentation shell', () => {
     expect(screen.getByText('Archived')).toBeInTheDocument();
     expect(screen.getByText('Project retrospective')).toBeInTheDocument();
     expect(screen.getByText('Research archive')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Project retrospective' })).toHaveAttribute('href', '/knowledge/notes/project-retrospective');
+  });
+
+  it('exposes existing archive and restore actions without changing note links', () => {
+    const onArchive = vi.fn();
+    const onRestore = vi.fn();
+    render(<MemoryRouter><NotesPage model={notesFixture} onArchive={onArchive} onRestore={onRestore} /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive Project retrospective' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Research archive' }));
+
+    expect(onArchive).toHaveBeenCalledWith('project-retrospective');
+    expect(onRestore).toHaveBeenCalledWith('research-archive');
     expect(screen.getByRole('link', { name: 'Project retrospective' })).toHaveAttribute('href', '/knowledge/notes/project-retrospective');
   });
 });

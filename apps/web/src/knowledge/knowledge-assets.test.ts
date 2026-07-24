@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { downloadKnowledgeAsset, filenameFromDisposition, uploadKnowledgeAsset } from './knowledge-api';
+import { deleteKnowledgeAsset, downloadKnowledgeAsset, filenameFromDisposition, uploadKnowledgeAsset } from './knowledge-api';
 
 const asset = { id: 'asset-1', noteId: 'note-1', originalName: 'fallback.png', mimeType: 'image/png', sizeBytes: 3, createdAt: '2026-07-19T00:00:00.000Z' };
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -33,5 +33,11 @@ describe('knowledge asset client', () => {
   it('parses failed binary responses as failure envelopes without exposing their message', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(response({ success: false, error: { code: 'ASSET_STORAGE_READ_FAILED', message: 'provider detail' } }, 500));
     await expect(downloadKnowledgeAsset(asset)).rejects.toEqual({ kind: 'repository' });
+  });
+
+  it('deletes an existing asset through the protected delete contract', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: asset }));
+    await expect(deleteKnowledgeAsset('asset-1')).resolves.toEqual(asset);
+    expect(vi.mocked(fetch)).toHaveBeenLastCalledWith('/api/assets/asset-1', expect.objectContaining({ method: 'DELETE' }));
   });
 });

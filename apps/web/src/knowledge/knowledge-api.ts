@@ -9,6 +9,7 @@ function date(value: unknown): boolean { return string(value) && !Number.isNaN(D
 function integer(value: unknown): boolean { return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0; }
 function isNote(value: unknown): value is NoteRecord { const item = record(value); return !!item && string(item.id) && item.id.length > 0 && string(item.title) && string(item.slug) && string(item.summary) && string(item.category) && string(item.contentJson) && string(item.contentText) && ['draft', 'published', 'archived'].includes(String(item.status)) && typeof item.isPinned === 'boolean' && integer(item.reviewCount) && date(item.createdAt) && date(item.updatedAt) && (item.lastReviewedAt === null || date(item.lastReviewedAt)); }
 function isVersion(value: unknown): value is NoteVersionRecord { const item = record(value); return !!item && string(item.id) && string(item.contentJson) && string(item.contentText) && date(item.createdAt); }
+function isVersions(value: unknown): value is readonly NoteVersionRecord[] { return Array.isArray(value) && value.every(isVersion); }
 const assetId = (value: unknown): value is string => string(value) && /^[A-Za-z0-9-]+$/u.test(value);
 const assetTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf']);
 const safeAssetName = (value: unknown): value is string => string(value) && value.length > 0 && !/[\\/\0\r\n]/u.test(value) && new TextEncoder().encode(value).byteLength <= 120;
@@ -45,7 +46,10 @@ export async function loadKnowledgeStats() { return jsonRequest('/api/stats', 'G
 export async function getKnowledgeNote(noteId: string, signal?: AbortSignal) { return jsonRequest(`/api/notes/${encodeURIComponent(noteId)}`, 'GET', isNote, undefined, signal); }
 export async function createKnowledgeNote(input: ApiRequestFor<'POST /api/notes'>, signal?: AbortSignal) { return jsonRequest('/api/notes', 'POST', isNote, input, signal); }
 export async function updateKnowledgeNote(noteId: string, input: ApiRequestFor<'PATCH /api/notes/:id'>, signal?: AbortSignal) { return jsonRequest(`/api/notes/${encodeURIComponent(noteId)}`, 'PATCH', isNote, input, signal); }
+export async function archiveKnowledgeNote(noteId: string, signal?: AbortSignal) { return jsonRequest(`/api/notes/${encodeURIComponent(noteId)}`, 'DELETE', isNote, undefined, signal); }
+export async function restoreKnowledgeNote(noteId: string, signal?: AbortSignal) { return jsonRequest(`/api/notes/${encodeURIComponent(noteId)}/restore`, 'POST', isNote, undefined, signal); }
 export async function createKnowledgeNoteVersion(noteId: string, signal?: AbortSignal) { return jsonRequest(`/api/notes/${encodeURIComponent(noteId)}/versions`, 'POST', isVersion, undefined, signal); }
+export async function listKnowledgeNoteVersions(noteId: string, signal?: AbortSignal) { return jsonRequest(`/api/notes/${encodeURIComponent(noteId)}/versions`, 'GET', isVersions, undefined, signal); }
 export async function uploadKnowledgeAsset(file: File, noteId: string) {
   const body = new FormData(); body.append('file', file); body.append('noteId', noteId);
   let response: Response;
