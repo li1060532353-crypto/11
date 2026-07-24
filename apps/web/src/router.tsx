@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ReactNode } from 'react';
 import { matchRoutes, Route, Routes, useLocation } from 'react-router-dom';
 
 import { SiteFooter } from './components/layout/SiteFooter';
@@ -25,9 +26,14 @@ import { PostDetailPage } from './pages/posts/PostDetailPage';
 import { SearchPage } from './pages/posts/SearchPage';
 import { TagIndexPage } from './pages/posts/TagIndexPage';
 import { TagPostsPage } from './pages/posts/TagPostsPage';
-import { KnowledgeDashboardRoute } from './knowledge/KnowledgeDashboardRoute';
-import { KnowledgeNotesRoute } from './knowledge/KnowledgeNotesRoute';
-import { KnowledgeEditorRoute } from './knowledge/KnowledgeEditorRoute';
+
+const KnowledgeDashboardRoute = lazy(() => import('./knowledge/KnowledgeDashboardRoute').then((module) => ({ default: module.KnowledgeDashboardRoute })));
+const KnowledgeNotesRoute = lazy(() => import('./knowledge/KnowledgeNotesRoute').then((module) => ({ default: module.KnowledgeNotesRoute })));
+const KnowledgeEditorRoute = lazy(() => import('./knowledge/KnowledgeEditorRoute').then((module) => ({ default: module.KnowledgeEditorRoute })));
+
+function KnowledgeRouteBoundary({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<p className="knowledge-message" role="status">Loading knowledge workspace</p>}>{children}</Suspense>;
+}
 
 export const publicRoutes = [
   { path: '/', element: <HomePage /> },
@@ -57,10 +63,10 @@ export const publicRoutes = [
     path: '/search',
     element: <SearchPage />,
   },
-  { path: '/knowledge', element: <KnowledgeDashboardRoute /> },
-  { path: '/knowledge/notes', element: <KnowledgeNotesRoute /> },
-  { path: '/knowledge/notes/new', element: <KnowledgeEditorRoute mode="create" /> },
-  { path: '/knowledge/notes/:id', element: <KnowledgeEditorRoute mode="edit" /> },
+  { path: '/knowledge', element: <KnowledgeRouteBoundary><KnowledgeDashboardRoute /></KnowledgeRouteBoundary> },
+  { path: '/knowledge/notes', element: <KnowledgeRouteBoundary><KnowledgeNotesRoute /></KnowledgeRouteBoundary> },
+  { path: '/knowledge/notes/new', element: <KnowledgeRouteBoundary><KnowledgeEditorRoute mode="create" /></KnowledgeRouteBoundary> },
+  { path: '/knowledge/notes/:id', element: <KnowledgeRouteBoundary><KnowledgeEditorRoute mode="edit" /></KnowledgeRouteBoundary> },
   { path: '*', element: <NotFoundPage /> },
 ] as const;
 
