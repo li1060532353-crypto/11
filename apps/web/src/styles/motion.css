@@ -1,6 +1,5 @@
 .feature-card,
 .button-link,
-.hero-device,
 .reading-progress__bar {
   transition:
     transform var(--motion-slow) ease,
@@ -11,10 +10,6 @@
 .feature-card:hover {
   box-shadow: var(--shadow-card);
   transform: translateY(-0.25rem);
-}
-
-.hero-visual:hover .hero-device {
-  transform: translate(-50%, -52%) rotate(4deg);
 }
 
 @media (prefers-reduced-motion: reduce) {

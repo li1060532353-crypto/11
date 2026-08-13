@@ -80,6 +80,31 @@ button {
   text-transform: uppercase;
 }
 
+.link-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-accent-text-on-light);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.link-cta:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+}
+
+.link-cta__chevron {
+  font-size: 1.2em;
+  line-height: 1;
+  transition: transform var(--motion-fast) ease;
+}
+
+.link-cta:hover .link-cta__chevron {
+  transform: translateX(0.2rem);
+}
+
 .ui-button,
 .ui-icon-button,
 .ui-input,
