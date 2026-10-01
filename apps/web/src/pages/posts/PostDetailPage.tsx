@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 
 import { FallbackNotice } from '../../components/content/FallbackNotice';
 import { PostMeta } from '../../components/content/PostMeta';
@@ -9,6 +9,11 @@ import { ReadingProgress } from '../../components/reading/ReadingProgress';
 import { TableOfContents } from '../../components/reading/TableOfContents';
 import { Container } from '../../components/ui/Container';
 import { DraftingGridBackdrop } from '../../components/ui/DraftingGridBackdrop';
+import {
+  buildAdjacentPostState,
+  getSafeReturnTarget,
+} from '../../components/navigation/navigationSource';
+import { BottomReturnBar, TopReturnBar } from '../../components/navigation/ReturnButton';
 import { getPostNeighbors } from '../../content/contentQueries';
 import { getPostBySlug } from '../../content/contentGateway';
 import { siteContent } from '../../content/site';
@@ -45,6 +50,12 @@ function navigationPosts(result: ContentResult<Post | undefined> | undefined): {
 
 export function PostDetailPage() {
   const { slug = '' } = useParams();
+  const location = useLocation();
+  const returnTarget = useMemo(
+    () => getSafeReturnTarget(location.state, '/posts', '← 返回文章列表'),
+    [location.state],
+  );
+
   const load = useMemo(() => () => getPostBySlug(slug), [slug]);
   const query = useContentQuery(load, [load]);
   const post = query.result?.data;
@@ -88,6 +99,7 @@ export function PostDetailPage() {
       <Container>
         {query.result?.source === 'fallback' ? <FallbackNotice error={query.result.error} /> : null}
         <article id="article-content" className="post-detail" tabIndex={-1}>
+          <TopReturnBar target={returnTarget} />
           <header className="post-detail__header">
             <div className="post-detail__backdrop" aria-hidden="true">
               <svg
@@ -171,7 +183,10 @@ export function PostDetailPage() {
 
           <nav className="article-navigation" aria-label="相邻文章">
             {previousPost ? (
-              <Link to={`/posts/${previousPost.slug}`}>
+              <Link
+                to={`/posts/${previousPost.slug}`}
+                state={buildAdjacentPostState(returnTarget)}
+              >
                 <span>上一篇</span>
                 {previousPost.title}
               </Link>
@@ -179,12 +194,16 @@ export function PostDetailPage() {
               <span />
             )}
             {nextPost ? (
-              <Link to={`/posts/${nextPost.slug}`}>
+              <Link
+                to={`/posts/${nextPost.slug}`}
+                state={buildAdjacentPostState(returnTarget)}
+              >
                 <span>下一篇</span>
                 {nextPost.title}
               </Link>
             ) : null}
           </nav>
+          <BottomReturnBar target={returnTarget} />
         </article>
       </Container>
     </div>

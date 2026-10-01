@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import type { AssetRecord, NoteRecord } from '@namdw/shared';
 
 import { extractHeadingsFromDocument, TiptapRenderer } from '../components/reading/TiptapRenderer';
@@ -7,6 +7,7 @@ import { ReadingProgress } from '../components/reading/ReadingProgress';
 import { TableOfContents } from '../components/reading/TableOfContents';
 import { Container } from '../components/ui/Container';
 import { DraftingGridBackdrop } from '../components/ui/DraftingGridBackdrop';
+import { getSafeReturnTarget } from '../components/navigation/navigationSource';
 import { siteContent } from '../content/site';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { getKnowledgeNote, listKnowledgeAssets, type KnowledgeApiFailure } from './knowledge-api';
@@ -36,10 +37,26 @@ const messageFor = (error: unknown) => {
 
 export function KnowledgeNoteReadRoute() {
   const { id = '' } = useParams();
+  const location = useLocation();
   const [note, setNote] = useState<NoteRecord | null>(null);
   const [assets, setAssets] = useState<readonly AssetRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const rawState = location.state as Record<string, unknown> | null;
+  const isFromEditor =
+    rawState?.kind === 'editor_preview' ||
+    rawState?.kind === 'admin_editor' ||
+    (typeof rawState?.fromPath === 'string' &&
+      rawState.fromPath.startsWith(`/knowledge/notes/${id}`));
+
+  const fallbackPath = isFromEditor ? `/knowledge/notes/${id}` : '/knowledge/notes';
+  const fallbackLabel = isFromEditor ? '← 返回正在编辑的文章' : '← 返回文章列表';
+
+  const returnTarget = useMemo(
+    () => getSafeReturnTarget(location.state, fallbackPath, fallbackLabel),
+    [location.state, fallbackPath, fallbackLabel],
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -95,8 +112,12 @@ export function KnowledgeNoteReadRoute() {
           <section className="knowledge-empty-state" aria-labelledby="note-not-found-title">
             <h2 id="note-not-found-title">{error ?? '未找到文章'}</h2>
             <p>该笔记可能已被移动或删除。</p>
-            <Link className="knowledge-button knowledge-button--primary" to="/knowledge/notes">
-              返回笔记列表
+            <Link
+              className="knowledge-button knowledge-button--primary"
+              to={returnTarget.path}
+              state={{ restoreScroll: true, scrollY: returnTarget.scrollY }}
+            >
+              {returnTarget.label.replace(/^←\s*/, '')}
             </Link>
           </section>
         </Container>
@@ -120,8 +141,13 @@ export function KnowledgeNoteReadRoute() {
         {/* Workspace Quick Actions Bar */}
         <div className="knowledge-reader-toolbar" aria-label="阅读模式控制条">
           <div className="knowledge-reader-toolbar__left">
-            <Link className="knowledge-button knowledge-button--quiet" to="/knowledge/notes">
-              ← 返回笔记列表
+            <Link
+              className="knowledge-button knowledge-button--quiet"
+              to={returnTarget.path}
+              state={{ restoreScroll: true, scrollY: returnTarget.scrollY }}
+              data-testid="knowledge-read-return-link"
+            >
+              {returnTarget.label}
             </Link>
             <span className={`knowledge-badge knowledge-badge--${note.status}`}>
               {statusLabels[note.status] ?? note.status}
@@ -141,8 +167,16 @@ export function KnowledgeNoteReadRoute() {
               编辑文章
             </Link>
             {note.status === 'published' ? (
-              <Link className="knowledge-button knowledge-button--quiet" to={`/posts/${note.slug}`}>
-                查看公开文章 ↗
+              <Link
+                className="knowledge-button knowledge-button--quiet"
+                to={`/posts/${note.slug}`}
+                state={{
+                  kind: 'editor_preview',
+                  fromPath: `/knowledge/notes/${note.id}/read`,
+                  fromLabel: '← 返回阅读视图',
+                }}
+              >
+                查看文章 ↗
               </Link>
             ) : null}
           </div>
