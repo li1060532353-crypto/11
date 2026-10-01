@@ -245,7 +245,13 @@ export type AssetUploadResult = { asset: AssetRecord };
 export type AssetUploadRequest = MultipartRouteContract['fields'];
 export type ReorderRoadmapRequest = { itemIds: readonly string[] };
 export type EmptyResponse = Record<never, never>;
-export type SearchQuery = { q: string; page?: number; pageSize?: number };
+export type SearchQuery = {
+  q: string;
+  page?: number;
+  pageSize?: number;
+  status?: NoteStatus | 'all';
+  category?: string;
+};
 export type RoadmapListQuery = { status?: RoadmapStatus };
 export const assetUploadRoute = {
   transport: 'multipart',

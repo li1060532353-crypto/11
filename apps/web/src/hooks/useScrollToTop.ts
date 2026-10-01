@@ -100,6 +100,8 @@ export function useScrollToTop() {
 
         let attempts = 0;
         const maxAttempts = 15;
+        let rafId: number | null = null;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const attemptRestore = () => {
           safeScrollTo(targetY);
@@ -110,17 +112,25 @@ export function useScrollToTop() {
           if (attempts < maxAttempts && docHeight < targetY + 50) {
             attempts++;
             if (typeof requestAnimationFrame === 'function') {
-              requestAnimationFrame(attemptRestore);
+              rafId = requestAnimationFrame(attemptRestore);
             } else {
-              setTimeout(attemptRestore, 16);
+              timeoutId = setTimeout(attemptRestore, 16);
             }
           }
         };
 
         if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(attemptRestore);
+          rafId = requestAnimationFrame(attemptRestore);
         }
-        return;
+
+        return () => {
+          if (rafId !== null && typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(rafId);
+          }
+          if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+          }
+        };
       }
     }
 

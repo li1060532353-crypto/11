@@ -45,7 +45,7 @@ export function parseSearchQuery(request: Request): ApiRequestFor<'GET /api/sear
   const q = params.get('q');
   if (!q?.trim()) throw new NoteDomainError('VALIDATION_ERROR', 'Search query is required');
 
-  const result: { q: string; page?: number; pageSize?: number } = { q: q.trim() };
+  const result: ApiRequestFor<'GET /api/search'> = { q: q.trim() };
   for (const key of ['page', 'pageSize'] as const) {
     if (!params.has(key)) continue;
     const value = Number(params.get(key));
@@ -53,6 +53,14 @@ export function parseSearchQuery(request: Request): ApiRequestFor<'GET /api/sear
       throw new NoteDomainError('VALIDATION_ERROR', `Invalid ${key}`);
     }
     result[key] = value;
+  }
+  const status = params.get('status');
+  if (status && (status === 'draft' || status === 'published' || status === 'archived' || status === 'all')) {
+    result.status = status;
+  }
+  const category = params.get('category');
+  if (category?.trim()) {
+    result.category = category.trim();
   }
   return result;
 }
@@ -63,21 +71,59 @@ export function createD1SearchStore(db: D1Database): SearchStore {
       const page = query.page ?? 1;
       const pageSize = Math.min(100, query.pageSize ?? 20);
       const pattern = `%${escapeLike(query.q)}%`;
-      const values = [pattern, pattern, pattern, pattern, pattern];
+      
+      const isPublishedOnly = query.status === 'published';
+      const whereClauses: string[] = [];
+      const values: unknown[] = [];
+
+      if (isPublishedOnly) {
+        whereClauses.push(`(
+          COALESCE(n.published_title, n.title) LIKE ? ESCAPE '\\'
+          OR COALESCE(n.published_summary, n.summary) LIKE ? ESCAPE '\\'
+          OR n.category LIKE ? ESCAPE '\\'
+          OR COALESCE(n.published_content_text, n.content_text) LIKE ? ESCAPE '\\'
+          OR EXISTS (
+            SELECT 1 FROM note_tags nt_search
+            JOIN tags t_search ON t_search.id = nt_search.tag_id
+            WHERE nt_search.note_id = n.id AND t_search.name LIKE ? ESCAPE '\\'
+          )
+        )`);
+        values.push(pattern, pattern, pattern, pattern, pattern);
+        whereClauses.push(`n.status = 'published'`);
+      } else {
+        whereClauses.push(searchWhere);
+        values.push(pattern, pattern, pattern, pattern, pattern);
+        if (query.status && query.status !== 'all') {
+          whereClauses.push(`n.status = ?`);
+          values.push(query.status);
+        }
+      }
+
+      if (query.category) {
+        whereClauses.push(`n.category = ?`);
+        values.push(query.category);
+      }
+
+      const combinedWhere = whereClauses.join(' AND ');
+
+      const titleField = isPublishedOnly ? 'COALESCE(n.published_title, n.title)' : 'n.title';
+      const summaryField = isPublishedOnly ? 'COALESCE(n.published_summary, n.summary)' : 'n.summary';
+      const textField = isPublishedOnly ? 'COALESCE(n.published_content_text, n.content_text)' : 'n.content_text';
+
       const rows = await db.prepare(`
-        SELECT n.id, n.title, n.summary, n.slug, n.category, n.updated_at,
-          substr(n.content_text, 1, 240) AS excerpt,
+        SELECT n.id, ${titleField} AS title, ${summaryField} AS summary, n.slug, n.category, n.updated_at,
+          substr(${textField}, 1, 240) AS excerpt,
           COALESCE((
             SELECT GROUP_CONCAT(t.name, char(31))
             FROM note_tags nt JOIN tags t ON t.id = nt.tag_id
             WHERE nt.note_id = n.id
           ), '') AS tag_names
         FROM notes n
-        WHERE ${searchWhere}
+        WHERE ${combinedWhere}
         ORDER BY n.updated_at DESC
         LIMIT ? OFFSET ?
       `).bind(...values, pageSize, (page - 1) * pageSize).all<SearchRow>();
-      const count = await db.prepare(`SELECT COUNT(*) AS count FROM notes n WHERE ${searchWhere}`)
+      const count = await db.prepare(`SELECT COUNT(*) AS count FROM notes n WHERE ${combinedWhere}`)
         .bind(...values)
         .first<{ count: number }>();
       const totalItems = Number(count?.count ?? 0);

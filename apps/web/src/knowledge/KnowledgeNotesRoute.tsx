@@ -36,7 +36,9 @@ export function KnowledgeNotesRoute() {
 
   // Sync search input if URL q changes externally (e.g. back/forward)
   useEffect(() => {
-    setSearchInput(urlQ);
+    if (urlQ !== searchInput.trim()) {
+      setSearchInput(urlQ);
+    }
     setDebouncedSearch(urlQ);
   }, [urlQ]);
 
@@ -52,7 +54,6 @@ export function KnowledgeNotesRoute() {
       // Synchronize to URL if different
       if (trimmed !== urlQ) {
         const next = new URLSearchParams(searchParams);
-        next.delete('status');
         if (trimmed) {
           next.set('q', trimmed);
         } else {
@@ -148,7 +149,7 @@ export function KnowledgeNotesRoute() {
 
       if ('pinned' in updates) {
         if (updates.pinned) {
-          next.set('pinned', 'true');
+          next.set('pinned', '1');
         } else {
           next.delete('pinned');
         }
@@ -157,7 +158,7 @@ export function KnowledgeNotesRoute() {
 
       if ('featured' in updates) {
         if (updates.featured) {
-          next.set('featured', 'true');
+          next.set('featured', '1');
         } else {
           next.delete('featured');
         }

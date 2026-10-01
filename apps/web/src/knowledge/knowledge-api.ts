@@ -222,7 +222,13 @@ export async function loadKnowledgeNotes(input: KnowledgeNotesQuery) {
   const q = input.q?.trim();
   const data = q
     ? await jsonRequest(
-        `/api/search?${toQuery({ q, page: input.page, pageSize: input.pageSize })}`,
+        `/api/search?${toQuery({
+          q,
+          page: input.page,
+          pageSize: input.pageSize,
+          status: input.status,
+          category: input.category,
+        })}`,
         'GET',
         (value): value is ApiResponseFor<'GET /api/search'> => isPage(value, isSearchResult),
       )

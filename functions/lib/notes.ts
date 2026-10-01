@@ -435,6 +435,13 @@ export function createNoteService(
         );
       }
 
+      if (existing.status === 'archived') {
+        throw new NoteDomainError(
+          'VALIDATION_ERROR',
+          'Archived notes must be restored before publishing',
+        );
+      }
+
       if (!existing.title || !existing.title.trim()) {
         throw new NoteDomainError('VALIDATION_ERROR', 'Title is required for publishing');
       }

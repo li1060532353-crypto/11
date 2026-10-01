@@ -15,5 +15,7 @@ UPDATE notes
 SET published_title = title,
     published_summary = summary,
     published_content_json = content_json,
-    published_content_text = content_text
+    published_content_text = content_text,
+    published_at = COALESCE(published_at, updated_at, datetime('now'))
 WHERE status = 'published' AND published_content_json IS NULL;
+
