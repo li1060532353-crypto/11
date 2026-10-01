@@ -1,4 +1,5 @@
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+﻿import { useState } from 'react';
+import { createBrowserRouter, MemoryRouter, RouterProvider } from 'react-router-dom';
 
 import { AppRoutes } from './router';
 
@@ -15,9 +16,10 @@ export function App({ initialPath }: AppProps) {
     );
   }
 
-  return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
-  );
+  return <BrowserApp />;
+}
+
+function BrowserApp() {
+  const [router] = useState(() => createBrowserRouter([{ path: '*', element: <AppRoutes /> }]));
+  return <RouterProvider router={router} />;
 }

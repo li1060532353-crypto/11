@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+﻿import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useInRouterContext } from 'react-router-dom';
 
 import { AssetPanel } from './AssetPanel';
@@ -79,7 +79,7 @@ export function EditorPage({
   versionState = 'idle',
   selectedHighlight = null,
   documentSlot,
-  editor,
+  editor: suppliedEditor,
   versions,
   onTitleChange,
   onSummaryChange,
@@ -107,6 +107,7 @@ export function EditorPage({
   saveBusy = false,
   publishBusy = false,
 }: EditorPageProps) {
+  const editor = suppliedEditor && !suppliedEditor.isDestroyed ? suppliedEditor : null;
   const [showVersions, setShowVersions] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const inRouter = useInRouterContext();
@@ -170,9 +171,7 @@ export function EditorPage({
   const handleGenerateSlug = () => {
     if (!onSlugChange) return;
     const raw = model.title.trim().toLowerCase();
-    const slug = raw
-      .replace(/[^a-z0-9\u4e00-\u9fa5]+/gi, '-')
-      .replace(/^-+|-+$/g, '');
+    const slug = raw.replace(/[^a-z0-9\u4e00-\u9fa5]+/gi, '-').replace(/^-+|-+$/g, '');
     if (slug) {
       onSlugChange(slug);
     }
@@ -184,11 +183,7 @@ export function EditorPage({
     fromLabel: '← 返回正在编辑的文章',
   };
 
-  const articleTitle = model.title.trim()
-    ? model.title
-    : isNew
-      ? '新建文章'
-      : '未命名草稿';
+  const articleTitle = model.title.trim() ? model.title : isNew ? '新建文章' : '未命名草稿';
 
   return (
     <div className="knowledge-shell knowledge-editor" aria-labelledby="knowledge-editor-title">
@@ -295,10 +290,7 @@ export function EditorPage({
               className="knowledge-button knowledge-button--quiet knowledge-button--small"
               onClick={onSaveVersion}
               disabled={
-                !onSaveVersion ||
-                state === 'saving' ||
-                versionState === 'saving' ||
-                saveBusy
+                !onSaveVersion || state === 'saving' || versionState === 'saving' || saveBusy
               }
               aria-label="Save Version"
               title="显式创建只读历史快照"
@@ -399,11 +391,7 @@ export function EditorPage({
           </div>
 
           {/* 吸顶富文本工具栏 (Tiptap Sticky Toolbar) */}
-          <div
-            className="knowledge-toolbar"
-            role="toolbar"
-            aria-label="富文本编辑器工具栏"
-          >
+          <div className="knowledge-toolbar" role="toolbar" aria-label="富文本编辑器工具栏">
             {/* 分组 1: 结构级别 */}
             <div className="knowledge-toolbar__group" aria-label="结构级别">
               <button
@@ -833,10 +821,7 @@ export function EditorPage({
 
           {/* 版本历史面板 */}
           {showVersions ? (
-            <aside
-              className="knowledge-version-panel"
-              aria-labelledby="knowledge-versions-heading"
-            >
+            <aside className="knowledge-version-panel" aria-labelledby="knowledge-versions-heading">
               <div className="knowledge-editor__section-heading">
                 <div>
                   <p className="knowledge-shell__eyebrow">VERSIONS // 0x0B</p>
@@ -854,17 +839,13 @@ export function EditorPage({
                 查看历史版本快照。恢复版本前，系统会自动为您当前的编辑内容创建安全备份。
               </p>
               {!versions || versions.length === 0 ? (
-                <p className="knowledge-empty-state">
-                  暂无历史快照。点击顶栏“保存快照”创建。
-                </p>
+                <p className="knowledge-empty-state">暂无历史快照。点击顶栏“保存快照”创建。</p>
               ) : (
                 <ul className="knowledge-version-list">
                   {versions.map((ver) => (
                     <li className="knowledge-version-row" key={ver.id}>
                       <div className="knowledge-version-row__info">
-                        <strong>
-                          {new Date(ver.createdAt).toLocaleString('zh-CN')}
-                        </strong>
+                        <strong>{new Date(ver.createdAt).toLocaleString('zh-CN')}</strong>
                         <span>
                           {ver.contentText
                             ? ver.contentText.slice(0, 60) +

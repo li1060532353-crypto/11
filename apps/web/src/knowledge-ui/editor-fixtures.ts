@@ -9,6 +9,7 @@ export { highlightKinds, type HighlightKind, type NoteStatus };
 
 export type EditorAsset = Pick<AssetRecord, 'id'> & {
   name: string;
+  mimeType?: string;
   sizeLabel: string;
   state: 'uploading' | 'ready' | 'error';
   progress?: number;

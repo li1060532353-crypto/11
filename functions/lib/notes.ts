@@ -1,4 +1,5 @@
-﻿import {
+﻿import type { D1Database, D1PreparedStatement } from '@cloudflare/workers-types';
+import {
   type ApiRequestFor,
   type ApiResponseFor,
   highlightKinds,

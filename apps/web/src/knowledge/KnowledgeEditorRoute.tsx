@@ -1,14 +1,16 @@
-import { EditorContent, useEditor } from '@tiptap/react';
+﻿import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { Link } from '@tiptap/extension-link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { UNSAFE_DataRouterContext, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { KnowledgeHighlight } from '../knowledge-editor/KnowledgeHighlight';
+import { KnowledgeImage } from '../knowledge-editor/KnowledgeImage';
+import { TiptapRenderer } from '../components/reading/TiptapRenderer';
 import { EditorPage, type EditorPresentationState } from '../knowledge-ui/EditorPage';
 import type { EditorViewModel } from '../knowledge-ui/editor-fixtures';
 import type {
@@ -33,6 +35,7 @@ import {
   uploadKnowledgeAsset,
 } from './knowledge-api';
 import { useNoteAutosave } from './useNoteAutosave';
+import { EditorNavigationGuard } from './EditorNavigationGuard';
 import { invalidateDynamicContent } from '../content/dynamicContentSync';
 
 type Props = { mode: 'create' | 'edit' };
@@ -86,24 +89,57 @@ const messageFor = (error: unknown) => {
     network: '网络连接失败 (The network request failed).',
     request: '文章请求处理失败 (The note request failed).',
   };
-  return (
-    messages[kind] ??
-    (error instanceof Error ? error.message : '文章加载或操作失败。')
-  );
+  return messages[kind] ?? (error instanceof Error ? error.message : '文章加载或操作失败。');
 };
 
 export function KnowledgeEditorRoute({ mode }: Props) {
   const { id } = useParams();
+  return <KnowledgeEditorSession key={mode === 'create' ? 'new' : id} mode={mode} />;
+}
+
+function KnowledgeEditorSession({ mode }: Props) {
+  const { id } = useParams();
   const navigate = useNavigate();
-  const [draft, setDraft] = useState<Draft>(initialDraft);
-  const [persistedKey, setPersistedKey] = useState(mode === 'create' ? keyOf(initialDraft) : '');
-  const [loading, setLoading] = useState(mode === 'edit');
-  const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
+  const dataRouter = useContext(UNSAFE_DataRouterContext);
+  const handoff = useRef(
+    location.state?.editorHandoff as
+      { note: NoteRecord; draft: Draft; error: string | null } | undefined,
+  );
+  const initial = handoff.current?.note.id === id ? handoff.current : undefined;
+  useEffect(() => {
+    if (!initial || !location.state?.editorHandoff) return;
+    const rest = { ...location.state };
+    delete rest.editorHandoff;
+    navigate(location.pathname + location.search + location.hash, { replace: true, state: rest });
+  }, [initial, location, navigate]);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const identity = useRef<string | null>(mode === 'edit' ? (id ?? null) : null);
+  const [loaded, setLoaded] = useState(mode === 'create' || Boolean(initial));
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [operation, setOperation] = useState<string | null>(null);
+  const operationLock = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const [draft, setDraft] = useState<Draft>(initial?.draft ?? initialDraft);
+  const [persistedKey, setPersistedKey] = useState(
+    initial ? keyOf(toDraft(initial.note)) : mode === 'create' ? keyOf(initialDraft) : '',
+  );
+  const [loading, setLoading] = useState(mode === 'edit' && !initial);
+  const [error, setError] = useState<string | null>(initial?.error ?? null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [createState, setCreateState] = useState<EditorPresentationState>('unchanged');
   const [versionState, setVersionState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
   const [assets, setAssets] = useState<EditorViewModel['assets']>([]);
   const [versions, setVersions] = useState<readonly NoteVersionRecord[]>([]);
+  const [assetError, setAssetError] = useState<string | null>(null);
+  const [assetAttempt, setAssetAttempt] = useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // Navigation intercept states for EDIT-01
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
@@ -112,18 +148,19 @@ export function KnowledgeEditorRoute({ mode }: Props) {
   const uploads = useRef(new Set<string>());
   const downloads = useRef(new Set<string>());
   const deletions = useRef(new Set<string>());
-  const createBusy = useRef(false);
-  const saveBusy = useRef(false);
-  const publishBusy = useRef(false);
-  const versionBusy = useRef(false);
 
   const draftKey = useMemo(() => keyOf(draft), [draft]);
-  const noteId = mode === 'edit' ? (id ?? null) : null;
+  const noteId = mode === 'edit' ? (id ?? null) : createdId;
+  const isNew = !noteId;
+  const latestDraft = useRef(draft);
+  latestDraft.current = draft;
+  const knownRecord = useRef<NoteRecord | null>(initial?.note ?? null);
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ link: false }),
       KnowledgeHighlight,
+      KnowledgeImage,
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -147,14 +184,18 @@ export function KnowledgeEditorRoute({ mode }: Props) {
   }, [draft.contentJson, editor]);
 
   useEffect(() => {
-    if (mode !== 'edit' || !noteId) return;
+    if (!noteId) return;
     const controller = new AbortController();
     let active = true;
+    if (knownRecord.current?.id === noteId && loadAttempt === 0) return;
     setLoading(true);
+    setLoaded(false);
     setError(null);
     getKnowledgeNote(noteId, controller.signal)
       .then((note) => {
         if (!active) return;
+        knownRecord.current = note;
+        setLoaded(true);
         const next = toDraft(note);
         setDraft(next);
         setPersistedKey(keyOf(next));
@@ -167,75 +208,100 @@ export function KnowledgeEditorRoute({ mode }: Props) {
         }
       });
 
-    if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
-      listKnowledgeAssets(noteId, controller.signal)
-        .then((records) => {
-          if (!active) return;
-          setAssets(
-            records.map((r) => ({
-              id: r.id,
-              name: r.originalName,
-              sizeLabel: `${(r.sizeBytes / 1024).toFixed(1)} KB`,
-              state: 'ready',
-            })),
-          );
-        })
-        .catch(() => {});
-    }
     return () => {
       active = false;
       controller.abort();
     };
-  }, [mode, noteId]);
+  }, [noteId, loadAttempt]);
+
+  useEffect(() => {
+    if (!noteId || !loaded) return;
+    const controller = new AbortController();
+    setAssetError(null);
+    listKnowledgeAssets(noteId, controller.signal)
+      .then((records) => {
+        if (controller.signal.aborted) return;
+        setAssets((current) => [
+          ...records
+            .filter((asset) => !current.some((row) => row.id === asset.id))
+            .map((asset) => ({
+              id: asset.id,
+              name: asset.originalName,
+              mimeType: asset.mimeType,
+              sizeLabel: `${(asset.sizeBytes / 1024).toFixed(1)} KB`,
+              state: 'ready' as const,
+            })),
+          ...current,
+        ]);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAssetError('附件列表加载失败，请重试。');
+      });
+    return () => controller.abort();
+  }, [noteId, loaded, assetAttempt]);
 
   // Draft auto-save callback: strictly updates draft fields only
   const persist = useCallback(
     async (snapshot: string, signal: AbortSignal) => {
       if (!noteId) return;
       const currentDraft = JSON.parse(snapshot) as Draft;
+      if (!currentDraft.slug.trim()) {
+        setError('文章路径不能为空，请填写后再保存。');
+        throw new Error('文章路径不能为空。');
+      }
       const payload: UpdateNoteRequest = {
         title: currentDraft.title,
         summary: currentDraft.summary,
         contentJson: currentDraft.contentJson,
         category: currentDraft.category,
-        status: currentDraft.status,
         isPinned: currentDraft.isPinned,
         isFeatured: currentDraft.isFeatured,
         ...(currentDraft.slug ? { slug: currentDraft.slug } : {}),
         tags: currentDraft.tags,
       };
-      await updateKnowledgeNote(noteId, payload, signal);
+      const saved = await updateKnowledgeNote(noteId, payload, signal);
+      knownRecord.current = saved;
+      const acknowledged = toDraft(saved);
+      const next = { ...latestDraft.current };
+      for (const key of Object.keys(acknowledged) as Array<keyof Draft>) {
+        if (JSON.stringify(next[key]) === JSON.stringify(currentDraft[key]))
+          Object.assign(next, { [key]: acknowledged[key] });
+      }
+      latestDraft.current = next;
+      setDraft(next);
       invalidateDynamicContent();
+      return { persistedValue: keyOf(acknowledged), value: keyOf(next) };
     },
     [noteId],
   );
 
   const autosave = useNoteAutosave({
-    enabled: mode === 'edit' && !loading && Boolean(noteId),
+    enabled: loaded && !loading && Boolean(noteId),
+    paused: Boolean(operation),
     value: draftKey,
     persistedValue: persistedKey,
     save: persist,
     onPersisted: setPersistedKey,
   });
 
-  const isDirty = mode === 'edit' ? autosave.dirty : draftKey !== persistedKey;
+  const isDirty = noteId ? autosave.dirty : draftKey !== persistedKey;
 
   // EDIT-01: Native beforeunload listener
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (isDirty) {
+      if (isDirty || operation || autosave.state === 'saving') {
         event.preventDefault();
         event.returnValue = '';
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty]);
+  }, [isDirty, operation, autosave.state]);
 
   // EDIT-01: SPA navigation guard via capturing window click listener
   useEffect(() => {
     const handleLinkClick = (e: MouseEvent) => {
-      if (!isDirty) return;
+      if (dataRouter || (!isDirty && !operation && autosave.state !== 'saving')) return;
       const target = (e.target as HTMLElement)?.closest('a');
       if (!target) return;
       const href = target.getAttribute('href');
@@ -260,228 +326,224 @@ export function KnowledgeEditorRoute({ mode }: Props) {
 
     window.addEventListener('click', handleLinkClick, true);
     return () => window.removeEventListener('click', handleLinkClick, true);
-  }, [isDirty]);
+  }, [dataRouter, isDirty, operation, autosave.state]);
 
-  // Manual save handler
-  const manualSave = useCallback(async (): Promise<boolean> => {
-    if (saveBusy.current) return false;
-    saveBusy.current = true;
+  const beginOperation = (name: string) => {
+    if (operationLock.current || !loaded) return false;
+    operationLock.current = true;
+    setOperation(name);
     setError(null);
+    return true;
+  };
+  const endOperation = () => {
+    operationLock.current = false;
+    if (mounted.current) setOperation(null);
+  };
 
+  const ensureIdentity = async (): Promise<NoteRecord> => {
+    if (identity.current && knownRecord.current) return knownRecord.current;
+    const snapshot = latestDraft.current;
+    setCreateState('saving');
     try {
-      if (mode === 'edit') {
-        const saved = await autosave.saveCurrent();
-        if (!saved) {
-          setError('文章保存失败。');
-        } else {
-          invalidateDynamicContent();
+      const created = await createKnowledgeNote({
+        ...snapshot,
+        status: 'draft',
+        ...(snapshot.slug ? { slug: snapshot.slug } : { slug: undefined }),
+      } as CreateNoteRequest);
+      identity.current = created.id;
+      knownRecord.current = created;
+      const acknowledged = toDraft(created);
+      const next = { ...latestDraft.current };
+      for (const key of Object.keys(acknowledged) as Array<keyof Draft>) {
+        if (JSON.stringify(next[key]) === JSON.stringify(snapshot[key])) {
+          Object.assign(next, { [key]: acknowledged[key] });
         }
-        return saved;
       }
-
-      if (createBusy.current) return false;
-      createBusy.current = true;
-      try {
-        setCreateState('saving');
-        const payload: CreateNoteRequest = {
-          title: draft.title,
-          summary: draft.summary,
-          contentJson: draft.contentJson,
-          category: draft.category,
-          status: draft.status,
-          isPinned: draft.isPinned,
-          isFeatured: draft.isFeatured,
-          ...(draft.slug ? { slug: draft.slug } : {}),
-          tags: draft.tags,
-        };
-        const created = await createKnowledgeNote(payload);
-        invalidateDynamicContent();
-        const next = toDraft(created);
-        setDraft(next);
-        setPersistedKey(keyOf(next));
-        setCreateState('saved');
-        navigate(`/knowledge/notes/${created.id}`, { replace: true });
-        return true;
-      } catch (reason) {
-        setCreateState('failed');
-        setError(messageFor(reason));
-        return false;
-      } finally {
-        createBusy.current = false;
-      }
-    } finally {
-      saveBusy.current = false;
+      latestDraft.current = next;
+      setDraft(next);
+      setPersistedKey(keyOf(acknowledged));
+      setCreatedId(created.id);
+      setCreateState('saved');
+      invalidateDynamicContent();
+      return created;
+    } catch (reason) {
+      setCreateState('failed');
+      throw reason;
     }
-  }, [autosave, draft, mode, navigate]);
+  };
 
-  // Load versions
+  // Creation can finish while typing continues. Flush directly using its new identity,
+  // since the autosave hook in this render may still belong to the /new session.
+  const flushCreated = async (): Promise<NoteRecord> => {
+    let record = knownRecord.current!;
+    while (keyOf(latestDraft.current) !== keyOf(toDraft(record))) {
+      const snapshot = latestDraft.current;
+      const { slug, ...fields } = snapshot;
+      const { status, ...editableFields } = fields;
+      void status;
+      record = await updateKnowledgeNote(identity.current!, {
+        ...editableFields,
+        ...(slug ? { slug } : {}),
+      });
+      knownRecord.current = record;
+      const acknowledged = toDraft(record);
+      const next = { ...latestDraft.current };
+      for (const key of Object.keys(acknowledged) as Array<keyof Draft>) {
+        if (JSON.stringify(next[key]) === JSON.stringify(snapshot[key]))
+          Object.assign(next, { [key]: acknowledged[key] });
+      }
+      latestDraft.current = next;
+      setDraft(next);
+      setPersistedKey(keyOf(acknowledged));
+      invalidateDynamicContent();
+    }
+    return record;
+  };
+
+  const openPersistedEditor = (record: NoteRecord, failure: string | null = null) => {
+    navigate('/knowledge/notes/' + record.id, {
+      replace: true,
+      state: {
+        editorHandoff: { note: record, draft: latestDraft.current, error: failure },
+      },
+    });
+  };
+
+  const manualSave = async (stayOnPage = false): Promise<boolean> => {
+    if (!beginOperation('save')) return false;
+    try {
+      if (!identity.current) {
+        let created = await ensureIdentity();
+        if (stayOnPage) created = await flushCreated();
+        if (!stayOnPage) openPersistedEditor(created);
+        return true;
+      }
+      const saved = await autosave.saveCurrent();
+      if (!saved) setError('文章保存失败。');
+      return saved;
+    } catch (reason) {
+      setError(messageFor(reason));
+      return false;
+    } finally {
+      endOperation();
+    }
+  };
+
   const loadVersions = useCallback(async () => {
     if (!noteId) return;
     try {
-      const records = await listKnowledgeNoteVersions(noteId);
-      setVersions(records);
-    } catch {
-      // Non-fatal
+      setVersions(await listKnowledgeNoteVersions(noteId));
+    } catch (reason) {
+      setError(messageFor(reason));
     }
   }, [noteId]);
 
-  // Save version snapshot
-  const saveVersion = useCallback(async () => {
-    if (!noteId || versionBusy.current) return;
-    versionBusy.current = true;
+  const saveVersion = async () => {
+    if (!noteId || !beginOperation('version')) return;
     setVersionState('saving');
-    setError(null);
     try {
-      if (!(await autosave.saveCurrent())) throw new Error('save failed');
+      if (!(await autosave.saveCurrent()))
+        throw new Error('Save current changes before creating a version.');
       await createKnowledgeNoteVersion(noteId);
       setVersionState('saved');
+      await loadVersions();
       setToastMessage('版本快照已成功创建。');
     } catch (reason) {
       setVersionState('failed');
+      setError(messageFor(reason));
+    } finally {
+      endOperation();
+    }
+  };
+
+  const restoreVersion = async (version: NoteVersionRecord) => {
+    if (!noteId || !editor || !beginOperation('restore')) return;
+    // Keep the protected revision stable until the backup operation finishes.
+    editor.setEditable(false);
+    try {
+      if (!(await autosave.saveCurrent())) throw new Error('backup failed');
+      await createKnowledgeNoteVersion(noteId);
+      editor.commands.setContent(JSON.parse(version.contentJson), { emitUpdate: true });
+      setDraft((current) => ({ ...current, contentJson: version.contentJson }));
+      await loadVersions();
+      setToastMessage('已成功恢复旧版本，原编辑内容已备份至版本历史。');
+    } catch {
       setError(
-        reason instanceof Error && reason.message === 'save failed'
-          ? 'Save current changes before creating a version.'
-          : messageFor(reason),
+        '安全保护失败：无法为当前正在编辑的内容创建安全备份快照。为防止您的工作丢失，系统已终止恢复。',
       );
     } finally {
-      versionBusy.current = false;
+      editor.setEditable(true);
+      endOperation();
     }
-  }, [autosave, loadVersions, noteId]);
+  };
 
-  // Fail-Safe Version Restore (VER-01, VER-02)
-  const restoreVersion = useCallback(
-    async (version: NoteVersionRecord) => {
-      if (!noteId || !editor) return;
-      setError(null);
-
-      // 步骤 1: 强制保存当前工作草稿
-      let saved: boolean;
-      try {
-        saved = await autosave.saveCurrent();
-      } catch {
-        saved = false;
-      }
-      if (!saved) {
-        setError(
-          '安全保护失败：无法为当前正在编辑的内容创建安全备份快照。为防止您的工作丢失，系统已终止恢复。',
-        );
-        return;
-      }
-
-      // 步骤 2: 为当前工作区创建安全保护快照
-      let versionCreated: boolean;
-      try {
-        await createKnowledgeNoteVersion(noteId);
-        versionCreated = true;
-      } catch {
-        versionCreated = false;
-      }
-      if (!versionCreated) {
-        setError(
-          '安全保护失败：无法为当前正在编辑的内容创建安全备份快照。为防止您的工作丢失，系统已终止恢复。',
-        );
-        return;
-      }
-
-      // 强熔断校验：仅当前两步均成功确认后，才将历史版本的 contentJson 载入编辑器
-      try {
-        const doc = JSON.parse(version.contentJson);
-        editor.commands.setContent(doc, { emitUpdate: true });
-        setDraft((prev) => ({ ...prev, contentJson: version.contentJson }));
-        await loadVersions();
-        setToastMessage('已成功恢复旧版本，原编辑内容已备份至版本历史。');
-      } catch {
-        setError('恢复历史版本失败：文档格式不兼容。');
-      }
-    },
-    [autosave, editor, loadVersions, noteId],
-  );
-
-  // Publish / Update Publish
-  const publish = useCallback(async () => {
-    if (publishBusy.current) return;
-    if (!draft.title.trim()) {
+  const publish = async () => {
+    if (!latestDraft.current.title.trim()) {
       setError('发布失败：文章标题不能为空。');
       return;
     }
-
-    publishBusy.current = true;
-    setError(null);
-
+    if (!beginOperation('publish')) return;
+    const wasNew = !identity.current;
+    let failure: string | null = null;
     try {
-      let currentId = noteId;
-      if (mode === 'edit') {
-        const saved = await autosave.saveCurrent();
-        if (!saved) {
-          setError('发布前保存草稿失败，请重试。');
-          return;
-        }
-      } else {
-        // Create note first
-        setCreateState('saving');
-        const payload: CreateNoteRequest = {
-          title: draft.title,
-          summary: draft.summary,
-          contentJson: draft.contentJson,
-          category: draft.category,
-          status: 'draft',
-          isPinned: draft.isPinned,
-          isFeatured: draft.isFeatured,
-          ...(draft.slug ? { slug: draft.slug } : {}),
-          tags: draft.tags,
-        };
-        const created = await createKnowledgeNote(payload);
-        currentId = created.id;
-        const nextDraft = toDraft(created);
-        setDraft(nextDraft);
-        setPersistedKey(keyOf(nextDraft));
-      }
-
-      if (!currentId) return;
-
-      const published = await publishKnowledgeNote(currentId);
+      if (wasNew) {
+        await ensureIdentity();
+        await flushCreated();
+      } else if (!(await autosave.saveCurrent())) throw new Error('发布前保存草稿失败，请重试。');
+      const currentId = identity.current!;
+      // On first publication, creation already acknowledged its exact snapshot.
+      const record = knownRecord.current!;
+      const published = await publishKnowledgeNote(currentId, {
+        expectedUpdatedAt: record.updatedAt,
+      });
+      knownRecord.current = published;
       invalidateDynamicContent();
-      const next = toDraft(published);
-      setDraft(next);
-      setPersistedKey(keyOf(next));
-      setToastMessage(
-        draft.status === 'published' ? '更新发布成功！' : '发布文章成功！文章已正式上线。',
-      );
-
-      if (mode === 'create') {
-        navigate(`/knowledge/notes/${published.id}`, { replace: true });
-      }
+      latestDraft.current = { ...latestDraft.current, status: published.status };
+      setDraft(latestDraft.current);
+      setPersistedKey(keyOf(toDraft(published)));
+      setToastMessage('发布文章成功！');
     } catch (reason) {
-      setError(messageFor(reason));
+      failure = messageFor(reason);
+      if (!wasNew || !knownRecord.current) setError(failure);
     } finally {
-      publishBusy.current = false;
+      if (wasNew && knownRecord.current) openPersistedEditor(knownRecord.current, failure);
+      else endOperation();
     }
-  }, [autosave, draft, mode, navigate, noteId]);
+  };
 
-  // Unpublish / Retract to draft
-  const unpublish = useCallback(async () => {
-    if (!noteId || publishBusy.current) return;
-    publishBusy.current = true;
-    setError(null);
+  const unpublish = async () => {
+    if (!noteId || !beginOperation('unpublish')) return;
     try {
+      if (!(await autosave.saveCurrent())) throw new Error('撤回前保存草稿失败，请重试。');
       const unpublished = await unpublishKnowledgeNote(noteId);
+      knownRecord.current = unpublished;
       invalidateDynamicContent();
-      const next = toDraft(unpublished);
-      setDraft(next);
-      setPersistedKey(keyOf(next));
+      latestDraft.current = { ...latestDraft.current, status: 'draft' };
+      setDraft(latestDraft.current);
+      setPersistedKey(keyOf(toDraft(unpublished)));
       setToastMessage('文章已成功撤回为草稿，前台已下架。');
     } catch (reason) {
       setError(messageFor(reason));
     } finally {
-      publishBusy.current = false;
+      endOperation();
     }
-  }, [noteId]);
+  };
 
   // Insert asset node / link into editor
   const insertAsset = useCallback(
     (asset: EditorViewModel['assets'][number]) => {
       if (!editor) return;
-      const isImage = /\.(png|jpe?g|webp|gif|svg)$/i.test(asset.name);
+      const isImage = asset.mimeType
+        ? /^image\/(png|jpeg|webp|gif)$/.test(asset.mimeType)
+        : /\.(png|jpe?g|webp|gif)$/i.test(asset.name);
+      if (isImage) {
+        editor
+          .chain()
+          .focus()
+          .insertContent({ type: 'image', attrs: { assetId: asset.id, alt: asset.name } })
+          .run();
+        return;
+      }
       const href = `/api/assets/${encodeURIComponent(asset.id)}`;
       const text = isImage ? `🖼️ ${asset.name}` : `📎 ${asset.name}`;
       editor
@@ -527,6 +589,7 @@ export function KnowledgeEditorRoute({ mode }: Props) {
               ? {
                   id: asset.id,
                   name: asset.originalName,
+                  mimeType: asset.mimeType,
                   sizeLabel: `${(asset.sizeBytes / 1024).toFixed(1)} KB`,
                   state: 'ready',
                 }
@@ -591,32 +654,71 @@ export function KnowledgeEditorRoute({ mode }: Props) {
     [assets, noteId],
   );
 
-  const removeAsset = useCallback(async (assetId: string) => {
-    if (deletions.current.has(assetId)) return;
-    deletions.current.add(assetId);
-    setAssets((current) =>
-      current.map((asset) =>
-        asset.id === assetId ? { ...asset, busy: 'delete', errorMessage: undefined } : asset,
-      ),
-    );
-    try {
-      await deleteKnowledgeAsset(assetId);
-      setAssets((current) => current.filter((asset) => asset.id !== assetId));
-    } catch {
+  const removeAsset = useCallback(
+    async (assetId: string) => {
+      if (deletions.current.has(assetId)) return;
+      if (operation || autosave.state === 'saving') {
+        setError('正在保存文章，请等待完成后再删除附件。');
+        return;
+      }
+      const referenced = (node: {
+        type?: string;
+        attrs?: { assetId?: string };
+        marks?: Array<{ attrs?: { href?: string } }>;
+        content?: unknown[];
+      }): boolean =>
+        (node.type === 'image' && node.attrs?.assetId === assetId) ||
+        Boolean(node.marks?.some((mark) => mark.attrs?.href === '/api/assets/' + assetId)) ||
+        Boolean(
+          node.content?.some((child) => referenced(child as Parameters<typeof referenced>[0])),
+        );
+      try {
+        if (referenced(JSON.parse(latestDraft.current.contentJson))) {
+          setAssets((current) =>
+            current.map((asset) =>
+              asset.id === assetId
+                ? { ...asset, errorMessage: '附件仍被当前正文引用，请先移除引用并保存。' }
+                : asset,
+            ),
+          );
+          return;
+        }
+      } catch {
+        setError('无法检查正文引用，已取消删除附件。');
+        return;
+      }
+      deletions.current.add(assetId);
       setAssets((current) =>
         current.map((asset) =>
-          asset.id === assetId
-            ? { ...asset, errorMessage: 'The attachment could not be deleted.' }
-            : asset,
+          asset.id === assetId ? { ...asset, busy: 'delete', errorMessage: undefined } : asset,
         ),
       );
-    } finally {
-      deletions.current.delete(assetId);
-      setAssets((current) =>
-        current.map((asset) => (asset.id === assetId ? { ...asset, busy: undefined } : asset)),
-      );
-    }
-  }, []);
+      try {
+        await deleteKnowledgeAsset(assetId);
+        setAssets((current) => current.filter((asset) => asset.id !== assetId));
+      } catch (reason) {
+        setAssets((current) =>
+          current.map((asset) =>
+            asset.id === assetId
+              ? {
+                  ...asset,
+                  errorMessage:
+                    (reason as KnowledgeApiFailure)?.code === 'ASSET_IN_USE'
+                      ? '附件仍被草稿、已发布文章或历史快照引用，无法删除。'
+                      : 'The attachment could not be deleted.',
+                }
+              : asset,
+          ),
+        );
+      } finally {
+        deletions.current.delete(assetId);
+        setAssets((current) =>
+          current.map((asset) => (asset.id === assetId ? { ...asset, busy: undefined } : asset)),
+        );
+      }
+    },
+    [operation, autosave.state],
+  );
 
   const model: EditorViewModel = {
     id: noteId ?? undefined,
@@ -624,14 +726,13 @@ export function KnowledgeEditorRoute({ mode }: Props) {
     assets,
   };
 
-  const state: EditorPresentationState =
-    mode === 'create'
-      ? createState === 'saving' || createState === 'failed'
-        ? createState
-        : draftKey === persistedKey
-          ? 'unchanged'
-          : 'unsaved'
-      : autosave.state;
+  const state: EditorPresentationState = isNew
+    ? createState === 'saving' || createState === 'failed'
+      ? createState
+      : draftKey === persistedKey
+        ? 'unchanged'
+        : 'unsaved'
+    : autosave.state;
 
   if (loading)
     return (
@@ -640,15 +741,28 @@ export function KnowledgeEditorRoute({ mode }: Props) {
       </p>
     );
 
-  if (error && mode === 'edit' && !noteId)
+  if (!loaded && !loading)
     return (
       <p className="knowledge-message knowledge-message--error" role="alert">
         {error}
+        <button type="button" onClick={() => setLoadAttempt((n) => n + 1)}>
+          重试加载
+        </button>
       </p>
     );
 
   return (
     <>
+      {dataRouter ? (
+        <EditorNavigationGuard
+          dirty={isDirty}
+          busy={Boolean(operation) || autosave.state === 'saving'}
+          onSave={() => manualSave(true)}
+          allowedPath={() =>
+            identity.current ? '/knowledge/notes/' + identity.current : undefined
+          }
+        />
+      ) : null}
       {error ? (
         <p className="knowledge-message knowledge-message--error" role="alert">
           {error}
@@ -673,7 +787,10 @@ export function KnowledgeEditorRoute({ mode }: Props) {
         model={model}
         state={state}
         versionState={versionState}
-        isNew={mode === 'create'}
+        isNew={isNew}
+        saveBusy={Boolean(operation)}
+        publishBusy={Boolean(operation)}
+        onPreview={() => setPreviewOpen(true)}
         attachmentUnavailableMessage={noteId ? undefined : '附件上传会在笔记首次保存后可用。'}
         editor={editor}
         documentSlot={editor ? <EditorContent editor={editor} /> : <p>Loading document editor</p>}
@@ -741,7 +858,7 @@ export function KnowledgeEditorRoute({ mode }: Props) {
         }}
         onInsertAsset={insertAsset}
         versions={versions}
-        {...(mode === 'edit'
+        {...(noteId
           ? {
               onSaveVersion: () => {
                 void saveVersion();
@@ -756,8 +873,42 @@ export function KnowledgeEditorRoute({ mode }: Props) {
           : {})}
       />
 
+      {assetError ? (
+        <p role="alert">
+          {assetError}{' '}
+          <button type="button" onClick={() => setAssetAttempt((n) => n + 1)}>
+            重试附件加载
+          </button>
+        </p>
+      ) : null}
+      {previewOpen ? (
+        <div className="knowledge-dialog-backdrop">
+          <section
+            className="knowledge-dialog knowledge-draft-preview"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setPreviewOpen(false);
+              if (event.key === 'Tab') {
+                event.preventDefault();
+                event.currentTarget.querySelector('button')?.focus();
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="当前草稿预览"
+          >
+            <button type="button" autoFocus onClick={() => setPreviewOpen(false)}>
+              返回编辑
+            </button>
+            <h1>{draft.title || '未命名草稿'}</h1>
+            <div className="markdown-body">
+              <TiptapRenderer content={draft.contentJson} />
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       {/* EDIT-01: 未保存离开确认模态框 */}
-      {showLeaveModal ? (
+      {!dataRouter && showLeaveModal ? (
         <div className="knowledge-dialog-backdrop">
           <section
             className="knowledge-dialog"
@@ -784,8 +935,9 @@ export function KnowledgeEditorRoute({ mode }: Props) {
               <button
                 type="button"
                 className="knowledge-button knowledge-button--secondary"
+                disabled={Boolean(operation) || autosave.state === 'saving'}
                 onClick={async () => {
-                  const ok = await manualSave();
+                  const ok = await manualSave(true);
                   if (ok && pendingNavigation) {
                     setShowLeaveModal(false);
                     navigate(pendingNavigation);
@@ -797,6 +949,7 @@ export function KnowledgeEditorRoute({ mode }: Props) {
               <button
                 type="button"
                 className="knowledge-button knowledge-danger-button"
+                disabled={Boolean(operation) || autosave.state === 'saving'}
                 onClick={() => {
                   setShowLeaveModal(false);
                   setPersistedKey(draftKey);

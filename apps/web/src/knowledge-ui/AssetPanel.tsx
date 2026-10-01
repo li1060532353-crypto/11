@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 
 import type { EditorAsset } from './editor-fixtures';
 
@@ -13,9 +13,10 @@ export type AssetPanelProps = {
   boundaryMessage?: string | undefined;
 };
 
-const isImageAsset = (name: string): boolean => {
-  return /\.(png|jpe?g|webp|gif|svg)$/i.test(name);
-};
+const isImageAsset = (asset: EditorAsset): boolean =>
+  asset.mimeType
+    ? /^image\/(png|jpeg|webp|gif)$/.test(asset.mimeType)
+    : /\.(png|jpe?g|webp|gif)$/i.test(asset.name);
 
 export function AssetPanel({
   assets,
@@ -123,7 +124,7 @@ export function AssetPanel({
       ) : (
         <ul className="knowledge-asset-list">
           {assets.map((asset) => {
-            const isImg = isImageAsset(asset.name);
+            const isImg = isImageAsset(asset);
             return (
               <li
                 className={`knowledge-asset-row ${asset.state === 'error' ? 'knowledge-asset-row--error' : ''}`}
@@ -156,6 +157,7 @@ export function AssetPanel({
                           type="button"
                           className="knowledge-button knowledge-button--quiet knowledge-button--small"
                           onClick={() => onInsert(asset)}
+                          disabled={!!asset.busy}
                           title={isImg ? '在当前光标处插入图片节点' : '在当前光标处插入附件超链接'}
                         >
                           {isImg ? '插入图片' : '插入附件'}

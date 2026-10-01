@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   ApiRequestFor,
   ApiResponse,
   ApiResponseFor,
@@ -11,6 +11,7 @@ import type {
 } from '@namdw/shared';
 
 export type KnowledgeApiFailure = {
+  code?: string;
   kind:
     | 'access'
     | 'validation'
@@ -21,7 +22,10 @@ export type KnowledgeApiFailure = {
     | 'malformed'
     | 'network';
 };
-const fail = (kind: KnowledgeApiFailure['kind']): KnowledgeApiFailure => ({ kind });
+const fail = (kind: KnowledgeApiFailure['kind'], code?: string): KnowledgeApiFailure => ({
+  kind,
+  ...(code ? { code } : {}),
+});
 
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
@@ -206,7 +210,11 @@ async function jsonRequest<T>(
     throw fail(failureKind(response.status));
   }
   if (!isEnvelope(envelope)) throw fail(response.ok ? 'malformed' : failureKind(response.status));
-  if (!response.ok || !envelope.success) throw fail(failureKind(response.status, envelope));
+  if (!response.ok || !envelope.success)
+    throw fail(
+      failureKind(response.status, envelope),
+      envelope.success ? undefined : envelope.error.code,
+    );
   if (!validator(envelope.data)) throw fail('malformed');
   return envelope.data;
 }

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+﻿import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { extractHeadingsFromDocument, TiptapRenderer } from './TiptapRenderer';
 
@@ -83,5 +83,38 @@ describe('TiptapRenderer', () => {
     expect(headings[0]?.text).toBe('第一节：概述');
     expect(headings[0]?.level).toBe(2);
     expect(headings[0]?.id).toBeDefined();
+  });
+
+  it('renders private images and separate paragraphs inside table headers and cells', () => {
+    const cellContent = [
+      { type: 'paragraph', content: [{ type: 'text', text: 'Before image' }] },
+      { type: 'image', attrs: { assetId: 'asset-123', alt: 'Private diagram' } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'After image' }] },
+    ];
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            { type: 'tableRow', content: [{ type: 'tableHeader', content: cellContent }] },
+            { type: 'tableRow', content: [{ type: 'tableCell', content: cellContent }] },
+          ],
+        },
+      ],
+    };
+    render(<TiptapRenderer content={JSON.stringify(doc)} />);
+    const images = screen.getAllByRole('img', { name: 'Private diagram' });
+    expect(images).toHaveLength(2);
+    for (const image of images) {
+      expect(image).toHaveAttribute('src', '/api/assets/asset-123?inline=1');
+      expect(image.parentElement?.tagName).toMatch(/^(?:TD|TH)$/);
+    }
+    for (const text of screen.getAllByText('Before image')) {
+      expect(text.closest('p')).toBeInTheDocument();
+    }
+    for (const text of screen.getAllByText('After image')) {
+      expect(text.closest('p')).toBeInTheDocument();
+    }
   });
 });

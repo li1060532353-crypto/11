@@ -1,94 +1,111 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorPresentationState } from '../knowledge-ui/EditorPage';
 
 type Options = {
   enabled: boolean;
+  paused?: boolean;
   value: string;
   persistedValue: string;
-  save: (snapshot: string, signal: AbortSignal) => Promise<void>;
+  save: (
+    snapshot: string,
+    signal: AbortSignal,
+  ) => Promise<void | { persistedValue: string; value: string }>;
   onPersisted: (snapshot: string) => void;
   delay?: number;
 };
 
 export function useNoteAutosave({
   enabled,
+  paused = false,
   value,
   persistedValue,
   save,
   onPersisted,
   delay = 1500,
 }: Options) {
-  const valueRef = useRef(value);
-  const persistedRef = useRef(persistedValue);
-  const activeRef = useRef<Promise<boolean> | null>(null);
-  const disposedRef = useRef(false);
+  const latest = useRef(value);
+  const acknowledged = useRef(persistedValue);
+  const externalAcknowledged = useRef(persistedValue);
+  const active = useRef<Promise<boolean> | null>(null);
+  const controller = useRef<AbortController | null>(null);
+  const disposed = useRef(false);
+  const failedSnapshot = useRef<string | null>(null);
   const [state, setState] = useState<EditorPresentationState>('unchanged');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [rescheduleGeneration, setRescheduleGeneration] = useState(0);
-  valueRef.current = value;
-  persistedRef.current = persistedValue;
-  const dirty = enabled && value !== persistedValue;
+  const [generation, setGeneration] = useState(0);
+  latest.current = value;
+  if (externalAcknowledged.current !== persistedValue) {
+    externalAcknowledged.current = persistedValue;
+    acknowledged.current = persistedValue;
+  }
 
-  const saveCurrent = useCallback(async (): Promise<boolean> => {
-    if (!enabled || valueRef.current === persistedRef.current) {
-      if (!disposedRef.current) setState('unchanged');
-      return true;
-    }
-    if (activeRef.current) {
-      await activeRef.current;
-      return saveCurrent();
-    }
-    const snapshot = valueRef.current;
-    const controller = new AbortController();
+  const saveOnce = useCallback((): Promise<boolean> => {
+    if (active.current) return active.current;
+    if (!enabled || disposed.current) return Promise.resolve(false);
+    if (latest.current === acknowledged.current) return Promise.resolve(true);
+    const snapshot = latest.current;
+    const abort = new AbortController();
+    controller.current = abort;
+    setState('saving');
     const request = (async () => {
-      if (!disposedRef.current) setState('saving');
       try {
-        await save(snapshot, controller.signal);
-        if (disposedRef.current || snapshot !== valueRef.current) return false;
-        onPersisted(snapshot);
-        if (!disposedRef.current) {
-          setState('saved');
-          setLastSavedAt(new Date());
-        }
+        const result = await save(snapshot, abort.signal);
+        if (disposed.current || abort.signal.aborted) return false;
+        // An old response cannot replace local edits, but it DID change the server.
+        failedSnapshot.current = null;
+        acknowledged.current = result?.persistedValue ?? snapshot;
+        if (result) latest.current = result.value;
+        onPersisted(acknowledged.current);
+        setLastSavedAt(new Date());
+        setState(acknowledged.current === latest.current ? 'saved' : 'unsaved');
         return true;
       } catch {
-        if (!disposedRef.current && snapshot === valueRef.current) setState('failed');
+        if (!disposed.current && !abort.signal.aborted) {
+          failedSnapshot.current = snapshot;
+          setState(snapshot === latest.current ? 'failed' : 'unsaved');
+        }
         return false;
       } finally {
-        activeRef.current = null;
-        if (!disposedRef.current && snapshot !== valueRef.current) {
-          setState('unsaved');
-          setRescheduleGeneration((generation) => generation + 1);
-        }
+        active.current = null;
+        if (!disposed.current && snapshot !== latest.current) setGeneration((n) => n + 1);
       }
     })();
-    activeRef.current = request;
+    active.current = request;
     return request;
   }, [enabled, onPersisted, save]);
 
+  const saveCurrent = useCallback(async (): Promise<boolean> => {
+    if (!enabled || disposed.current) return false;
+    // Always settle an earlier write before checking whether the latest text is saved.
+    while (!disposed.current) {
+      if (active.current) {
+        if (!(await active.current)) return false;
+      } else if (latest.current === acknowledged.current) {
+        return true;
+      } else if (!(await saveOnce())) {
+        return false;
+      }
+    }
+    return false;
+  }, [enabled, saveOnce]);
+
   useEffect(() => {
-    disposedRef.current = false;
-    if (!enabled) {
-      setState('unchanged');
+    if (!enabled || paused || value === acknowledged.current || value === failedSnapshot.current)
       return;
-    }
-    if (value === persistedValue) return;
-    if (activeRef.current) {
-      setState('unsaved');
-      return;
-    }
+    if (active.current) return;
     setState('unsaved');
     const timer = window.setTimeout(() => {
-      void saveCurrent();
+      void saveOnce();
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [delay, enabled, persistedValue, rescheduleGeneration, saveCurrent, value]);
-  useEffect(
-    () => () => {
-      disposedRef.current = true;
-    },
-    [],
-  );
-  return { dirty, state, saveCurrent, lastSavedAt };
+  }, [delay, enabled, paused, value, persistedValue, generation, saveOnce]);
+
+  useEffect(() => {
+    disposed.current = false;
+    return () => {
+      disposed.current = true;
+      controller.current?.abort();
+    };
+  }, []);
+  return { dirty: enabled && value !== acknowledged.current, state, saveCurrent, lastSavedAt };
 }

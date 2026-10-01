@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+﻿import { type ReactNode } from 'react';
 import type { TiptapDocument, TiptapNode } from '@namdw/shared';
 import { CodeBlock } from './CodeBlock';
 import type { ArticleHeading } from './MarkdownRenderer';
@@ -118,6 +118,19 @@ export function TiptapRenderer({ content }: { content: TiptapDocument | string }
 
   const renderBlock = (node: TiptapNode, index: number): ReactNode => {
     switch (node.type) {
+      case 'image': {
+        const id = node.attrs?.assetId;
+        if (typeof id !== 'string' || !/^[A-Za-z0-9-]+$/.test(id)) return null;
+        return (
+          <img
+            key={`image-${index}`}
+            src={`/api/assets/${encodeURIComponent(id)}?inline=1`}
+            alt={typeof node.attrs?.alt === 'string' ? node.attrs.alt : ''}
+            loading="lazy"
+            style={{ maxWidth: '100%', height: 'auto' }}
+          />
+        );
+      }
       case 'heading': {
         const level = Number(node.attrs?.level ?? 1);
         const text = getNodeText(node).trim();
@@ -228,9 +241,7 @@ export function TiptapRenderer({ content }: { content: TiptapDocument | string }
               colSpan={colSpan}
               rowSpan={rowSpan}
             >
-              {cell.content?.map((c, cIdx) => (
-                <span key={`cell-c-${cIdx}`}>{renderInline(c.content)}</span>
-              ))}
+              {cell.content?.map((child, childIdx) => renderBlock(child, childIdx))}
             </Tag>
           );
         };

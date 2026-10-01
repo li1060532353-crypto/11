@@ -1,4 +1,4 @@
-.knowledge-shell {
+﻿.knowledge-shell {
   box-sizing: border-box;
   color: var(--color-ink, #1d1d1f);
   margin: 0 auto;
@@ -1825,3 +1825,13 @@
   }
 }
 
+
+.knowledge-draft-preview {
+  width: min(900px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.knowledge-draft-preview img {
+  max-width: 100%;
+  height: auto;
+}

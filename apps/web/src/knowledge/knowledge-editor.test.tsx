@@ -1,8 +1,13 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+﻿import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Link, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type * as KnowledgeApi from './knowledge-api';
 import { KnowledgeEditorRoute } from './KnowledgeEditorRoute';
+vi.mock('./knowledge-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof KnowledgeApi>()),
+  listKnowledgeAssets: vi.fn().mockResolvedValue([]),
+}));
 
 const note = {
   id: 'n1',
@@ -25,7 +30,7 @@ const note = {
 const response = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-function renderEditor(path = '/knowledge/notes/n1', mode: 'create' | 'edit' = 'edit') {
+function renderEditor(path = '/knowledge/notes/n1') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <div>
@@ -41,7 +46,7 @@ function renderEditor(path = '/knowledge/notes/n1', mode: 'create' | 'edit' = 'e
           <Route path="/knowledge" element={<div data-testid="page-overview">概览页</div>} />
           <Route path="/knowledge/notes" element={<div data-testid="page-notes">文章列表页</div>} />
           <Route path="/knowledge/notes/new" element={<KnowledgeEditorRoute mode="create" />} />
-          <Route path="/knowledge/notes/:id" element={<KnowledgeEditorRoute mode={mode} />} />
+          <Route path="/knowledge/notes/:id" element={<KnowledgeEditorRoute mode="edit" />} />
         </Routes>
       </div>
     </MemoryRouter>,
@@ -67,7 +72,7 @@ describe('knowledge editor mutation integration', () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       response({ success: true, data: { ...note, id: 'created' } }, 201),
     );
-    renderEditor('/knowledge/notes/new', 'create');
+    renderEditor('/knowledge/notes/new');
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Created note' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
@@ -84,7 +89,7 @@ describe('knowledge editor mutation integration', () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       response({ success: false, error: { code: 'VALIDATION_ERROR', message: 'raw' } }, 400),
     );
-    renderEditor('/knowledge/notes/new', 'create');
+    renderEditor('/knowledge/notes/new');
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Rejected note' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
@@ -277,19 +282,24 @@ describe('knowledge editor mutation integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Version' }));
     await waitFor(() =>
       expect(
-        vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/versions')),
+        vi
+          .mocked(fetch)
+          .mock.calls.filter(
+            ([url, init]) => String(url).endsWith('/versions') && init?.method === 'POST',
+          ),
       ).toHaveLength(1),
     );
     expect(
       vi
         .mocked(fetch)
-        .mock.calls.map(([url]) => String(url))
+        .mock.calls.filter(([, init]) => init?.method === 'PATCH' || init?.method === 'POST')
+        .map(([url]) => String(url))
         .slice(-2),
     ).toEqual(['/api/notes/n1', '/api/notes/n1/versions']);
   });
 
   it('blocks attachment uploads until a new note has been saved', async () => {
-    renderEditor('/knowledge/notes/new', 'create');
+    renderEditor('/knowledge/notes/new');
     expect(screen.getByLabelText('附件上传')).toBeDisabled();
     expect(screen.getByText('附件上传会在笔记首次保存后可用。')).toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
@@ -377,7 +387,7 @@ describe('knowledge editor mutation integration', () => {
   });
 
   it('EDIT-01: intercepts SPA navigation when unsaved changes exist and provides leave guard modal', async () => {
-    renderEditor('/knowledge/notes/new', 'create');
+    renderEditor('/knowledge/notes/new');
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: '未保存重要草稿' } });
 
     // Click external navigation link while dirty
@@ -455,7 +465,9 @@ describe('knowledge editor mutation integration', () => {
     const publishedNote = { ...note, status: 'published' as const };
     vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: publishedNote }));
     renderEditor();
-    await waitFor(() => expect(screen.getByRole('button', { name: '撤回为草稿' })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '撤回为草稿' })).toBeInTheDocument(),
+    );
 
     vi.mocked(fetch).mockResolvedValueOnce(
       response({ success: true, data: { ...publishedNote, status: 'draft' } }),
@@ -483,7 +495,8 @@ describe('knowledge editor mutation integration', () => {
     // Open versions list
     const historicalVersion = {
       id: 'v-ancient',
-      contentJson: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Ancient text"}]}]}',
+      contentJson:
+        '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Ancient text"}]}]}',
       contentText: 'Ancient text',
       createdAt: '2026-09-01T00:00:00.000Z',
     };
@@ -493,7 +506,10 @@ describe('knowledge editor mutation integration', () => {
 
     // Inject failure: POST /versions returns 500
     vi.mocked(fetch).mockResolvedValueOnce(
-      response({ success: false, error: { code: 'PRE_RESTORE_BACKUP_FAILED', message: 'D1 error' } }, 500),
+      response(
+        { success: false, error: { code: 'PRE_RESTORE_BACKUP_FAILED', message: 'D1 error' } },
+        500,
+      ),
     );
 
     // Attempt to restore historical version
@@ -517,7 +533,8 @@ describe('knowledge editor mutation integration', () => {
 
     const historicalVersion = {
       id: 'v-ancient',
-      contentJson: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Historical Content"}]}]}',
+      contentJson:
+        '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Historical Content"}]}]}',
       contentText: 'Historical Content',
       createdAt: '2026-09-01T00:00:00.000Z',
     };
@@ -529,13 +546,13 @@ describe('knowledge editor mutation integration', () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       response({ success: true, data: { ...historicalVersion, id: 'v-backup' } }, 201),
     );
-    vi.mocked(fetch).mockResolvedValueOnce(
-      response({ success: true, data: [historicalVersion] }),
-    );
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: [historicalVersion] }));
 
     fireEvent.click(screen.getByRole('button', { name: '恢复此版本' }));
     await waitFor(() => {
-      expect(screen.getByText('已成功恢复旧版本，原编辑内容已备份至版本历史。')).toBeInTheDocument();
+      expect(
+        screen.getByText('已成功恢复旧版本，原编辑内容已备份至版本历史。'),
+      ).toBeInTheDocument();
     });
   });
 
