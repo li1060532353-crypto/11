@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+﻿import { describe, expect, it, vi } from 'vitest';
 
 import {
   createNoteService,
@@ -116,6 +116,37 @@ function store() {
 }
 
 describe('note service', () => {
+  it('checks raster asset ownership on create, edit, publish and restore', async () => {
+    const { noteStore } = store();
+    const imageJson = JSON.stringify({
+      type: 'doc',
+      content: [{ type: 'image', attrs: { assetId: 'asset-1', alt: 'Diagram' } }],
+    });
+    const findImageAsset = vi.fn(async () => ({ noteId: 'other-note', mimeType: 'image/png' }));
+    const service = createNoteService({ ...noteStore, findImageAsset }, () => 'id-1');
+    await expect(service.create({ ...base, contentJson: imageJson })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    const note = await service.create(base);
+    await expect(service.update(note.id, { contentJson: imageJson })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    findImageAsset.mockResolvedValue({ noteId: note.id, mimeType: 'application/pdf' });
+    await expect(service.update(note.id, { contentJson: imageJson })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    findImageAsset.mockResolvedValue({ noteId: note.id, mimeType: 'image/png' });
+    expect((await service.update(note.id, { contentJson: imageJson }))?.contentText).toBe(
+      'Diagram',
+    );
+    const version = await service.saveVersion(note.id);
+    findImageAsset.mockResolvedValue({ noteId: 'other-note', mimeType: 'image/png' });
+    await expect(service.publish(note.id)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(service.restoreVersion(note.id, { versionId: version!.id })).rejects.toMatchObject(
+      { code: 'VALIDATION_ERROR' },
+    );
+  });
+
   it('creates, reads, partially updates, and archives a note', async () => {
     const service = createNoteService(
       store().noteStore,
@@ -263,7 +294,10 @@ describe('note service', () => {
     expect(published?.publishedAt).toBe(new Date(2000).toISOString());
 
     // 3. Reader query sees published note with snapshot
-    const readerViewBefore = await service.list({ status: 'published', slug: 'pub-isolation-test' });
+    const readerViewBefore = await service.list({
+      status: 'published',
+      slug: 'pub-isolation-test',
+    });
     expect(readerViewBefore.items).toHaveLength(1);
     expect(readerViewBefore.items[0].title).toBe('Original Title');
     expect(readerViewBefore.items[0].contentJson).toBe(initialDoc);
@@ -285,7 +319,10 @@ describe('note service', () => {
     expect(autosaved?.publishedContentJson).toBe(initialDoc);
 
     // 5. PUB-01 Assertion: Reader STILL sees old published snapshot, NOT draft!
-    const readerViewDuring = await service.list({ status: 'published', slug: 'pub-isolation-test' });
+    const readerViewDuring = await service.list({
+      status: 'published',
+      slug: 'pub-isolation-test',
+    });
     expect(readerViewDuring.items[0].title).toBe('Original Title');
     expect(readerViewDuring.items[0].contentJson).toBe(initialDoc);
     expect(readerViewDuring.items[0].contentText).toBe('Original content');
@@ -318,7 +355,8 @@ describe('note service', () => {
       ...base,
       title: 'Valid Title',
       slug: 'valid-slug',
-      contentJson: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"hello"}]}]}',
+      contentJson:
+        '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"hello"}]}]}',
     });
 
     // Stale revision rejection (409)
@@ -347,13 +385,18 @@ describe('note service', () => {
 
   it('PUB-03 & PUB-04: unpublish, archive, and safe restore to draft only', async () => {
     const { noteStore } = store();
-    const service = createNoteService(noteStore, () => 'id-lifecycle', () => '2026-10-01T12:00:00.000Z');
+    const service = createNoteService(
+      noteStore,
+      () => 'id-lifecycle',
+      () => '2026-10-01T12:00:00.000Z',
+    );
 
     const note = await service.create({
       ...base,
       title: 'Lifecycle Post',
       slug: 'lifecycle-post',
-      contentJson: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"test"}]}]}',
+      contentJson:
+        '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"test"}]}]}',
       status: 'published',
     });
     expect(note.status).toBe('published');
@@ -362,36 +405,48 @@ describe('note service', () => {
     const unpublished = await service.unpublish(note.id);
     expect(unpublished?.status).toBe('draft');
     // Reader query excludes it
-    expect((await service.list({ status: 'published', slug: 'lifecycle-post' })).items).toHaveLength(0);
+    expect(
+      (await service.list({ status: 'published', slug: 'lifecycle-post' })).items,
+    ).toHaveLength(0);
 
     // Re-publish and archive
     await service.publish(note.id);
     const archived = await service.archive(note.id);
     expect(archived?.status).toBe('archived');
-    expect((await service.list({ status: 'published', slug: 'lifecycle-post' })).items).toHaveLength(0);
+    expect(
+      (await service.list({ status: 'published', slug: 'lifecycle-post' })).items,
+    ).toHaveLength(0);
 
     // PUB-04: Restore MUST force status to draft, never published!
     const restored = await service.restore(note.id);
     expect(restored?.status).toBe('draft');
-    expect((await service.list({ status: 'published', slug: 'lifecycle-post' })).items).toHaveLength(0);
+    expect(
+      (await service.list({ status: 'published', slug: 'lifecycle-post' })).items,
+    ).toHaveLength(0);
   });
 
   it('VER-01: fail-safe circuit breaker aborts restore and preserves draft when pre-restore backup fails', async () => {
     const { noteStore, setFailCreateVersion } = store();
-    const service = createNoteService(noteStore, () => 'id-fail-safe', () => '2026-10-01T12:00:00.000Z');
+    const service = createNoteService(
+      noteStore,
+      () => 'id-fail-safe',
+      () => '2026-10-01T12:00:00.000Z',
+    );
 
     const note = await service.create({
       ...base,
       title: 'Critical Article',
       slug: 'critical-article',
-      contentJson: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Current-Critical-Content"}]}]}',
+      contentJson:
+        '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Current-Critical-Content"}]}]}',
     });
 
     // Save a historical version V1
     const v1 = await service.saveVersion(note.id);
 
     // Author edits note to new content
-    const currentDoc = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Unsaved-Critical-Draft"}]}]}';
+    const currentDoc =
+      '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Unsaved-Critical-Draft"}]}]}';
 
     // Inject database failure into version creation
     setFailCreateVersion(true);
@@ -418,8 +473,10 @@ describe('note service', () => {
       () => '2026-10-01T12:00:00.000Z',
     );
 
-    const ancientDoc = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Ancient-Content"}]}]}';
-    const publishedDoc = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Published-Snapshot-Content"}]}]}';
+    const ancientDoc =
+      '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Ancient-Content"}]}]}';
+    const publishedDoc =
+      '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Published-Snapshot-Content"}]}]}';
 
     const note = await service.create({
       ...base,
@@ -436,7 +493,8 @@ describe('note service', () => {
     await service.publish(note.id);
 
     // Now author modifies draft to intermediate content
-    const intermediateDoc = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Content-Before-Restore"}]}]}';
+    const intermediateDoc =
+      '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Content-Before-Restore"}]}]}';
     await service.update(note.id, { contentJson: intermediateDoc });
 
     // Author restores Ancient-Content
@@ -470,9 +528,9 @@ describe('note service', () => {
     expect(
       parseNoteListQuery(new Request('http://localhost/api/notes?sort=published_desc')).sort,
     ).toBe('published_desc');
-    expect(
-      parseNoteListQuery(new Request('http://localhost/api/notes?sort=title_asc')).sort,
-    ).toBe('title_asc');
+    expect(parseNoteListQuery(new Request('http://localhost/api/notes?sort=title_asc')).sort).toBe(
+      'title_asc',
+    );
     expect(() =>
       parseNoteListQuery(new Request('http://localhost/api/notes?sort=invalid_sort')),
     ).toThrow(NoteDomainError);

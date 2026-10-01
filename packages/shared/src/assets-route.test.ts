@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+﻿import { describe, expect, it, vi } from 'vitest';
 
 import {
   createAssetService,
@@ -37,6 +37,7 @@ function store(overrides: Partial<AssetStore> = {}) {
     ReturnType<AssetStore['find']> extends Promise<infer T> ? NonNullable<T> : never
   >();
   return {
+    isReferenced: vi.fn(async () => false),
     noteExists: vi.fn(async (id: string) => id === 'note-1'),
     find: vi.fn(async (id: string) => records.get(id) ?? null),
     listByNote: vi.fn(async (noteId: string) =>
@@ -172,6 +173,10 @@ describe('private asset service', () => {
     );
     expect(downloaded.headers.get('Content-Type')).toBe('image/png');
     expect(await downloaded.arrayBuffer()).toEqual(signatures.png.buffer);
+    const inline = await assetRoute(
+      routeContext(new Request(`http://x/api/assets/${assetId}?inline=1`), state.db, r2, [assetId]),
+    );
+    expect(inline.headers.get('Content-Disposition')).toMatch(/^inline;/);
     const deleted = await assetRoute(
       routeContext(
         new Request(`http://x/api/assets/${assetId}`, { method: 'DELETE' }),

@@ -1,4 +1,4 @@
-import {
+﻿import {
   type ApiRequestFor,
   type ApiResponseFor,
   highlightKinds,
@@ -43,6 +43,7 @@ const blockTypes = new Set([
   'codeBlock',
   'horizontalRule',
   'table',
+  'image',
 ]);
 const inlineTypes = new Set(['text', 'hardBreak']);
 const basicMarkTypes = new Set(['bold', 'italic', 'strike', 'code']);
@@ -105,7 +106,11 @@ export function parseTiptapDocument(json: string): TiptapDocument {
         const href = mark.attrs.href.trim();
         if (href.length === 0 || href.length > maximumDocumentStringLength) documentError();
         if (/^(?:javascript|vbscript|data):/i.test(href)) documentError();
-        if (!hasOnlyKeys(mark.attrs, ['href', 'target', 'rel'])) documentError();
+        if ([...href].some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127))
+          documentError();
+        if (!hasOnlyKeys(mark.attrs, ['href', 'target', 'rel', 'class', 'title'])) documentError();
+        if (mark.attrs.class !== undefined && mark.attrs.class !== null) documentError();
+        if (mark.attrs.title !== undefined && mark.attrs.title !== null) documentError();
         if (
           mark.attrs.target !== undefined &&
           (typeof mark.attrs.target !== 'string' || mark.attrs.target.length > 32)
@@ -144,6 +149,17 @@ export function parseTiptapDocument(json: string): TiptapDocument {
     )
       documentError();
     switch (value.type) {
+      case 'image':
+        if (
+          !hasOnlyKeys(value, ['type', 'attrs']) ||
+          !isRecord(value.attrs) ||
+          !hasOnlyKeys(value.attrs, ['assetId', 'alt']) ||
+          typeof value.attrs.assetId !== 'string' ||
+          !/^[A-Za-z0-9-]+$/u.test(value.attrs.assetId)
+        )
+          documentError();
+        readString(value.attrs.alt);
+        break;
       case 'doc':
         if (!hasOnlyKeys(value, ['type', 'content'])) documentError();
         validateNodes(requiredContent(value), blockTypes, depth + 1);
@@ -193,7 +209,7 @@ export function parseTiptapDocument(json: string): TiptapDocument {
           documentError();
         validateNodes(
           requiredContent(value),
-          new Set(['paragraph', 'bulletList', 'orderedList', 'blockquote', 'codeBlock']),
+          new Set(['paragraph', 'bulletList', 'orderedList', 'blockquote', 'codeBlock', 'image']),
           depth + 1,
         );
         break;
@@ -260,7 +276,7 @@ export function parseTiptapDocument(json: string): TiptapDocument {
           )
             documentError();
         }
-        validateNodes(optionalContent(value), new Set(['paragraph']), depth + 1);
+        validateNodes(optionalContent(value), new Set(['paragraph', 'image']), depth + 1);
         break;
       }
       case 'hardBreak':
@@ -287,6 +303,7 @@ export function projectTiptapDocumentText(document: TiptapDocument): string {
       )
       .join('');
   const block = (node: TiptapNode): string => {
+    if (node.type === 'image') return String(node.attrs?.alt ?? '');
     if (node.type === 'paragraph' || node.type === 'heading' || node.type === 'codeBlock')
       return inline(node.content);
     if (
@@ -313,6 +330,7 @@ export function contentTextFromTiptapJson(json: string) {
 }
 
 export type NoteStore = {
+  findImageAsset?(assetId: string): Promise<{ noteId: string | null; mimeType: string } | null>;
   list(query: ApiRequestFor<'GET /api/notes'>): Promise<ApiResponseFor<'GET /api/notes'>>;
   find(id: string): Promise<NoteRecord | null>;
   save(note: NoteRecord): Promise<NoteRecord>;
@@ -327,6 +345,27 @@ export function createNoteService(
   id = () => crypto.randomUUID(),
   now = () => new Date().toISOString(),
 ) {
+  const validateImages = async (noteId: string, json: string) => {
+    const assets = new Set<string>();
+    const visit = (node: TiptapNode) => {
+      if (node.type === 'image') assets.add(String(node.attrs!.assetId));
+      node.content?.forEach(visit);
+    };
+    visit(parseTiptapDocument(json));
+    for (const assetId of assets) {
+      const asset = await store.findImageAsset?.(assetId);
+      if (
+        !asset ||
+        asset.noteId !== noteId ||
+        !/^image\/(png|jpeg|webp|gif)$/u.test(asset.mimeType)
+      ) {
+        throw new NoteDomainError(
+          'VALIDATION_ERROR',
+          'Image must reference a raster asset uploaded to this note',
+        );
+      }
+    }
+  };
   return {
     list: (query: ApiRequestFor<'GET /api/notes'> = {}) => store.list(query),
     get: (noteId: string) => store.find(noteId),
@@ -334,6 +373,8 @@ export function createNoteService(
       validateCreate(input);
       const timestamp = now();
       const noteId = id();
+      await validateImages(noteId, input.contentJson);
+      if (input.publishedContentJson) await validateImages(noteId, input.publishedContentJson);
       const status = input.status;
       const isFeatured = Boolean(input.isFeatured);
       const publishedAt =
@@ -381,6 +422,7 @@ export function createNoteService(
       if (!existing) return null;
       const { tags, ...changes } = input;
       const contentJson = changes.contentJson ?? existing.contentJson;
+      if (changes.contentJson !== undefined) await validateImages(noteId, contentJson);
       const status = changes.status ?? existing.status;
       let publishedAt: string | null =
         changes.publishedAt !== undefined
@@ -421,10 +463,7 @@ export function createNoteService(
         tags,
       );
     },
-    async publish(
-      noteId: string,
-      input: ApiRequestFor<'POST /api/notes/:id/publish'> = {},
-    ) {
+    async publish(noteId: string, input: ApiRequestFor<'POST /api/notes/:id/publish'> = {}) {
       const existing = await store.find(noteId);
       if (!existing) return null;
 
@@ -456,6 +495,7 @@ export function createNoteService(
       }
 
       const conflicting = await store.list({ slug: existing.slug });
+      await validateImages(noteId, existing.contentJson);
       if (conflicting.items.some((item) => item.id !== noteId)) {
         throw new NoteDomainError('SLUG_CONFLICT', 'A note with this slug already exists');
       }
@@ -519,6 +559,8 @@ export function createNoteService(
       if (!targetVersion) {
         throw new NoteDomainError('VERSION_NOT_FOUND', 'Target version not found');
       }
+      await validateImages(noteId, targetVersion.contentJson);
+      if (input.currentDraft) await validateImages(noteId, input.currentDraft.contentJson);
 
       let currentContentJson = existing.contentJson;
       let currentContentText = existing.contentText;
@@ -670,6 +712,13 @@ function bindNote(statement: D1PreparedStatement, note: NoteRecord) {
 
 export function createD1NoteStore(db: D1Database): NoteStore {
   return {
+    async findImageAsset(assetId) {
+      const row = await db
+        .prepare('SELECT note_id,mime_type FROM assets WHERE id = ?')
+        .bind(assetId)
+        .first<{ note_id: string | null; mime_type: string }>();
+      return row ? { noteId: row.note_id, mimeType: row.mime_type } : null;
+    },
     async list(query) {
       const page = query.page ?? 1;
       const pageSize = Math.min(100, query.pageSize ?? 20);
