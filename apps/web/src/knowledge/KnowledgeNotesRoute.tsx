@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { NotesPage } from '../knowledge-ui/NotesPage';
 import type { BatchOperationResult, ToastState } from '../knowledge-ui/NotesPage';
-import type { NoteCardViewModel, NotesViewModel } from '../knowledge-ui/fixtures';
+import type { NotesViewModel } from '../knowledge-ui/fixtures';
 import type { NoteRecord, NoteStatus, SearchResult } from '@namdw/shared';
 import { mapNoteToCard } from './knowledge-adapter';
 import {

@@ -16,7 +16,7 @@ export type EditorPageProps = {
   versionState?: VersionPresentationState;
   selectedHighlight?: HighlightKind | null;
   documentSlot?: ReactNode;
-  editor?: any;
+  editor?: { getText?: () => string } | null;
   versions?: readonly NoteVersionRecord[] | undefined;
   onTitleChange?: (value: string) => void;
   onSummaryChange?: (value: string) => void;
@@ -141,15 +141,17 @@ export function EditorPage({
   const handleExtractSummary = () => {
     if (!onSummaryChange) return;
     let text = '';
-    if (editor) {
+    if (editor && typeof editor.getText === 'function') {
       text = editor.getText();
     } else if (model.contentJson) {
       try {
         const parsed = JSON.parse(model.contentJson);
-        const extractText = (node: any): string => {
+        const extractText = (node: { text?: string; content?: unknown[] }): string => {
           if (node.text) return node.text;
           if (Array.isArray(node.content)) {
-            return node.content.map(extractText).join(' ');
+            return (node.content as Array<{ text?: string; content?: unknown[] }>)
+              .map(extractText)
+              .join(' ');
           }
           return '';
         };

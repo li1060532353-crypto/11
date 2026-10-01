@@ -355,7 +355,7 @@ export function KnowledgeEditorRoute({ mode }: Props) {
       setError(null);
 
       // 步骤 1: 强制保存当前工作草稿
-      let saved = false;
+      let saved: boolean;
       try {
         saved = await autosave.saveCurrent();
       } catch {
@@ -369,7 +369,7 @@ export function KnowledgeEditorRoute({ mode }: Props) {
       }
 
       // 步骤 2: 为当前工作区创建安全保护快照
-      let versionCreated = false;
+      let versionCreated: boolean;
       try {
         await createKnowledgeNoteVersion(noteId);
         versionCreated = true;

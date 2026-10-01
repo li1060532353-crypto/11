@@ -508,7 +508,7 @@ export function createNoteService(
       const existing = await store.find(noteId);
       if (!existing) return null;
 
-      let targetVersion: NoteVersionRecord | null = null;
+      let targetVersion: NoteVersionRecord | null;
       if (store.findVersion) {
         targetVersion = await store.findVersion(noteId, input.versionId);
       } else {

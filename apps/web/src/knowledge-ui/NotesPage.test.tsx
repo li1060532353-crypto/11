@@ -4,8 +4,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { NotesPage } from './NotesPage';
 import { KnowledgeNotesRoute } from '../knowledge/KnowledgeNotesRoute';
-import { emptyNotesFixture, notesFixture } from './fixtures';
-import type { NotesViewModel, NoteCardViewModel } from './fixtures';
+import { emptyNotesFixture } from './fixtures';
+import type { NotesViewModel } from './fixtures';
 import * as knowledgeApi from '../knowledge/knowledge-api';
 
 const richNotesFixture: NotesViewModel = {
