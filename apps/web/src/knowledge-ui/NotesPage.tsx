@@ -1,103 +1,87 @@
 import type { NoteCardViewModel, NotesViewModel } from './fixtures';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { KnowledgeShell } from './KnowledgeShell';
 import './knowledge.css';
 
-type NotesPresentationState = 'ready' | 'loading' | 'empty' | 'error';
+export type NotesPresentationState = 'ready' | 'loading' | 'empty' | 'error';
 
-type NotesPageProps = {
+export type BatchItemFailure = {
+  id: string;
+  title: string;
+  error: string;
+};
+
+export type BatchOperationResult = {
+  total: number;
+  succeeded: readonly string[];
+  failed: readonly BatchItemFailure[];
+  actionType: 'archive' | 'restore' | 'category';
+};
+
+export type ToastState = {
+  text: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
+
+export type NotesPageProps = {
   model: NotesViewModel;
   state?: NotesPresentationState;
   page?: number;
   totalPages?: number;
   totalItems?: number;
   onPageChange?: (page: number) => void;
+  // Search
   onSearchChange?: (value: string) => void;
   onClearSearch?: () => void;
+  // Single note actions
   onArchive?: (noteId: string) => void;
   onRestore?: (noteId: string) => void;
   mutatingNoteId?: string | null;
   mutationError?: string | null;
+  // Tabs & Counts
+  tab?: string;
+  onTabChange?: (tab: string) => void;
+  tabCounts?: {
+    all?: number;
+    draft?: number;
+    published?: number;
+    archived?: number;
+  };
+  // Filters & Sorting
+  category?: string;
+  onCategoryChange?: (category: string) => void;
+  categories?: readonly string[];
+  sort?: string;
+  onSortChange?: (sort: string) => void;
+  pinned?: boolean;
+  onPinnedChange?: (pinned: boolean) => void;
+  featured?: boolean;
+  onFeaturedChange?: (featured: boolean) => void;
+  onResetFilters?: () => void;
+  // Batch
+  selectedIds?: readonly string[];
+  onToggleSelect?: (noteId: string) => void;
+  onSelectAll?: () => void;
+  onClearSelection?: () => void;
+  onBatchArchive?: (noteIds: string[]) => void;
+  onBatchRestore?: (noteIds: string[]) => void;
+  onBatchCategoryChange?: (noteIds: string[], targetCategory: string) => void;
+  batchResult?: BatchOperationResult | null;
+  onClearBatchResult?: () => void;
+  onRetryBatch?: () => void;
+  onRetrySingle?: (noteId: string) => void;
+  // Toast
+  toast?: ToastState | null;
+  onClearToast?: () => void;
 };
 
-function formatStatus(status: NonNullable<NoteCardViewModel['status']>) {
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-function NoteCard({
-  note,
-  onArchive,
-  onRestore,
-  mutatingNoteId,
-}: {
-  note: NoteCardViewModel;
-  onArchive?: (noteId: string) => void;
-  onRestore?: (noteId: string) => void;
-  mutatingNoteId?: string | null;
-}) {
-  const isMutating = mutatingNoteId === note.id;
-  return (
-    <article className="knowledge-note-card-wrap">
-      <Link
-        className={`knowledge-note-card${note.archived ? ' knowledge-note-card--archived' : ''}`}
-        to={`/knowledge/notes/${note.id}`}
-        aria-label={note.title}
-      >
-        <div className="knowledge-note-card__topline">
-          <span className="knowledge-note-card__category">{note.category}</span>
-          <div className="knowledge-note-card__states">
-            {note.pinned ? (
-              <span className="knowledge-badge knowledge-badge--pinned">Pinned</span>
-            ) : null}
-            {note.status ? (
-              <span className={`knowledge-badge knowledge-badge--${note.status}`}>
-                {formatStatus(note.status)}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <h2>{note.title}</h2>
-        <p>{note.summary}</p>
-        <footer className="knowledge-note-card__footer">
-          <span>{note.updatedLabel}</span>
-        </footer>
-      </Link>
-      <div className="knowledge-note-card__actions">
-        <Link className="knowledge-note-card__action" to={`/knowledge/notes/${note.id}/read`}>
-          阅读
-        </Link>
-        <Link
-          className="knowledge-note-card__action"
-          to={`/knowledge/notes/${note.id}`}
-          aria-label={`Edit ${note.title}`}
-        >
-          Edit {note.title}
-        </Link>
-        {note.archived && onRestore ? (
-          <button
-            type="button"
-            className="knowledge-note-card__action"
-            disabled={isMutating}
-            onClick={() => onRestore(note.id)}
-            aria-label={`Restore ${note.title}`}
-          >
-            Restore {note.title}
-          </button>
-        ) : null}
-        {!note.archived && onArchive ? (
-          <button
-            type="button"
-            className="knowledge-note-card__action"
-            disabled={isMutating}
-            onClick={() => onArchive(note.id)}
-            aria-label={`Archive ${note.title}`}
-          >
-            Archive {note.title}
-          </button>
-        ) : null}
-      </div>
-    </article>
-  );
+function formatStatus(status: NonNullable<NoteCardViewModel['status']>): string {
+  if (status === 'draft') return '草稿';
+  if (status === 'published') return '已发布';
+  if (status === 'archived') return '已归档';
+  return String(status);
 }
 
 export function NotesPage({
@@ -113,22 +97,150 @@ export function NotesPage({
   onRestore,
   mutatingNoteId,
   mutationError,
+  tab: controlledTab,
+  onTabChange,
+  tabCounts,
+  category: controlledCategory,
+  onCategoryChange,
+  categories,
+  sort: controlledSort,
+  onSortChange,
+  pinned: controlledPinned,
+  onPinnedChange,
+  featured: controlledFeatured,
+  onFeaturedChange,
+  onResetFilters,
+  selectedIds: controlledSelectedIds,
+  onToggleSelect,
+  onSelectAll,
+  onClearSelection,
+  onBatchArchive,
+  onBatchRestore,
+  onBatchCategoryChange,
+  batchResult,
+  onClearBatchResult,
+  onRetryBatch,
+  onRetrySingle,
+  toast,
+  onClearToast,
 }: NotesPageProps) {
+  // Local fallbacks for uncontrolled usage
+  const [localTab, setLocalTab] = useState('all');
+  const [localCategory, setLocalCategory] = useState('');
+  const [localSort, setLocalSort] = useState('updated_desc');
+  const [localPinned, setLocalPinned] = useState(false);
+  const [localFeatured, setLocalFeatured] = useState(false);
+  const [localSelectedIds, setLocalSelectedIds] = useState<string[]>([]);
+
+  const activeTab = controlledTab ?? localTab;
+  const handleTabChange = onTabChange ?? setLocalTab;
+
+  const activeCategory = controlledCategory ?? localCategory;
+  const handleCategoryChange = onCategoryChange ?? setLocalCategory;
+
+  const activeSort = controlledSort ?? localSort;
+  const handleSortChange = onSortChange ?? setLocalSort;
+
+  const activePinned = controlledPinned ?? localPinned;
+  const handlePinnedChange = onPinnedChange ?? setLocalPinned;
+
+  const activeFeatured = controlledFeatured ?? localFeatured;
+  const handleFeaturedChange = onFeaturedChange ?? setLocalFeatured;
+
+  const selectedIds = controlledSelectedIds ?? localSelectedIds;
+  const handleToggleSelect = (noteId: string) => {
+    if (onToggleSelect) {
+      onToggleSelect(noteId);
+    } else {
+      setLocalSelectedIds((prev) =>
+        prev.includes(noteId) ? prev.filter((id) => id !== noteId) : [...prev, noteId],
+      );
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (onSelectAll) {
+      onSelectAll();
+    } else {
+      const allCurrentIds = model.notes.map((n) => n.id);
+      const isAllSelected =
+        allCurrentIds.length > 0 && allCurrentIds.every((id) => selectedIds.includes(id));
+      setLocalSelectedIds(isAllSelected ? [] : allCurrentIds);
+    }
+  };
+
+  const handleClearSelection = () => {
+    if (onClearSelection) {
+      onClearSelection();
+    } else {
+      setLocalSelectedIds([]);
+    }
+  };
+
+  const isAllSelected =
+    model.notes.length > 0 && model.notes.every((n) => selectedIds.includes(n.id));
+
+  const hasUnarchivedSelected = model.notes.some(
+    (n) => selectedIds.includes(n.id) && !n.archived,
+  );
+  const hasArchivedSelected = model.notes.some(
+    (n) => selectedIds.includes(n.id) && n.archived,
+  );
+
+  const derivedCategories = Array.from(
+    new Set(
+      model.notes
+        .map((n) => n.category)
+        .filter((c): c is string => Boolean(c && c.trim())),
+    ),
+  );
+  const availableCategories = Array.from(
+    new Set([...(categories ?? derivedCategories), activeCategory].filter(Boolean)),
+  );
+
+  const tabs = [
+    { id: 'all', label: '全部', count: tabCounts?.all },
+    { id: 'draft', label: '草稿', count: tabCounts?.draft },
+    { id: 'published', label: '已发布', count: tabCounts?.published },
+    { id: 'archived', label: '已归档', count: tabCounts?.archived },
+  ];
+
+  const hasActiveFilters = Boolean(
+    (model.searchTerm && model.searchTerm.trim()) ||
+      activeCategory ||
+      activePinned ||
+      activeFeatured ||
+      (activeTab && activeTab !== 'all'),
+  );
+
+  const handleClearAllFilters = () => {
+    if (onResetFilters) {
+      onResetFilters();
+    } else {
+      onClearSearch?.();
+      handleCategoryChange('');
+      handleSortChange('updated_desc');
+      handlePinnedChange(false);
+      handleFeaturedChange(false);
+      handleTabChange('all');
+    }
+  };
+
   return (
-    <KnowledgeShell title="Knowledge workspace">
+    <KnowledgeShell title="知识库工作区">
       <section className="knowledge-shell" aria-labelledby="knowledge-notes-title">
         <header className="knowledge-shell__heading">
           <div className="knowledge-shell__meta" aria-hidden="true">
             <span>WORKSPACE // 0x02</span>
             <span className="knowledge-shell__sep">·</span>
-            <span>Articles</span>
+            <span>文章管理</span>
           </div>
-          <p className="knowledge-shell__eyebrow">Knowledge workspace</p>
-          <h1 id="knowledge-notes-title">Articles</h1>
+          <p className="knowledge-shell__eyebrow">知识库工作区</p>
+          <h1 id="knowledge-notes-title">文章管理</h1>
           <p className="knowledge-overview__intro">
             记录推导与实践，整理可复用的工程笔记。支持实时检索、分页浏览、归档与持续维护。
           </p>
-          <nav className="knowledge-page-actions" aria-label="Article navigation">
+          <nav className="knowledge-page-actions" aria-label="文章管理操作">
             <Link className="knowledge-button knowledge-button--quiet" to="/knowledge">
               知识库概览
             </Link>
@@ -138,45 +250,261 @@ export function NotesPage({
             <Link
               className="knowledge-button knowledge-button--primary"
               to="/knowledge/notes/new"
-              aria-label="Create article"
+              aria-label="新建文章"
             >
-              Create article
+              新建文章
             </Link>
           </nav>
         </header>
-        <div className="knowledge-notes-controls">
-          <label className="knowledge-search-field" htmlFor="knowledge-note-search">
-            <span>Search articles</span>
-            <input
-              id="knowledge-note-search"
-              type="search"
-              placeholder="Search your articles"
-              value={model.searchTerm}
-              readOnly={!onSearchChange}
-              onChange={(event) => onSearchChange?.(event.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!onClearSearch || !model.searchTerm}
-            aria-disabled={!onClearSearch || !model.searchTerm}
-            onClick={onClearSearch}
-            aria-label="Clear search"
-          >
-            Clear search
-          </button>
-          <p className="knowledge-filter-label" aria-label="Current filter">
-            {model.filterLabel}
-          </p>
+
+        {/* 状态流转 Tabs */}
+        <div className="knowledge-tabs" role="tablist" aria-label="文章状态分组">
+          {tabs.map((t) => {
+            const isSelected = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`tab-${t.id}`}
+                data-tab={t.id}
+                data-status={t.id}
+                aria-selected={isSelected}
+                aria-controls="notes-panel"
+                className={`knowledge-tab${isSelected ? ' is-active' : ''}`}
+                onClick={() => handleTabChange(t.id)}
+              >
+                <span>{t.label}</span>
+                {t.count !== undefined ? (
+                  <span className="knowledge-tab__badge">{t.count}</span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
+
+        {/* 筛选与排序控制条 */}
+        <div className="knowledge-notes-controls">
+          <div className="knowledge-filter-bar">
+            <label className="knowledge-search-field" htmlFor="knowledge-note-search">
+              <span className="sr-only">搜索文章</span>
+              <input
+                id="knowledge-note-search"
+                type="search"
+                placeholder="搜索文章标题、摘要或正文…"
+                value={model.searchTerm}
+                readOnly={!onSearchChange}
+                onChange={(event) => onSearchChange?.(event.target.value)}
+                aria-label="搜索文章"
+              />
+            </label>
+            <button
+              type="button"
+              className="knowledge-button knowledge-button--quiet"
+              disabled={!onClearSearch || !model.searchTerm}
+              aria-disabled={!onClearSearch || !model.searchTerm}
+              onClick={onClearSearch}
+              aria-label="清除搜索"
+            >
+              清除搜索
+            </button>
+
+            <div className="knowledge-filter-selects">
+              <label className="knowledge-select-wrap">
+                <span className="sr-only">按分类筛选</span>
+                <select
+                  value={activeCategory}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  aria-label="按分类筛选"
+                  className="knowledge-select"
+                >
+                  <option value="">全部分类</option>
+                  {availableCategories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="knowledge-select-wrap">
+                <span className="sr-only">排序方式</span>
+                <select
+                  value={activeSort}
+                  onChange={(e) => handleSortChange(e.target.value)}
+                  aria-label="排序方式"
+                  className="knowledge-select"
+                >
+                  <option value="updated_desc">最近更新</option>
+                  <option value="published_desc">发布时间</option>
+                  <option value="title_asc">标题字典序</option>
+                </select>
+              </label>
+
+              <label className="knowledge-toggle">
+                <input
+                  type="checkbox"
+                  checked={activePinned}
+                  onChange={(e) => handlePinnedChange(e.target.checked)}
+                  aria-label="仅看置顶"
+                />
+                <span>仅看置顶</span>
+              </label>
+
+              <label className="knowledge-toggle">
+                <input
+                  type="checkbox"
+                  checked={activeFeatured}
+                  onChange={(e) => handleFeaturedChange(e.target.checked)}
+                  aria-label="仅看精选"
+                />
+                <span>仅看精选</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* 悬浮批量操作栏 */}
+        {selectedIds.length > 0 ? (
+          <div className="knowledge-bulk-bar" role="toolbar" aria-label="批量管理操作栏">
+            <div className="knowledge-bulk-bar__info">
+              <span>
+                已选中 <strong>{selectedIds.length}</strong> 篇文章
+              </span>
+              <button
+                type="button"
+                className="knowledge-button knowledge-button--quiet knowledge-button--small"
+                onClick={handleSelectAll}
+              >
+                {isAllSelected ? '取消全选' : '全选当前页'}
+              </button>
+              <button
+                type="button"
+                className="knowledge-button knowledge-button--quiet knowledge-button--small"
+                onClick={handleClearSelection}
+              >
+                取消选择
+              </button>
+            </div>
+            <div className="knowledge-bulk-bar__actions">
+              {hasUnarchivedSelected && onBatchArchive ? (
+                <button
+                  type="button"
+                  className="knowledge-button knowledge-button--danger knowledge-button--small"
+                  onClick={() => onBatchArchive(selectedIds.slice())}
+                >
+                  批量归档
+                </button>
+              ) : null}
+              {hasArchivedSelected && onBatchRestore ? (
+                <button
+                  type="button"
+                  className="knowledge-button knowledge-button--small"
+                  onClick={() => onBatchRestore(selectedIds.slice())}
+                >
+                  批量恢复
+                </button>
+              ) : null}
+              {onBatchCategoryChange ? (
+                <select
+                  className="knowledge-select knowledge-select--small"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      onBatchCategoryChange(selectedIds.slice(), e.target.value);
+                    }
+                  }}
+                  aria-label="批量调整分类"
+                >
+                  <option value="" disabled>
+                    批量调整分类…
+                  </option>
+                  {availableCategories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* 批量操作逐项反馈横幅/弹窗 */}
+        {batchResult ? (
+          <div
+            className={`knowledge-batch-result ${
+              batchResult.failed.length > 0
+                ? 'knowledge-batch-result--warning'
+                : 'knowledge-batch-result--success'
+            }`}
+            role="region"
+            aria-label="批量操作反馈"
+          >
+            <div className="knowledge-batch-result__header">
+              <strong>
+                {batchResult.actionType === 'archive'
+                  ? `批量归档完成：${batchResult.succeeded.length} 篇成功，${batchResult.failed.length} 篇失败`
+                  : batchResult.actionType === 'restore'
+                    ? `批量恢复完成：${batchResult.succeeded.length} 篇成功，${batchResult.failed.length} 篇失败`
+                    : `批量调整分类完成：${batchResult.succeeded.length} 篇成功，${batchResult.failed.length} 篇失败`}
+              </strong>
+              {onClearBatchResult ? (
+                <button
+                  type="button"
+                  className="knowledge-button knowledge-button--quiet knowledge-button--small"
+                  onClick={onClearBatchResult}
+                  aria-label="关闭批量操作反馈"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </div>
+            {batchResult.failed.length > 0 ? (
+              <>
+                <ul className="knowledge-batch-errors">
+                  {batchResult.failed.map((f) => (
+                    <li key={f.id}>
+                      <span>
+                        《{f.title}》— {f.error}
+                      </span>
+                      {onRetrySingle ? (
+                        <button
+                          type="button"
+                          className="knowledge-button knowledge-button--small"
+                          onClick={() => onRetrySingle(f.id)}
+                        >
+                          重试
+                        </button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                {onRetryBatch ? (
+                  <div className="knowledge-batch-result__footer">
+                    <button
+                      type="button"
+                      className="knowledge-button knowledge-button--primary knowledge-button--small"
+                      onClick={onRetryBatch}
+                    >
+                      重试失败项
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* 全局加载/错误状态 */}
         {state === 'loading' ? (
           <p className="knowledge-message" role="status">
-            Loading articles
+            正在加载文章列表…
           </p>
         ) : null}
         {state === 'error' ? (
           <p className="knowledge-message knowledge-message--error" role="alert">
-            Articles could not be loaded
+            文章列表加载失败
           </p>
         ) : null}
         {mutationError ? (
@@ -184,32 +512,185 @@ export function NotesPage({
             {mutationError}
           </p>
         ) : null}
+
+        {/* 空状态细分 */}
         {state === 'empty' ? (
-          <section className="knowledge-empty-state" aria-labelledby="knowledge-empty-title">
-            <h2 id="knowledge-empty-title">No articles yet</h2>
-            <p>Your next article will appear here.</p>
-            <Link className="knowledge-button knowledge-button--primary" to="/knowledge/notes/new">
-              Create your first article
-            </Link>
-          </section>
+          hasActiveFilters ? (
+            <section
+              className="knowledge-empty-state"
+              aria-labelledby="knowledge-search-empty-title"
+            >
+              <h2 id="knowledge-search-empty-title">未找到匹配的搜索结果</h2>
+              <p>未找到与当前搜索词或筛选条件符合的文章。</p>
+              <div className="knowledge-empty-state__actions">
+                <button
+                  type="button"
+                  className="knowledge-button knowledge-button--primary"
+                  onClick={handleClearAllFilters}
+                >
+                  清除筛选条件
+                </button>
+              </div>
+            </section>
+          ) : (
+            <section className="knowledge-empty-state" aria-labelledby="knowledge-empty-title">
+              <h2 id="knowledge-empty-title">知识库暂无文章</h2>
+              <p>记录推导与实践，沉淀属于你的技术知识资产。</p>
+              <div className="knowledge-empty-state__actions">
+                <Link
+                  className="knowledge-button knowledge-button--primary"
+                  to="/knowledge/notes/new"
+                >
+                  新建第一篇文章
+                </Link>
+                <Link className="knowledge-button knowledge-button--quiet" to="/knowledge/import">
+                  导入 Markdown 文档
+                </Link>
+              </div>
+            </section>
+          )
         ) : null}
+
+        {/* 桌面端高密度表格视图与移动端卡片自适应 */}
         {state === 'ready' ? (
-          <>
-            <div className="article-table__header" role="row" aria-hidden="true">
-              <span className="article-table__th article-table__th--title">文章标题与摘要</span>
-              <span className="article-table__th article-table__th--date">状态与操作</span>
+          <div id="notes-panel" role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
+            <div className="knowledge-table-container">
+              <table className="knowledge-table" aria-label="文章列表">
+                <thead>
+                  <tr>
+                    <th className="knowledge-table__th--select" scope="col">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        onChange={handleSelectAll}
+                        aria-label="全选当前页文章"
+                      />
+                    </th>
+                    <th scope="col">文章标题与摘要</th>
+                    <th scope="col">分类</th>
+                    <th scope="col">状态与标记</th>
+                    <th scope="col">最后更新时间</th>
+                    <th scope="col" style={{ textAlign: 'right' }}>
+                      操作
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {model.notes.map((note) => {
+                    const isSelected = selectedIds.includes(note.id);
+                    const isMutating = mutatingNoteId === note.id;
+                    const extendedNote = note as NoteCardViewModel & {
+                      tags?: readonly string[];
+                      isFeatured?: boolean;
+                    };
+                    return (
+                      <tr key={note.id} className={isSelected ? 'is-selected' : undefined}>
+                        <td className="knowledge-table__td--select">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelect(note.id)}
+                            aria-label={`选择文章 ${note.title}`}
+                          />
+                        </td>
+                        <td>
+                          <div className="knowledge-table__title-cell">
+                            <Link
+                              to={`/knowledge/notes/${note.id}`}
+                              className="knowledge-table__title-link"
+                            >
+                              <strong>{note.title}</strong>
+                            </Link>
+                            <p className="knowledge-table__summary">{note.summary}</p>
+                            {extendedNote.tags && extendedNote.tags.length > 0 ? (
+                              <div className="knowledge-table__tags">
+                                {extendedNote.tags.map((t) => (
+                                  <span key={t} className="knowledge-tag">
+                                    #{t}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="knowledge-table__category">{note.category}</span>
+                        </td>
+                        <td>
+                          <div className="knowledge-table__status-group">
+                            {note.status ? (
+                              <span className={`knowledge-badge knowledge-badge--${note.status}`}>
+                                {formatStatus(note.status)}
+                              </span>
+                            ) : null}
+                            {note.pinned ? (
+                              <span
+                                className="knowledge-badge knowledge-badge--pinned"
+                                title="已置顶"
+                              >
+                                📌 已置顶
+                              </span>
+                            ) : null}
+                            {extendedNote.isFeatured ? (
+                              <span
+                                className="knowledge-badge knowledge-badge--featured"
+                                title="首页精选"
+                              >
+                                ⭐ 首页精选
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td>
+                          <time className="knowledge-table__time">{note.updatedLabel}</time>
+                        </td>
+                        <td>
+                          <div className="knowledge-table__actions">
+                            <Link
+                              to={`/knowledge/notes/${note.id}`}
+                              className="knowledge-action-btn"
+                              aria-label={`编辑 ${note.title}`}
+                            >
+                              编辑
+                            </Link>
+                            <Link
+                              to={`/knowledge/notes/${note.id}/read`}
+                              className="knowledge-action-btn"
+                              aria-label={`阅读 ${note.title}`}
+                            >
+                              阅读
+                            </Link>
+                            {note.archived && onRestore ? (
+                              <button
+                                type="button"
+                                className="knowledge-action-btn"
+                                disabled={isMutating}
+                                onClick={() => onRestore(note.id)}
+                                aria-label={`恢复 ${note.title}`}
+                              >
+                                恢复
+                              </button>
+                            ) : null}
+                            {!note.archived && onArchive ? (
+                              <button
+                                type="button"
+                                className="knowledge-action-btn knowledge-action-btn--danger"
+                                disabled={isMutating}
+                                onClick={() => onArchive(note.id)}
+                                aria-label={`归档 ${note.title}`}
+                              >
+                                归档
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="knowledge-note-grid">
-              {model.notes.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  {...(onArchive ? { onArchive } : {})}
-                  {...(onRestore ? { onRestore } : {})}
-                  {...(mutatingNoteId !== undefined ? { mutatingNoteId } : {})}
-                />
-              ))}
-            </div>
+
             {totalPages > 1 ? (
               <nav className="knowledge-pagination" aria-label="文章列表分页">
                 <button
@@ -233,7 +714,33 @@ export function NotesPage({
                 </button>
               </nav>
             ) : null}
-          </>
+          </div>
+        ) : null}
+
+        {/* 操作后提示 Toast */}
+        {toast ? (
+          <aside className="knowledge-toast" role="status" aria-live="polite">
+            <span>{toast.text}</span>
+            {toast.actionLabel && toast.onAction ? (
+              <button
+                type="button"
+                className="knowledge-toast__action"
+                onClick={toast.onAction}
+              >
+                {toast.actionLabel}
+              </button>
+            ) : null}
+            {onClearToast ? (
+              <button
+                type="button"
+                className="knowledge-toast__close"
+                onClick={onClearToast}
+                aria-label="关闭通知"
+              >
+                ✕
+              </button>
+            ) : null}
+          </aside>
         ) : null}
       </section>
     </KnowledgeShell>

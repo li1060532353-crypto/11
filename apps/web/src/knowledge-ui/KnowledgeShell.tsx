@@ -18,36 +18,41 @@ export function KnowledgeShell({ title, children }: KnowledgeShellProps) {
       <DraftingGridBackdrop />
       <aside className="knowledge-workspace__sidebar" data-open={navigationOpen}>
         <div className="knowledge-workspace__sidebar-header">
-          <p className="knowledge-workspace__label">Knowledge</p>
+          <p className="knowledge-workspace__label">知识库工作区</p>
           <button
             type="button"
             className="knowledge-workspace__toggle"
             aria-expanded={navigationOpen}
             aria-controls="knowledge-workspace-navigation"
-            aria-label={navigationOpen ? 'Close knowledge navigation' : 'Open knowledge navigation'}
+            aria-label={navigationOpen ? '关闭知识库导航' : '打开知识库导航'}
             onClick={() => setNavigationOpen((open) => !open)}
           >
-            {navigationOpen ? 'Close knowledge navigation' : 'Open knowledge navigation'}
+            {navigationOpen ? '关闭知识库导航' : '打开知识库导航'}
           </button>
         </div>
         <nav
           id="knowledge-workspace-navigation"
           className="knowledge-workspace__navigation"
-          aria-label="Knowledge navigation"
+          aria-label="知识库导航"
         >
           <Link
             to="/knowledge"
             aria-current={pathname === '/knowledge' ? 'page' : undefined}
             onClick={closeNavigation}
           >
-            Overview
+            知识库概览
           </Link>
           <Link
             to="/knowledge/notes"
-            aria-current={pathname.startsWith('/knowledge/notes') ? 'page' : undefined}
+            aria-current={
+              pathname === '/knowledge/notes' ||
+              (pathname.startsWith('/knowledge/notes/') && pathname !== '/knowledge/notes/new')
+                ? 'page'
+                : undefined
+            }
             onClick={closeNavigation}
           >
-            Articles
+            文章管理
           </Link>
           <Link
             to="/knowledge/import"
@@ -63,10 +68,10 @@ export function KnowledgeShell({ title, children }: KnowledgeShellProps) {
           >
             新建文章
           </Link>
-          <span aria-disabled="true">Settings</span>
         </nav>
       </aside>
       <div className="knowledge-workspace__content">{children}</div>
     </section>
   );
 }
+
