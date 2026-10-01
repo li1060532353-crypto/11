@@ -69,6 +69,16 @@ export type BinaryRouteContract = {
   errorResponse: ApiFailure;
 };
 
+export type TiptapMark = { type: string; attrs?: Record<string, unknown> };
+export type TiptapNode = {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: TiptapNode[];
+  text?: string;
+  marks?: TiptapMark[];
+};
+export type TiptapDocument = TiptapNode & { type: 'doc'; content: TiptapNode[] };
+
 export type NoteRecord = {
   id: string;
   title: string;
@@ -79,6 +89,9 @@ export type NoteRecord = {
   category: string;
   status: NoteStatus;
   isPinned: boolean;
+  isFeatured?: boolean;
+  publishedAt?: string | null;
+  tags?: readonly string[];
   reviewCount: number;
   createdAt: string;
   updatedAt: string;
@@ -111,19 +124,85 @@ export type AssetRecord = {
 
 export type Pagination = { page: number; pageSize: number; totalItems: number; totalPages: number };
 export type Paginated<T> = Pagination & { items: readonly T[] };
-export type NoteListQuery = { page?: number; pageSize?: number; status?: NoteStatus; category?: string; tag?: string; pinned?: boolean };
-export type CreateNoteRequest = Pick<NoteRecord, 'title' | 'summary' | 'contentJson' | 'category' | 'status' | 'isPinned'> & { tags?: readonly string[] };
+export type NoteListQuery = {
+  page?: number;
+  pageSize?: number;
+  status?: NoteStatus;
+  category?: string;
+  tag?: string;
+  pinned?: boolean;
+  featured?: boolean;
+  slug?: string;
+};
+export type CreateNoteRequest = Pick<
+  NoteRecord,
+  'title' | 'summary' | 'contentJson' | 'category' | 'status' | 'isPinned'
+> & {
+  isFeatured?: boolean;
+  publishedAt?: string | null;
+  slug?: string;
+  tags?: readonly string[];
+};
 export type UpdateNoteRequest = Partial<CreateNoteRequest>;
-export type NoteVersionRecord = Pick<NoteRecord, 'id' | 'contentJson' | 'contentText' | 'createdAt'>;
-export type SearchResult = Pick<NoteRecord, 'id' | 'title' | 'summary' | 'slug' | 'category' | 'updatedAt'> & { excerpt: string; tags: readonly string[] };
-export type KnowledgeStats = { total: number; draft: number; published: number; archived: number; pinned: number; roadmapProgress: number };
-export type RoadmapRecord = { id: string; title: string; description: string; status: RoadmapStatus; createdAt: string; updatedAt: string; items?: readonly RoadmapItemRecord[] };
+export type NoteVersionRecord = Pick<
+  NoteRecord,
+  'id' | 'contentJson' | 'contentText' | 'createdAt'
+>;
+export type SearchResult = Pick<
+  NoteRecord,
+  'id' | 'title' | 'summary' | 'slug' | 'category' | 'updatedAt'
+> & { excerpt: string; tags: readonly string[] };
+export type KnowledgeStats = {
+  total: number;
+  draft: number;
+  published: number;
+  archived: number;
+  pinned: number;
+  roadmapProgress: number;
+};
+export type RoadmapRecord = {
+  id: string;
+  title: string;
+  description: string;
+  status: RoadmapStatus;
+  createdAt: string;
+  updatedAt: string;
+  items?: readonly RoadmapItemRecord[];
+};
 export type CreateRoadmapRequest = Pick<RoadmapRecord, 'title' | 'description'>;
 export type UpdateRoadmapRequest = Partial<CreateRoadmapRequest> & { status?: RoadmapStatus };
-export type CreateRoadmapItemRequest = Pick<RoadmapItemRecord, 'title' | 'description' | 'noteId' | 'status' | 'progress' | 'sortOrder' | 'targetDate'>;
+export type CreateRoadmapItemRequest = Pick<
+  RoadmapItemRecord,
+  'title' | 'description' | 'noteId' | 'status' | 'progress' | 'sortOrder' | 'targetDate'
+>;
 export type UpdateRoadmapItemRequest = Partial<CreateRoadmapItemRequest>;
-export type MarkdownImportRequest = { filename: string; content: string };
-export type MarkdownImportResult = { status: 'imported' | 'skipped' | 'failed'; note?: NoteRecord; message?: string };
+export type MarkdownImportRequest = {
+  filename: string;
+  content: string;
+  overwrite?: boolean;
+  metadata?: Partial<{
+    title: string;
+    summary: string;
+    category: string;
+    tags: string[];
+    slug: string;
+    isFeatured: boolean;
+    status: NoteStatus;
+    publishedAt: string | null;
+  }>;
+};
+export type MarkdownImportWarning = {
+  type: 'image' | 'math' | 'html' | 'syntax';
+  message: string;
+  line?: number;
+  raw?: string;
+};
+export type MarkdownImportResult = {
+  status: 'imported' | 'skipped' | 'failed';
+  note?: NoteRecord;
+  message?: string;
+  warnings?: readonly MarkdownImportWarning[];
+};
 export type AssetUploadResult = { asset: AssetRecord };
 export type AssetUploadRequest = MultipartRouteContract['fields'];
 export type ReorderRoadmapRequest = { itemIds: readonly string[] };
@@ -160,11 +239,21 @@ export type ApiRouteContractMap = {
   'GET /api/roadmaps/:id': { request: EmptyResponse; response: RoadmapRecord };
   'PATCH /api/roadmaps/:id': { request: UpdateRoadmapRequest; response: RoadmapRecord };
   'DELETE /api/roadmaps/:id': { request: EmptyResponse; response: RoadmapRecord };
-  'POST /api/roadmaps/:id/items': { request: CreateRoadmapItemRequest; response: RoadmapItemRecord };
-  'PATCH /api/roadmap-items/:id': { request: UpdateRoadmapItemRequest; response: RoadmapItemRecord };
+  'POST /api/roadmaps/:id/items': {
+    request: CreateRoadmapItemRequest;
+    response: RoadmapItemRecord;
+  };
+  'PATCH /api/roadmap-items/:id': {
+    request: UpdateRoadmapItemRequest;
+    response: RoadmapItemRecord;
+  };
   'DELETE /api/roadmap-items/:id': { request: EmptyResponse; response: RoadmapItemRecord };
-  'POST /api/roadmaps/:id/reorder': { request: ReorderRoadmapRequest; response: readonly RoadmapItemRecord[] };
+  'POST /api/roadmaps/:id/reorder': {
+    request: ReorderRoadmapRequest;
+    response: readonly RoadmapItemRecord[];
+  };
   'POST /api/import/markdown': { request: MarkdownImportRequest; response: MarkdownImportResult };
+  'GET /api/assets': { request: { noteId?: string }; response: readonly AssetRecord[] };
   'POST /api/assets': { request: AssetUploadRequest; response: AssetUploadResult };
   'DELETE /api/assets/:id': { request: EmptyResponse; response: AssetRecord };
 };
@@ -173,4 +262,6 @@ export type ApiRequestFor<K extends KnowledgeApiContractKey> = ApiRouteContractM
 export type ApiResponseFor<K extends KnowledgeApiContractKey> = ApiRouteContractMap[K]['response'];
 
 type AssertNever<T extends never> = T;
-export type AssetDownloadIsNotJsonContract = AssertNever<Extract<KnowledgeApiContractKey, 'GET /api/assets/:id'>>;
+export type AssetDownloadIsNotJsonContract = AssertNever<
+  Extract<KnowledgeApiContractKey, 'GET /api/assets/:id'>
+>;

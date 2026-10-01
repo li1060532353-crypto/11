@@ -4,6 +4,7 @@ import { FallbackNotice } from '../../components/content/FallbackNotice';
 import { Pagination } from '../../components/content/Pagination';
 import { PostCard } from '../../components/content/PostCard';
 import { Container } from '../../components/ui/Container';
+import { DraftingGridBackdrop } from '../../components/ui/DraftingGridBackdrop';
 import { toTaxonomySlug } from '../../content/contentQueries';
 import { listPosts, listTags } from '../../content/contentGateway';
 import { parsePostQuery } from '../../content/queryParams';
@@ -29,7 +30,8 @@ export function TagPostsPage() {
   if (tagsQuery.state === 'ready' && !tag) return <NotFoundPage resource="tag" />;
 
   return (
-    <>
+    <div className="page-canvas">
+      <DraftingGridBackdrop />
       <PageIntro title={tag?.name ?? '标签'} description={`浏览“${tag?.name ?? slug}”下的文章。`} />
       <Container className="discovery-page">
         {tagsQuery.state === 'loading' || postsQuery.state === 'loading' ? (
@@ -43,6 +45,10 @@ export function TagPostsPage() {
         ) : null}
         {results ? (
           <>
+            <div className="article-table__header" role="row" aria-hidden="true">
+              <span className="article-table__th article-table__th--title">Title & Abstract</span>
+              <span className="article-table__th article-table__th--date">Date & Taxonomy</span>
+            </div>
             <div className="post-grid">
               {results.items.map((post) => (
                 <PostCard key={post.slug} post={post} />
@@ -58,6 +64,6 @@ export function TagPostsPage() {
           </>
         ) : null}
       </Container>
-    </>
+    </div>
   );
 }

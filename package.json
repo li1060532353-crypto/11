@@ -10,7 +10,7 @@
     "content:import": "node scripts/content-import.mjs",
     "content:check": "node scripts/content-import.mjs --check",
     "content:preview": "pnpm --filter @namdw/web dev",
-    "pages:dev": "wrangler pages dev apps/web/dist --config wrangler.jsonc",
+    "pages:dev": "wrangler pages dev apps/web/dist --ip 127.0.0.1 --port 8788",
     "d1:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.jsonc",
     "cloudflare:verify-config": "node scripts/verify-cloudflare-config.mjs",
     "dev": "pnpm --filter @namdw/shared build && pnpm --parallel --filter @namdw/web --filter @namdw/api dev",

@@ -5,6 +5,7 @@ import { SiteFooter } from './components/layout/SiteFooter';
 import { SiteHeader } from './components/layout/SiteHeader';
 import { useScrollToTop } from './hooks/useScrollToTop';
 import { useDocumentMeta } from './hooks/useDocumentMeta';
+import { useViewTransition } from './hooks/useViewTransition';
 import {
   getPostBySlug,
   listCategories,
@@ -30,6 +31,8 @@ import { TagPostsPage } from './pages/posts/TagPostsPage';
 const KnowledgeDashboardRoute = lazy(() => import('./knowledge/KnowledgeDashboardRoute').then((module) => ({ default: module.KnowledgeDashboardRoute })));
 const KnowledgeNotesRoute = lazy(() => import('./knowledge/KnowledgeNotesRoute').then((module) => ({ default: module.KnowledgeNotesRoute })));
 const KnowledgeEditorRoute = lazy(() => import('./knowledge/KnowledgeEditorRoute').then((module) => ({ default: module.KnowledgeEditorRoute })));
+const KnowledgeImportRoute = lazy(() => import('./knowledge/KnowledgeImportRoute').then((module) => ({ default: module.KnowledgeImportRoute })));
+const KnowledgeNoteReadRoute = lazy(() => import('./knowledge/KnowledgeNoteReadRoute').then((module) => ({ default: module.KnowledgeNoteReadRoute })));
 
 function KnowledgeRouteBoundary({ children }: { children: ReactNode }) {
   return <Suspense fallback={<p className="knowledge-message" role="status">Loading knowledge workspace</p>}>{children}</Suspense>;
@@ -64,8 +67,10 @@ export const publicRoutes = [
     element: <SearchPage />,
   },
   { path: '/knowledge', element: <KnowledgeRouteBoundary><KnowledgeDashboardRoute /></KnowledgeRouteBoundary> },
+  { path: '/knowledge/import', element: <KnowledgeRouteBoundary><KnowledgeImportRoute /></KnowledgeRouteBoundary> },
   { path: '/knowledge/notes', element: <KnowledgeRouteBoundary><KnowledgeNotesRoute /></KnowledgeRouteBoundary> },
   { path: '/knowledge/notes/new', element: <KnowledgeRouteBoundary><KnowledgeEditorRoute mode="create" /></KnowledgeRouteBoundary> },
+  { path: '/knowledge/notes/:id/read', element: <KnowledgeRouteBoundary><KnowledgeNoteReadRoute /></KnowledgeRouteBoundary> },
   { path: '/knowledge/notes/:id', element: <KnowledgeRouteBoundary><KnowledgeEditorRoute mode="edit" /></KnowledgeRouteBoundary> },
   { path: '*', element: <NotFoundPage /> },
 ] as const;
@@ -75,8 +80,12 @@ function routeMeta(pathname: string): { title: string; description: string } {
   const routePath = match?.route.path ?? '*';
   const slug = match?.params.slug ?? '';
 
-  if (routePath === '/knowledge') return { title: 'Knowledge dashboard', description: 'Private knowledge workspace' };
-  if (routePath === '/knowledge/notes') return { title: 'Notes', description: 'Private knowledge workspace notes' };
+  if (routePath === '/knowledge') return { title: '知识库概览', description: '技术知识库工作区与统计概览' };
+  if (routePath === '/knowledge/import') return { title: '导入 Markdown', description: '导入并检查 Markdown 文档' };
+  if (routePath === '/knowledge/notes') return { title: '文章管理', description: '知识库文章列表与状态管理' };
+  if (routePath === '/knowledge/notes/new') return { title: '新建文章', description: '撰写新的技术文章或工程笔记' };
+  if (routePath === '/knowledge/notes/:id') return { title: '编辑文章', description: '编辑技术文章与元数据' };
+  if (routePath === '/knowledge/notes/:id/read') return { title: '阅读文章', description: '知识库文章工程阅读视图' };
 
   if (routePath === '/posts/:slug') {
     const post = getPostBySlug(slug);
@@ -124,6 +133,7 @@ function routeMeta(pathname: string): { title: string; description: string } {
 
 function RouteShell() {
   useScrollToTop();
+  useViewTransition();
   const { pathname } = useLocation();
   const meta = routeMeta(pathname);
   useDocumentMeta({

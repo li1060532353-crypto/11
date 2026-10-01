@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { FallbackNotice } from '../../components/content/FallbackNotice';
 import { Container } from '../../components/ui/Container';
+import { DraftingGridBackdrop } from '../../components/ui/DraftingGridBackdrop';
 import { groupPostsByArchive } from '../../content/contentGateway';
 import { useContentQuery } from '../../content/useContentQuery';
 import { PageIntro } from '../PageIntro';
@@ -10,7 +11,8 @@ export function ArchivesPage() {
   const query = useContentQuery(load, [load]);
 
   return (
-    <>
+    <div className="page-canvas">
+      <DraftingGridBackdrop />
       <PageIntro title="归档" description="按时间回顾持续积累的内容。" />
       <Container className="discovery-page archive-list">
         {query.state === 'loading' ? <p role="status">正在加载归档…</p> : null}
@@ -23,13 +25,20 @@ export function ArchivesPage() {
             <ul>
               {group.posts.map((post) => (
                 <li key={post.slug}>
-                  <Link to={`/posts?year=${group.year}&month=${group.month}`}>{post.title}</Link>
+                  <Link to={`/posts?year=${group.year}&month=${group.month}`}>
+                    <span>{post.title}</span>
+                    <time dateTime={post.publishedAt}>
+                      {new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(
+                        new Date(post.publishedAt),
+                      )}
+                    </time>
+                  </Link>
                 </li>
               ))}
             </ul>
           </section>
         ))}
       </Container>
-    </>
+    </div>
   );
 }

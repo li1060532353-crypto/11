@@ -1,6 +1,14 @@
 export { API_PREFIX, apiError, apiSuccess } from './api';
 export type { ApiFailure, ApiResponse, ApiSuccess } from './api';
-export { assetDownloadRoute, assetUploadRoute, highlightKinds, knowledgeApiRoutes, noteStatuses, roadmapItemStatuses, roadmapStatuses } from './knowledge';
+export {
+  assetDownloadRoute,
+  assetUploadRoute,
+  highlightKinds,
+  knowledgeApiRoutes,
+  noteStatuses,
+  roadmapItemStatuses,
+  roadmapStatuses,
+} from './knowledge';
 export type {
   ApiMethod,
   AssetRecord,
@@ -25,6 +33,7 @@ export type {
   CreateRoadmapItemRequest,
   UpdateRoadmapItemRequest,
   MarkdownImportRequest,
+  MarkdownImportWarning,
   MarkdownImportResult,
   AssetUploadRequest,
   AssetUploadResult,
@@ -37,7 +46,12 @@ export type {
   SearchQuery,
   RoadmapListQuery,
   ApiRouteContractMap,
+  TiptapDocument,
+  TiptapNode,
+  TiptapMark,
   KnowledgeApiContractKey,
   ApiRequestFor,
   ApiResponseFor,
 } from './knowledge';
+export { parseMarkdownToTiptap } from './markdown-converter';
+export type { ConvertedMetadata, MarkdownConversionResult } from './markdown-converter';

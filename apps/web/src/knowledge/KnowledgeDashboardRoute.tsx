@@ -10,9 +10,18 @@ export function KnowledgeDashboardRoute() {
   useEffect(() => {
     let active = true;
     Promise.all([loadKnowledgeStats(), loadKnowledgeNotes({ page: 1, pageSize: 4 })])
-      .then(([stats, notes]) => { if (active) { setModel(mapStatsToDashboard(stats, notes.items)); setState('ready'); } })
-      .catch(() => { if (active) setState('error'); });
-    return () => { active = false; };
+      .then(([stats, notes]) => {
+        if (active) {
+          setModel(mapStatsToDashboard(stats, notes.items));
+          setState('ready');
+        }
+      })
+      .catch(() => {
+        if (active) setState('error');
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   return model ? <DashboardPage model={model} state={state} /> : <DashboardPage state={state} />;

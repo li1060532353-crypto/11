@@ -5,6 +5,7 @@ import { Pagination } from '../../components/content/Pagination';
 import { PostCard } from '../../components/content/PostCard';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Container } from '../../components/ui/Container';
+import { DraftingGridBackdrop } from '../../components/ui/DraftingGridBackdrop';
 import { searchPosts } from '../../content/contentGateway';
 import { parsePostQuery } from '../../content/queryParams';
 import { useContentQuery } from '../../content/useContentQuery';
@@ -29,7 +30,8 @@ export function SearchPage() {
     navigate(`/search${search ? `?${search}` : ''}`);
   };
   return (
-    <>
+    <div className="page-canvas">
+      <DraftingGridBackdrop />
       <PageIntro title="搜索" description="搜索文章中的知识与实践记录。" />
       <Container className="discovery-page">
         <form className="search-form" role="search" aria-label="文章搜索" onSubmit={submit}>
@@ -48,11 +50,17 @@ export function SearchPage() {
         ) : null}
         {query.q ? (
           results?.items.length ? (
-            <div className="post-grid">
-              {results.items.map((post) => (
-                <PostCard key={post.slug} post={post} />
-              ))}
-            </div>
+            <>
+              <div className="article-table__header" role="row" aria-hidden="true">
+                <span className="article-table__th article-table__th--title">Title & Abstract</span>
+                <span className="article-table__th article-table__th--date">Date & Taxonomy</span>
+              </div>
+              <div className="post-grid">
+                {results.items.map((post) => (
+                  <PostCard key={post.slug} post={post} />
+                ))}
+              </div>
+            </>
           ) : contentQuery.state === 'ready' ? (
             <EmptyState
               title="没有搜索结果"
@@ -78,6 +86,6 @@ export function SearchPage() {
           />
         ) : null}
       </Container>
-    </>
+    </div>
   );
 }

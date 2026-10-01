@@ -14,6 +14,8 @@ import {
   mapApiTaxonomy,
 } from './apiMappers';
 import {
+  getDynamicPosts,
+  syncDynamicPosts,
   getPostBySlug as getStaticPostBySlug,
   groupPostsByArchive as groupStaticPostsByArchive,
   listCategories as listStaticCategories,
@@ -24,6 +26,7 @@ import {
   searchPosts as searchStaticPosts,
   type FeaturedContent,
 } from './contentQueries';
+import { fetchPublishedNoteBySlug } from './dynamicContentSync';
 import type {
   ArchiveGroup,
   Category,
@@ -63,7 +66,16 @@ export async function getPostBySlug(slug: string): Promise<ContentResult<Post | 
       mapApiPostDetail(
         await requestContent<ApiPostDetail>(`/content/posts/${encodeURIComponent(slug)}`),
       ),
-    () => getStaticPostBySlug(slug),
+    async () => {
+      const cached = getStaticPostBySlug(slug);
+      if (cached) return cached;
+      const directNote = await fetchPublishedNoteBySlug(slug);
+      if (directNote) {
+        syncDynamicPosts([...getDynamicPosts(), directNote]);
+        return directNote;
+      }
+      return undefined;
+    },
   );
 }
 
@@ -129,13 +141,13 @@ export async function listFeaturedContent(): Promise<ContentResult<readonly Feat
 
 async function withFallback<T>(
   loadApi: () => Promise<T>,
-  loadFallback: () => T,
+  loadFallback: () => T | Promise<T>,
 ): Promise<ContentResult<T>> {
   try {
     return { data: await loadApi(), source: 'api' };
   } catch (error) {
     return {
-      data: loadFallback(),
+      data: await loadFallback(),
       source: 'fallback',
       error: toContentSourceError(error),
     };

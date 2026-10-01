@@ -4,6 +4,7 @@ import { FallbackNotice } from '../../components/content/FallbackNotice';
 import { Pagination } from '../../components/content/Pagination';
 import { PostCard } from '../../components/content/PostCard';
 import { Container } from '../../components/ui/Container';
+import { DraftingGridBackdrop } from '../../components/ui/DraftingGridBackdrop';
 import { toTaxonomySlug } from '../../content/contentQueries';
 import { listCategories, listPosts } from '../../content/contentGateway';
 import { parsePostQuery } from '../../content/queryParams';
@@ -30,7 +31,8 @@ export function CategoryPostsPage() {
   if (categoriesQuery.state === 'ready' && !category) return <NotFoundPage resource="category" />;
 
   return (
-    <>
+    <div className="page-canvas">
+      <DraftingGridBackdrop />
       <PageIntro
         title={category?.name ?? '分类'}
         description={`浏览“${category?.name ?? slug}”下的文章。`}
@@ -47,6 +49,10 @@ export function CategoryPostsPage() {
         ) : null}
         {results ? (
           <>
+            <div className="article-table__header" role="row" aria-hidden="true">
+              <span className="article-table__th article-table__th--title">Title & Abstract</span>
+              <span className="article-table__th article-table__th--date">Date & Taxonomy</span>
+            </div>
             <div className="post-grid">
               {results.items.map((post) => (
                 <PostCard key={post.slug} post={post} />
@@ -62,6 +68,6 @@ export function CategoryPostsPage() {
           </>
         ) : null}
       </Container>
-    </>
+    </div>
   );
 }

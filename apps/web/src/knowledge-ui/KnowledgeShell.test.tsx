@@ -9,17 +9,34 @@ import { dashboardFixture, emptyNotesFixture, notesFixture } from './fixtures';
 
 describe('knowledge presentation shell', () => {
   it('provides overview, articles, and settings navigation without creating a nested main landmark', () => {
-    render(<MemoryRouter><KnowledgeShell title="Knowledge workspace"><p>Runtime content</p></KnowledgeShell></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <KnowledgeShell title="Knowledge workspace">
+          <p>Runtime content</p>
+        </KnowledgeShell>
+      </MemoryRouter>,
+    );
 
-    expect(screen.getByRole('region', { name: 'Knowledge workspace' })).toHaveTextContent('Runtime content');
+    expect(screen.getByRole('region', { name: 'Knowledge workspace' })).toHaveTextContent(
+      'Runtime content',
+    );
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/knowledge');
-    expect(screen.getByRole('link', { name: 'Articles' })).toHaveAttribute('href', '/knowledge/notes');
+    expect(screen.getByRole('link', { name: 'Articles' })).toHaveAttribute(
+      'href',
+      '/knowledge/notes',
+    );
     expect(screen.getByText('Settings')).toHaveAttribute('aria-disabled', 'true');
     expect(screen.queryAllByRole('main')).toHaveLength(0);
   });
 
   it('opens and closes the mobile knowledge navigation', () => {
-    render(<MemoryRouter><KnowledgeShell title="Knowledge workspace"><p>Runtime content</p></KnowledgeShell></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <KnowledgeShell title="Knowledge workspace">
+          <p>Runtime content</p>
+        </KnowledgeShell>
+      </MemoryRouter>,
+    );
 
     const toggle = screen.getByRole('button', { name: 'Open knowledge navigation' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -31,7 +48,11 @@ describe('knowledge presentation shell', () => {
   });
 
   it('renders dashboard statistics with an accessible heading', () => {
-    render(<MemoryRouter><DashboardPage model={dashboardFixture} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <DashboardPage model={dashboardFixture} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
     expect(screen.getByText('Total notes')).toBeInTheDocument();
@@ -39,48 +60,96 @@ describe('knowledge presentation shell', () => {
   });
 
   it('exposes discoverable actions for creating and browsing notes', () => {
-    render(<MemoryRouter><DashboardPage model={dashboardFixture} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <DashboardPage model={dashboardFixture} />
+      </MemoryRouter>,
+    );
 
-    expect(screen.getByRole('link', { name: '新建笔记' })).toHaveAttribute('href', '/knowledge/notes/new');
-    expect(screen.getByRole('link', { name: '查看全部笔记' })).toHaveAttribute('href', '/knowledge/notes');
+    expect(screen.getByRole('link', { name: '新建笔记' })).toHaveAttribute(
+      'href',
+      '/knowledge/notes/new',
+    );
+    expect(screen.getByRole('link', { name: '查看全部笔记' })).toHaveAttribute(
+      'href',
+      '/knowledge/notes',
+    );
   });
 
   it('renders static loading, empty, and error variants', () => {
-    const { rerender } = render(<MemoryRouter><NotesPage model={notesFixture} state="loading" /></MemoryRouter>);
+    const { rerender } = render(
+      <MemoryRouter>
+        <NotesPage model={notesFixture} state="loading" />
+      </MemoryRouter>,
+    );
     expect(screen.getByRole('status')).toHaveTextContent('Loading articles');
 
-    rerender(<MemoryRouter><NotesPage model={emptyNotesFixture} state="empty" /></MemoryRouter>);
+    rerender(
+      <MemoryRouter>
+        <NotesPage model={emptyNotesFixture} state="empty" />
+      </MemoryRouter>,
+    );
     expect(screen.getByRole('heading', { name: 'No articles yet' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Create your first article' })).toHaveAttribute('href', '/knowledge/notes/new');
+    expect(screen.getByRole('link', { name: 'Create your first article' })).toHaveAttribute(
+      'href',
+      '/knowledge/notes/new',
+    );
 
-    rerender(<MemoryRouter><NotesPage model={notesFixture} state="error" /></MemoryRouter>);
+    rerender(
+      <MemoryRouter>
+        <NotesPage model={notesFixture} state="error" />
+      </MemoryRouter>,
+    );
     expect(screen.getByRole('alert')).toHaveTextContent('Articles could not be loaded');
   });
 
   it('presents pinned and archived notes with labelled search controls', () => {
-    render(<MemoryRouter><NotesPage model={notesFixture} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <NotesPage model={notesFixture} />
+      </MemoryRouter>,
+    );
 
-    expect(screen.getByRole('link', { name: 'Create article' })).toHaveAttribute('href', '/knowledge/notes/new');
-    expect(screen.getByLabelText('Search articles')).toHaveAttribute('placeholder', 'Search your articles');
+    expect(screen.getByRole('link', { name: 'Create article' })).toHaveAttribute(
+      'href',
+      '/knowledge/notes/new',
+    );
+    expect(screen.getByLabelText('Search articles')).toHaveAttribute(
+      'placeholder',
+      'Search your articles',
+    );
     expect(screen.getByRole('button', { name: 'Clear search' })).toBeDisabled();
     expect(screen.getByText('Pinned')).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
     expect(screen.getByText('Project retrospective')).toBeInTheDocument();
     expect(screen.getByText('Research archive')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Project retrospective' })).toHaveAttribute('href', '/knowledge/notes/project-retrospective');
-    expect(screen.getByRole('link', { name: 'Edit Project retrospective' })).toHaveAttribute('href', '/knowledge/notes/project-retrospective');
+    expect(screen.getByRole('link', { name: 'Project retrospective' })).toHaveAttribute(
+      'href',
+      '/knowledge/notes/project-retrospective',
+    );
+    expect(screen.getByRole('link', { name: 'Edit Project retrospective' })).toHaveAttribute(
+      'href',
+      '/knowledge/notes/project-retrospective',
+    );
   });
 
   it('exposes existing archive and restore actions without changing note links', () => {
     const onArchive = vi.fn();
     const onRestore = vi.fn();
-    render(<MemoryRouter><NotesPage model={notesFixture} onArchive={onArchive} onRestore={onRestore} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <NotesPage model={notesFixture} onArchive={onArchive} onRestore={onRestore} />
+      </MemoryRouter>,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Archive Project retrospective' }));
     fireEvent.click(screen.getByRole('button', { name: 'Restore Research archive' }));
 
     expect(onArchive).toHaveBeenCalledWith('project-retrospective');
     expect(onRestore).toHaveBeenCalledWith('research-archive');
-    expect(screen.getByRole('link', { name: 'Project retrospective' })).toHaveAttribute('href', '/knowledge/notes/project-retrospective');
+    expect(screen.getByRole('link', { name: 'Project retrospective' })).toHaveAttribute(
+      'href',
+      '/knowledge/notes/project-retrospective',
+    );
   });
 });

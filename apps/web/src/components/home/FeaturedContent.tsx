@@ -27,40 +27,80 @@ export function FeaturedContent() {
             {articles.length ? (
               <section className="feature-group" aria-labelledby="featured-articles-title">
                 <div className="feature-group__heading">
-                  <h3 id="featured-articles-title">近期文章</h3>
-                  <a href="/posts">浏览文章</a>
+                  <div className="feature-group__title-group">
+                    <span className="feature-group__kicker">RECENT ENGINEERING ARTICLES</span>
+                    <h3 id="featured-articles-title">近期文章</h3>
+                  </div>
+                  <a href="/posts" className="feature-group__more-link">
+                    浏览文章
+                    <span className="link-cta__chevron" aria-hidden="true">
+                      ›
+                    </span>
+                  </a>
                 </div>
-                <div className="feature-grid">
-                  {articles.map((item) => (
-                    <a className="feature-card" href={item.href} key={item.href}>
-                      <div className="feature-card__visual" aria-hidden="true" />
-                      <div className="feature-card__body">
-                        <p className="feature-card__meta">{item.meta}</p>
-                        <h4>{item.title}</h4>
-                        <p className="feature-card__summary">{item.summary}</p>
-                      </div>
-                    </a>
-                  ))}
+                <div className="article-table" role="table" aria-label="近期文章列表">
+                  <div className="article-table__header" role="row" aria-hidden="true">
+                    <span className="article-table__th article-table__th--title">Title</span>
+                    <span className="article-table__th article-table__th--date">Date</span>
+                  </div>
+                  <div className="article-table__body">
+                    {articles.map((item) => (
+                      <a className="article-row" href={item.href} key={item.href}>
+                        <div className="article-row__main">
+                          <h4 className="article-row__title">{item.title}</h4>
+                          {item.summary ? (
+                            <p className="article-row__summary">{item.summary}</p>
+                          ) : null}
+                        </div>
+                        <div className="article-row__meta-wrap">
+                          <time className="article-row__meta">{item.meta}</time>
+                          <span className="article-row__chevron" aria-hidden="true">
+                            ›
+                          </span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
                 </div>
               </section>
             ) : null}
             {projects.length ? (
               <section className="feature-group" aria-labelledby="featured-projects-title">
                 <div className="feature-group__heading">
-                  <h3 id="featured-projects-title">精选项目</h3>
-                  <a href="/projects">查看项目</a>
+                  <div className="feature-group__title-group">
+                    <span className="feature-group__kicker">SELECTED PROJECTS</span>
+                    <h3 id="featured-projects-title">精选项目</h3>
+                  </div>
+                  <a href="/projects" className="feature-group__more-link">
+                    查看项目
+                    <span className="link-cta__chevron" aria-hidden="true">
+                      ›
+                    </span>
+                  </a>
                 </div>
-                <div className="feature-grid">
-                  {projects.map((item) => (
-                    <a className="feature-card" href={item.href} key={item.href}>
-                      <div className="feature-card__visual" aria-hidden="true" />
-                      <div className="feature-card__body">
-                        <p className="feature-card__meta">{item.meta}</p>
-                        <h4>{item.title}</h4>
-                        <p className="feature-card__summary">{item.summary}</p>
-                      </div>
-                    </a>
-                  ))}
+                <div className="article-table" role="table" aria-label="精选项目列表">
+                  <div className="article-table__header" role="row" aria-hidden="true">
+                    <span className="article-table__th article-table__th--title">Title</span>
+                    <span className="article-table__th article-table__th--date">Date / Spec</span>
+                  </div>
+                  <div className="article-table__body">
+                    {projects.map((item) => (
+                      <a className="article-row" href={item.href} key={item.href}>
+                        <div className="article-row__main">
+                          <h4 className="article-row__title">{item.title}</h4>
+                          {item.summary ? (
+                            <p className="article-row__summary">{item.summary}</p>
+                          ) : null}
+                        </div>
+                        <div className="article-row__meta-wrap">
+                          <time className="article-row__meta">{item.meta}</time>
+                          <span className="article-row__chevron" aria-hidden="true">
+                            ›
+                          </span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
                 </div>
               </section>
             ) : null}

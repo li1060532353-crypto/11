@@ -27,7 +27,7 @@ export const onRequest = async (context: Context): Promise<Response> => {
     if (action === 'versions' && context.request.method === 'GET') { const versions = await service.versions(id); return versions ? Response.json(apiSuccess(versions)) : notFound(); }
     return jsonError('METHOD_NOT_ALLOWED', 'Method not allowed', 405);
   } catch (error) {
-    if (error instanceof NoteDomainError) return jsonError(error.code, error.message, 400);
+    if (error instanceof NoteDomainError) return jsonError(error.code, error.message, error.code === 'SLUG_CONFLICT' ? 409 : 400);
     return jsonError('NOTE_REPOSITORY_FAILURE', 'Unable to process note request', 500);
   }
 };

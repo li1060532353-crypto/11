@@ -34,8 +34,12 @@ describe('EditorPage presentation', () => {
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Changed title' } });
     expect(onTitleChange).toHaveBeenCalledWith('Changed title');
 
-    const { rerender } = render(<EditorPage model={editorFixture} onContentChange={onContentChange} />);
-    fireEvent.input(screen.getByRole('textbox', { name: 'Document' }), { target: { value: '{"type":"doc"}' } });
+    const { rerender } = render(
+      <EditorPage model={editorFixture} onContentChange={onContentChange} />,
+    );
+    fireEvent.input(screen.getByRole('textbox', { name: 'Document' }), {
+      target: { value: '{"type":"doc"}' },
+    });
     expect(onContentChange).toHaveBeenCalledWith('{"type":"doc"}');
     rerender(<EditorPage model={editorFixture} />);
   });
@@ -44,27 +48,55 @@ describe('EditorPage presentation', () => {
     const onHighlight = vi.fn();
     const onRemoveHighlight = vi.fn();
 
-    render(<EditorPage model={editorFixture} selectedHighlight="mastered" onHighlight={onHighlight} onRemoveHighlight={onRemoveHighlight} />);
+    render(
+      <EditorPage
+        model={editorFixture}
+        selectedHighlight="mastered"
+        onHighlight={onHighlight}
+        onRemoveHighlight={onRemoveHighlight}
+      />,
+    );
 
     for (const kind of ['Core', 'Mistake', 'Mastered', 'Method', 'Investigate']) {
       expect(screen.getByRole('button', { name: kind })).toBeInTheDocument();
     }
-    expect(screen.getByRole('button', { name: 'Mastered' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Mastered' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Core' }));
     fireEvent.click(screen.getByRole('button', { name: 'Remove highlight' }));
     expect(onHighlight).toHaveBeenCalledWith('core');
     expect(onRemoveHighlight).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['unchanged', 'unsaved', 'saving', 'saved', 'failed'] as const)('shows the %s save state', (state) => {
-    render(<EditorPage model={editorFixture} state={state} />);
-    expect(screen.getByRole('status')).toHaveTextContent({ unchanged: 'No changes', unsaved: 'Unsaved changes', saving: 'Saving', saved: 'Saved', failed: 'Save failed' }[state]);
-  });
+  it.each(['unchanged', 'unsaved', 'saving', 'saved', 'failed'] as const)(
+    'shows the %s save state',
+    (state) => {
+      render(<EditorPage model={editorFixture} state={state} />);
+      expect(screen.getByRole('status')).toHaveTextContent(
+        {
+          unchanged: 'No changes',
+          unsaved: 'Unsaved changes',
+          saving: 'Saving',
+          saved: 'Saved',
+          failed: 'Save failed',
+        }[state],
+      );
+    },
+  );
 
   it('keeps manual save and Save Version as separate injected callbacks', () => {
     const onSave = vi.fn();
     const onSaveVersion = vi.fn();
-    render(<EditorPage model={editorFixture} state="saved" onSave={onSave} onSaveVersion={onSaveVersion} />);
+    render(
+      <EditorPage
+        model={editorFixture}
+        state="saved"
+        onSave={onSave}
+        onSaveVersion={onSaveVersion}
+      />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save Version' }));
@@ -76,7 +108,11 @@ describe('EditorPage presentation', () => {
     render(<EditorPage model={editorFixture} state="saved" versionState="saved" />);
 
     expect(screen.getByText('Version saved')).toBeInTheDocument();
-    expect(screen.getByText('Uploads shown here are for this editor session only. They are not embedded in this article or restored after a refresh.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Uploads shown here are for this editor session only. They are not embedded in this article or restored after a refresh.',
+      ),
+    ).toBeInTheDocument();
   });
 });
 
@@ -98,9 +134,21 @@ describe('AssetPanel presentation', () => {
     render(
       <AssetPanel
         assets={[
-          { id: 'uploading', name: 'draft.pdf', sizeLabel: '1 KB', state: 'uploading', progress: 45 },
+          {
+            id: 'uploading',
+            name: 'draft.pdf',
+            sizeLabel: '1 KB',
+            state: 'uploading',
+            progress: 45,
+          },
           { id: 'ready', name: 'reference.pdf', sizeLabel: '2 KB', state: 'ready' },
-          { id: 'failed', name: 'broken.pdf', sizeLabel: '3 KB', state: 'error', errorMessage: 'Upload failed' },
+          {
+            id: 'failed',
+            name: 'broken.pdf',
+            sizeLabel: '3 KB',
+            state: 'error',
+            errorMessage: 'Upload failed',
+          },
         ]}
         onDownload={onDownload}
       />,
@@ -133,12 +181,20 @@ describe('AssetPanel presentation', () => {
   });
 
   it('moves focus into the delete dialog, supports Escape, and restores the trigger focus', () => {
-    render(<AssetPanel assets={[{ id: 'ready', name: 'reference.pdf', sizeLabel: '2 KB', state: 'ready' }]} onDelete={vi.fn()} />);
+    render(
+      <AssetPanel
+        assets={[{ id: 'ready', name: 'reference.pdf', sizeLabel: '2 KB', state: 'ready' }]}
+        onDelete={vi.fn()}
+      />,
+    );
     const trigger = screen.getByRole('button', { name: 'Delete reference.pdf' });
     trigger.focus();
     fireEvent.click(trigger);
     expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Cancel' }), { key: 'Tab', shiftKey: true });
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Cancel' }), {
+      key: 'Tab',
+      shiftKey: true,
+    });
     expect(screen.getByRole('button', { name: 'Confirm delete' })).toHaveFocus();
     fireEvent.keyDown(screen.getByRole('button', { name: 'Confirm delete' }), { key: 'Tab' });
     expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();

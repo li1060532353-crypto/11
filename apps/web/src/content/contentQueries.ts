@@ -32,9 +32,38 @@ export type FeaturedContent = {
 const defaultPageSize = 6;
 const maximumPageSize = 12;
 
-const newestFirstPosts = [...posts].sort(
-  (left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt),
-);
+let dynamicPosts: Post[] = [];
+
+export function syncDynamicPosts(incoming: readonly Post[]): void {
+  dynamicPosts = [...incoming];
+}
+
+export function clearDynamicPosts(): void {
+  dynamicPosts = [];
+}
+
+export function getDynamicPosts(): readonly Post[] {
+  return dynamicPosts;
+}
+
+export function getAllPosts(): readonly Post[] {
+  if (dynamicPosts.length === 0) {
+    return [...posts].sort(
+      (left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt),
+    );
+  }
+  // Deduplicate by slug: dynamic post overrides static post with identical slug
+  const map = new Map<string, Post>();
+  for (const post of posts) {
+    map.set(post.slug, post);
+  }
+  for (const post of dynamicPosts) {
+    map.set(post.slug, post);
+  }
+  return Array.from(map.values()).sort(
+    (left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt),
+  );
+}
 
 function normalizeText(value: string | undefined): string | undefined {
   const normalized = value ? toTaxonomySlug(value) : undefined;
@@ -85,7 +114,7 @@ function paginate(items: readonly Post[], options: PostListOptions): Paginated<P
 }
 
 function filteredPosts(options: PostListOptions = {}): readonly Post[] {
-  return newestFirstPosts.filter((post) => matchesOptions(post, options));
+  return getAllPosts().filter((post) => matchesOptions(post, options));
 }
 
 export function listPosts(options: PostListOptions = {}): Paginated<PostSummary> {
@@ -93,7 +122,7 @@ export function listPosts(options: PostListOptions = {}): Paginated<PostSummary>
 }
 
 export function getPostBySlug(slug: string): Post | undefined {
-  return posts.find((post) => post.slug === slug);
+  return getAllPosts().find((post) => post.slug === slug);
 }
 
 export type PostNeighbors = {
@@ -115,7 +144,7 @@ export function findPostNeighbors(
 }
 
 export function getPostNeighbors(slug: string): PostNeighbors {
-  return findPostNeighbors(newestFirstPosts.map(toSummary), slug);
+  return findPostNeighbors(getAllPosts().map(toSummary), slug);
 }
 
 function listTaxonomy(
@@ -134,11 +163,11 @@ function listTaxonomy(
 }
 
 export function listCategories(): readonly Category[] {
-  return listTaxonomy(posts.map((post) => post.category));
+  return listTaxonomy(getAllPosts().map((post) => post.category));
 }
 
 export function listTags(): readonly Tag[] {
-  return listTaxonomy(posts.flatMap((post) => post.tags));
+  return listTaxonomy(getAllPosts().flatMap((post) => post.tags));
 }
 
 export function listProjects(): readonly Project[] {
@@ -147,7 +176,9 @@ export function listProjects(): readonly Project[] {
 
 export function listFeaturedContent(): readonly FeaturedContent[] {
   const selectedProject = projects.find((project) => project.selected);
-  const selectedPosts = posts.filter((post) => post.selected);
+  const selectedPosts = getAllPosts()
+    .filter((post) => post.selected)
+    .slice(0, 5);
 
   return [
     ...(selectedProject
@@ -184,7 +215,7 @@ export function searchPosts(query: string, options: PostListOptions = {}): Pagin
 
 export function groupPostsByArchive(): readonly ArchiveGroup[] {
   const groups = new Map<string, ArchiveGroup>();
-  for (const post of newestFirstPosts) {
+  for (const post of getAllPosts()) {
     const date = new Date(post.publishedAt);
     const year = date.getUTCFullYear();
     const month = date.getUTCMonth() + 1;

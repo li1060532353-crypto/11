@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { ContentResult } from './types';
+import { syncPublishedNotes } from './dynamicContentSync';
 
 export type ContentQueryState<T> =
   { state: 'loading'; result?: undefined } | { state: 'ready'; result: ContentResult<T> };
@@ -15,11 +16,14 @@ export function useContentQuery<T>(
     let cancelled = false;
     setQuery({ state: 'loading' });
 
-    load().then((result) => {
+    void (async () => {
+      await syncPublishedNotes();
+      if (cancelled) return;
+      const result = await load();
       if (!cancelled) {
         setQuery({ state: 'ready', result });
       }
-    });
+    })();
 
     return () => {
       cancelled = true;

@@ -19,6 +19,14 @@ export const onRequest = async (context: Context): Promise<Response> => {
   const [id, extra] = context.params.path ?? [];
   try {
     if (context.request.method === 'POST' && !id) return Response.json(apiSuccess(await service.upload(context.request)), { status: 201 });
+    if (context.request.method === 'GET' && !id) {
+      const url = new URL(context.request.url);
+      const noteId = url.searchParams.get('noteId');
+      if (!noteId || !/^[A-Za-z0-9-]+$/u.test(noteId)) {
+        return jsonError('ASSET_VALIDATION_ERROR', 'noteId query parameter is required', 400);
+      }
+      return Response.json(apiSuccess(await service.listByNote(noteId)));
+    }
     if (!id || extra || !/^[A-Za-z0-9-]+$/u.test(id)) return jsonError('ASSET_VALIDATION_ERROR', 'Invalid asset id', 400);
     if (context.request.method === 'GET') { const result = await service.download(id); return new Response(result.body, { headers: result.headers }); }
     if (context.request.method === 'DELETE') return Response.json(apiSuccess(await service.remove(id)));

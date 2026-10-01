@@ -2,9 +2,10 @@
 .button-link,
 .reading-progress__bar {
   transition:
-    transform var(--motion-slow) ease,
-    box-shadow var(--motion-slow) ease,
-    background-color var(--motion-normal) ease;
+    transform var(--motion-slow) var(--motion-apple-ease, ease),
+    box-shadow var(--motion-slow) var(--motion-apple-ease, ease),
+    background-color var(--motion-normal) ease,
+    border-color var(--motion-normal) ease;
 }
 
 .feature-card:hover {
@@ -12,9 +13,56 @@
   transform: translateY(-0.25rem);
 }
 
+.feature-card:active {
+  transform: translateY(-0.1rem) scale(0.995);
+}
+
+.button-link:active,
+.ui-button:active {
+  transform: scale(0.97);
+}
+
+/* ═══════════════════════════════════════════════
+   View Transitions — iOS Page Stack Style
+   ═══════════════════════════════════════════════ */
+
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: 100ms var(--motion-apple-ease) both vt-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 220ms var(--motion-apple-spring) both vt-fade-in;
+}
+
+@keyframes vt-fade-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.998);
+  }
+}
+
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
-    scroll-behavior: auto;
+    scroll-behavior: auto !important;
   }
 
   *,
@@ -27,4 +75,10 @@
   .reading-progress__bar {
     transition: none !important;
   }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms !important;
+  }
 }
+

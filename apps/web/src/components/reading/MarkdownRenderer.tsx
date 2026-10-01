@@ -8,6 +8,8 @@ import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import { visit } from 'unist-util-visit';
 
+import { CodeBlock } from './CodeBlock';
+
 export type ArticleHeading = {
   id: string;
   level: 2 | 3;
@@ -71,6 +73,9 @@ export function MarkdownRenderer({ source }: { source: string }) {
           {children}
         </a>
       );
+    },
+    pre({ children, ...props }) {
+      return <CodeBlock {...props}>{children}</CodeBlock>;
     },
   };
 

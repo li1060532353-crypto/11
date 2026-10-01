@@ -10,6 +10,7 @@ type AssetMetadata = AssetRecord & { r2Key: string };
 export type AssetStore = {
   noteExists(noteId: string): Promise<boolean>;
   find(assetId: string): Promise<AssetMetadata | null>;
+  listByNote(noteId: string): Promise<AssetMetadata[]>;
   insert(asset: AssetMetadata): Promise<void>;
   remove(assetId: string): Promise<AssetMetadata | null>;
   restore(asset: AssetMetadata): Promise<void>;
@@ -79,6 +80,10 @@ export function createAssetService(store: AssetStore, bucket: AssetBucket, id = 
       }
       return publicAsset(known);
     },
+    async listByNote(noteId: string): Promise<AssetRecord[]> {
+      const items = await store.listByNote(noteId);
+      return items.map(publicAsset);
+    },
   };
 }
 
@@ -89,6 +94,10 @@ export function createD1AssetStore(db: D1Database): AssetStore {
   return {
     async noteExists(noteId) { return !!await db.prepare('SELECT id FROM notes WHERE id = ?').bind(noteId).first(); },
     async find(assetId) { const row = await db.prepare('SELECT * FROM assets WHERE id = ?').bind(assetId).first<Record<string, unknown>>(); return row ? map(row) : null; },
+    async listByNote(noteId) {
+      const { results } = await db.prepare('SELECT * FROM assets WHERE note_id = ? ORDER BY created_at DESC').bind(noteId).all<Record<string, unknown>>();
+      return (results ?? []).map(map);
+    },
     async insert(asset) { await bind(db.prepare(`INSERT INTO assets (${columns}) VALUES (?,?,?,?,?,?,?)`), asset).run(); },
     async remove(assetId) { const asset = await this.find(assetId); if (!asset) return null; await db.prepare('DELETE FROM assets WHERE id = ?').bind(assetId).run(); return asset; },
     async restore(asset) { await bind(db.prepare(`INSERT INTO assets (${columns}) VALUES (?,?,?,?,?,?,?)`), asset).run(); },

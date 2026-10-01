@@ -17,6 +17,9 @@ export function PostCard({ post }: { post: PostSummary }) {
         </h2>
         <p>{post.summary}</p>
       </div>
+      <div className="post-card__aside" aria-hidden="true">
+        <span className="post-card__chevron">›</span>
+      </div>
     </article>
   );
 }

@@ -22,6 +22,7 @@ export type Post = {
   title: string;
   summary: string;
   body: string;
+  contentJson?: unknown;
   category: string;
   tags: readonly string[];
   publishedAt: string;

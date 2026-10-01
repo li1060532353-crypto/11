@@ -9,6 +9,7 @@ import { listCategories, listPosts, listTags } from '../../content/contentGatewa
 import { buildPostQuery, parsePostQuery } from '../../content/queryParams';
 import { useContentQuery } from '../../content/useContentQuery';
 import { Container } from '../../components/ui/Container';
+import { DraftingGridBackdrop } from '../../components/ui/DraftingGridBackdrop';
 import { PageIntro } from '../PageIntro';
 
 export function PostsPage() {
@@ -32,7 +33,8 @@ export function PostsPage() {
     navigate(`/posts${buildPostQuery(next)}`);
   };
   return (
-    <>
+    <div className="page-canvas">
+      <DraftingGridBackdrop />
       <PageIntro title="文章" description="按时间浏览全部技术文章。" />
       <Container className="discovery-page">
         <FilterBar
@@ -47,11 +49,17 @@ export function PostsPage() {
           <FallbackNotice error={postsQuery.result.error} />
         ) : null}
         {results?.items.length ? (
-          <div className="post-grid">
-            {results.items.map((post) => (
-              <PostCard key={post.slug} post={post} />
-            ))}
-          </div>
+          <>
+            <div className="article-table__header" role="row" aria-hidden="true">
+              <span className="article-table__th article-table__th--title">Title & Abstract</span>
+              <span className="article-table__th article-table__th--date">Date & Taxonomy</span>
+            </div>
+            <div className="post-grid">
+              {results.items.map((post) => (
+                <PostCard key={post.slug} post={post} />
+              ))}
+            </div>
+          </>
         ) : postsQuery.state === 'ready' ? (
           <EmptyState
             title="没有匹配的文章"
@@ -69,6 +77,6 @@ export function PostsPage() {
           />
         ) : null}
       </Container>
-    </>
+    </div>
   );
 }

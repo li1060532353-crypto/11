@@ -49,10 +49,19 @@ describe('knowledge-base API contracts', () => {
 
   it('associates each endpoint key with concrete request and response types', () => {
     const create: ApiRequestFor<'POST /api/notes'> = {
-      title: 'Test', summary: '', contentJson: '{}', category: '', status: 'draft', isPinned: false,
+      title: 'Test',
+      summary: '',
+      contentJson: '{}',
+      category: '',
+      status: 'draft',
+      isPinned: false,
     } satisfies CreateNoteRequest;
     const list: ApiResponseFor<'GET /api/notes'> = {
-      items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 0,
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
     } satisfies Paginated<NoteRecord>;
 
     expect(create.title).toBe('Test');
@@ -60,13 +69,35 @@ describe('knowledge-base API contracts', () => {
   });
 
   it('separates multipart upload, binary download, and JSON asset contracts', () => {
-    const upload: AssetUploadRequest = { transport: 'multipart', file: 'single-file', noteId: 'string' };
-    const uploadResult: AssetUploadResult = { asset: { id: 'asset-1', noteId: null, originalName: 'safe.png', mimeType: 'image/png', sizeBytes: 1, createdAt: '2026-07-19T00:00:00.000Z' } };
+    const upload: AssetUploadRequest = {
+      transport: 'multipart',
+      file: 'single-file',
+      noteId: 'string',
+    };
+    const uploadResult: AssetUploadResult = {
+      asset: {
+        id: 'asset-1',
+        noteId: null,
+        originalName: 'safe.png',
+        mimeType: 'image/png',
+        sizeBytes: 1,
+        createdAt: '2026-07-19T00:00:00.000Z',
+      },
+    };
     const post: ApiRequestFor<'POST /api/assets'> = upload;
-    const remove: ApiResponseFor<'DELETE /api/assets/:id'> = { id: 'asset-1', noteId: null, originalName: 'safe.png', mimeType: 'image/png', sizeBytes: 1, createdAt: '2026-07-19T00:00:00.000Z' };
+    const remove: ApiResponseFor<'DELETE /api/assets/:id'> = {
+      id: 'asset-1',
+      noteId: null,
+      originalName: 'safe.png',
+      mimeType: 'image/png',
+      sizeBytes: 1,
+      createdAt: '2026-07-19T00:00:00.000Z',
+    };
     const deleteRequest: ApiRequestFor<'DELETE /api/assets/:id'> = {} satisfies EmptyResponse;
     const assertNever = <T extends never>(value: T) => value;
-    const binaryKey = assertNever<Extract<KnowledgeApiContractKey, 'GET /api/assets/:id'>>(undefined as never);
+    const binaryKey = assertNever<Extract<KnowledgeApiContractKey, 'GET /api/assets/:id'>>(
+      undefined as never,
+    );
     const binary: BinaryRouteContract = assetDownloadRoute;
     const multipart: MultipartRouteContract = { ...assetUploadRoute, response: uploadResult };
 
