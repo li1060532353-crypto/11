@@ -74,4 +74,3 @@ export function KnowledgeShell({ title, children }: KnowledgeShellProps) {
     </section>
   );
 }
-

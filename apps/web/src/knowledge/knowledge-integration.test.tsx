@@ -33,14 +33,12 @@ function response(body: unknown, status = 200) {
 
 describe('knowledge read-only integration', () => {
   it('unwraps successful typed envelopes and constructs approved query URLs', async () => {
-    const fetchMock = vi
-      .mocked(fetch)
-      .mockResolvedValueOnce(
-        response({
-          success: true,
-          data: { items: [note], page: 2, pageSize: 10, totalItems: 1, totalPages: 1 },
-        }),
-      );
+    const fetchMock = vi.mocked(fetch).mockResolvedValueOnce(
+      response({
+        success: true,
+        data: { items: [note], page: 2, pageSize: 10, totalItems: 1, totalPages: 1 },
+      }),
+    );
     await expect(
       loadKnowledgeNotes({ page: 2, pageSize: 10, status: 'archived', pinned: true }),
     ).resolves.toMatchObject({ items: [note] });
@@ -459,11 +457,7 @@ describe('knowledge read-only integration', () => {
         <KnowledgeDashboardRoute key="failed-dashboard" />
       </MemoryRouter>,
     );
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        '仪表盘加载失败',
-      ),
-    );
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('仪表盘加载失败'));
     expect(screen.queryByText('24')).not.toBeInTheDocument();
   });
 
@@ -489,9 +483,7 @@ describe('knowledge read-only integration', () => {
       </MemoryRouter>,
     );
 
-    expect(
-      await screen.findByRole('heading', { name: '近期编辑文章' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '近期编辑文章' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Recently edited note' })).toHaveAttribute(
       'href',
       '/knowledge/notes/n1',

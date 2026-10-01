@@ -10,10 +10,7 @@ export function KnowledgeDashboardRoute() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      loadKnowledgeStats(),
-      loadKnowledgeNotes({ page: 1, pageSize: 4 }),
-    ])
+    Promise.all([loadKnowledgeStats(), loadKnowledgeNotes({ page: 1, pageSize: 4 })])
       .then(([stats, notes]) => {
         if (active) {
           const base = mapStatsToDashboard(stats, notes.items);
@@ -59,4 +56,3 @@ export function KnowledgeDashboardRoute() {
 
   return model ? <DashboardPage model={model} state={state} /> : <DashboardPage state={state} />;
 }
-

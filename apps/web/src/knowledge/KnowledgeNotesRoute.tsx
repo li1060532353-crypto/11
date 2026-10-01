@@ -302,28 +302,25 @@ export function KnowledgeNotesRoute() {
   );
 
   // Single note restore
-  const handleRestore = useCallback(
-    async (noteId: string) => {
-      if (mutationLock.current) return;
-      mutationLock.current = true;
-      setMutatingNoteId(noteId);
-      setMutationError(null);
-      try {
-        await restoreKnowledgeNote(noteId);
-        invalidateDynamicContent();
-        setToast({
-          text: '已恢复为草稿',
-        });
-        setRefresh((r) => r + 1);
-      } catch {
-        setMutationError('文章恢复失败。');
-      } finally {
-        mutationLock.current = false;
-        setMutatingNoteId(null);
-      }
-    },
-    [],
-  );
+  const handleRestore = useCallback(async (noteId: string) => {
+    if (mutationLock.current) return;
+    mutationLock.current = true;
+    setMutatingNoteId(noteId);
+    setMutationError(null);
+    try {
+      await restoreKnowledgeNote(noteId);
+      invalidateDynamicContent();
+      setToast({
+        text: '已恢复为草稿',
+      });
+      setRefresh((r) => r + 1);
+    } catch {
+      setMutationError('文章恢复失败。');
+    } finally {
+      mutationLock.current = false;
+      setMutatingNoteId(null);
+    }
+  }, []);
 
   // Batch Archive
   const handleBatchArchive = useCallback(
@@ -541,11 +538,15 @@ export function KnowledgeNotesRoute() {
       tabCounts={tabCounts}
       // Filters
       category={category}
-      onCategoryChange={(nextCat) => updateParams({ category: nextCat, page: 1 }, { replace: true })}
+      onCategoryChange={(nextCat) =>
+        updateParams({ category: nextCat, page: 1 }, { replace: true })
+      }
       sort={sort}
       onSortChange={(nextSort) => updateParams({ sort: nextSort }, { replace: true })}
       pinned={pinned}
-      onPinnedChange={(nextPinned) => updateParams({ pinned: nextPinned, page: 1 }, { replace: true })}
+      onPinnedChange={(nextPinned) =>
+        updateParams({ pinned: nextPinned, page: 1 }, { replace: true })
+      }
       featured={featured}
       onFeaturedChange={(nextFeatured) =>
         updateParams({ featured: nextFeatured, page: 1 }, { replace: true })

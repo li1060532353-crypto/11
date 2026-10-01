@@ -32,9 +32,7 @@ function getStatHref(label: string, customHref?: string): string {
 
 export function DashboardPage({ model, state = 'ready' }: DashboardPageProps) {
   const drafts =
-    model?.recentDrafts ??
-    model?.recentArticles?.filter((a) => a.status === 'draft') ??
-    [];
+    model?.recentDrafts ?? model?.recentArticles?.filter((a) => a.status === 'draft') ?? [];
 
   return (
     <KnowledgeShell title="知识库工作区">
@@ -86,10 +84,7 @@ export function DashboardPage({ model, state = 'ready' }: DashboardPageProps) {
               </div>
               <div className="knowledge-overview__statistics" role="list">
                 {model.statistics.map((statistic) => {
-                  const href = getStatHref(
-                    statistic.label,
-                    (statistic as { href?: string }).href,
-                  );
+                  const href = getStatHref(statistic.label, (statistic as { href?: string }).href);
                   return (
                     <div key={statistic.label} className="knowledge-stat-card-item" role="listitem">
                       <Link
@@ -119,14 +114,19 @@ export function DashboardPage({ model, state = 'ready' }: DashboardPageProps) {
                 <ol className="knowledge-overview__recent-list">
                   {drafts.map((draft) => (
                     <li key={draft.id}>
-                      <Link to={`/knowledge/notes/${draft.id}`} aria-label={`继续编辑 ${draft.title}`}>
+                      <Link
+                        to={`/knowledge/notes/${draft.id}`}
+                        aria-label={`继续编辑 ${draft.title}`}
+                      >
                         <span>
                           <strong>{draft.title}</strong>
                           <small>{draft.category}</small>
                         </span>
                         <div className="knowledge-overview__draft-action">
                           <time>{draft.updatedLabel}</time>
-                          <span className="knowledge-button knowledge-button--small">继续编辑 →</span>
+                          <span className="knowledge-button knowledge-button--small">
+                            继续编辑 →
+                          </span>
                         </div>
                       </Link>
                     </li>
@@ -169,4 +169,3 @@ export function DashboardPage({ model, state = 'ready' }: DashboardPageProps) {
     </KnowledgeShell>
   );
 }
-
