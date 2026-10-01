@@ -527,7 +527,7 @@ describe('knowledge editor mutation integration', () => {
 
     // Step 2 backup succeeds, then versions reloaded
     vi.mocked(fetch).mockResolvedValueOnce(
-      response({ success: true, data: { id: 'v-backup', ...historicalVersion } }, 201),
+      response({ success: true, data: { ...historicalVersion, id: 'v-backup' } }, 201),
     );
     vi.mocked(fetch).mockResolvedValueOnce(
       response({ success: true, data: [historicalVersion] }),
