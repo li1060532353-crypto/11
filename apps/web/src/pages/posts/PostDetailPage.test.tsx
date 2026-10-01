@@ -16,6 +16,14 @@ function renderAt(path: string) {
   );
 }
 
+function renderWithEntry(entry: string | { pathname: string; state?: unknown }) {
+  return render(
+    <MemoryRouter initialEntries={[entry as never]}>
+      <AppRoutes />
+    </MemoryRouter>,
+  );
+}
+
 function ArticleRouteNavigator() {
   const navigate = useNavigate();
   return (
@@ -189,5 +197,229 @@ describe('PostDetailPage', () => {
     );
     expect(motionCss).toMatch(/prefers-reduced-motion:\s*reduce[\s\S]*reading-progress/);
     expect(motionCss).toMatch(/prefers-reduced-motion:\s*reduce[\s\S]*scroll-behavior:\s*auto/);
+  });
+
+  describe('NAV-01: Return to search result with query, page, and scroll restoration', () => {
+    it('renders return link reflecting search source and retains state for scroll restoration', async () => {
+      const searchState = {
+        kind: 'search',
+        fromPath: '/search?q=%E7%B3%BB%E7%BB%9F&page=2',
+        fromLabel: '← 返回搜索结果 "系统"',
+        scrollY: 400,
+      };
+
+      renderWithEntry({
+        pathname: '/posts/discrete-convolution',
+        state: searchState,
+      });
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+      ).toBeInTheDocument();
+
+      const topReturnLink = screen.getByTestId('top-return-link');
+      expect(topReturnLink).toHaveTextContent('← 返回搜索结果 "系统"');
+      expect(topReturnLink).toHaveAttribute('href', '/search?q=%E7%B3%BB%E7%BB%9F&page=2');
+
+      const bottomReturnLink = screen.getByTestId('bottom-return-link');
+      expect(bottomReturnLink).toHaveAttribute('href', '/search?q=%E7%B3%BB%E7%BB%9F&page=2');
+    });
+  });
+
+  describe('NAV-02: Adjacent post continuous pagination with rootSource and hopCount', () => {
+    it('propagates rootSource across adjacent navigation and renders continuous reading return bar', async () => {
+      const taxonomySource = {
+        kind: 'taxonomy',
+        fromPath: '/categories/engineering',
+        fromLabel: '← 返回分类 [工程实践]',
+        scrollY: 180,
+      };
+
+      // 1. Initial entry from taxonomy list (hopCount = 0)
+      const { unmount } = renderWithEntry({
+        pathname: '/posts/discrete-convolution',
+        state: taxonomySource,
+      });
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+      ).toBeInTheDocument();
+
+      const nextPostLink = screen.getByRole('link', { name: /下一篇.*周期信号分析的三个检查点/ });
+      expect(nextPostLink).toBeInTheDocument();
+
+      unmount();
+
+      // 2. Next post with hopCount: 1 and propagated rootSource
+      renderWithEntry({
+        pathname: '/posts/signal-period-analysis',
+        state: {
+          kind: 'taxonomy',
+          fromPath: '/posts/discrete-convolution',
+          fromLabel: '上一篇文章',
+          scrollY: 100,
+          hopCount: 1,
+          rootSource: taxonomySource,
+        },
+      });
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: '周期信号分析的三个检查点' }),
+      ).toBeInTheDocument();
+
+      // Top return still points to root taxonomy source
+      const topLink = screen.getByTestId('top-return-link');
+      expect(topLink).toHaveTextContent('← 返回分类 [工程实践]');
+      expect(topLink).toHaveAttribute('href', '/categories/engineering');
+
+      // Bottom return bar displays continuous reading notice with direct root return
+      const rootReturnLink = screen.getByTestId('bottom-root-return-link');
+      expect(screen.getByText(/已在文章间连续阅读 1 篇/)).toBeInTheDocument();
+      expect(rootReturnLink).toHaveTextContent('直接返回最初来源: 返回分类 [工程实践]');
+      expect(rootReturnLink).toHaveAttribute('href', '/categories/engineering');
+    });
+  });
+
+  describe('NAV-03: Direct access or external referrer fallback', () => {
+    it('falls back safely to /posts with default label when state is empty or absent', async () => {
+      renderWithEntry('/posts/discrete-convolution');
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+      ).toBeInTheDocument();
+
+      const topReturnLink = screen.getByTestId('top-return-link');
+      expect(topReturnLink).toHaveTextContent('← 返回文章列表');
+      expect(topReturnLink).toHaveAttribute('href', '/posts');
+
+      const bottomReturnLink = screen.getByTestId('bottom-return-link');
+      expect(bottomReturnLink).toHaveTextContent('← 返回文章列表');
+      expect(bottomReturnLink).toHaveAttribute('href', '/posts');
+    });
+
+    it('sanitizes malicious or external URLs and reverts to safe fallback /posts', async () => {
+      renderWithEntry({
+        pathname: '/posts/discrete-convolution',
+        state: {
+          kind: 'search',
+          fromPath: 'https://malicious-site.com/steal',
+          fromLabel: '恶意来源',
+        },
+      });
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+      ).toBeInTheDocument();
+
+      const topReturnLink = screen.getByTestId('top-return-link');
+      expect(topReturnLink).toHaveTextContent('← 返回文章列表');
+      expect(topReturnLink).toHaveAttribute('href', '/posts');
+    });
+  });
+
+  describe('NAV-04: Knowledge note read view source identification and preview return', () => {
+    it('returns to editor workbench when opened from editor preview', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: RequestInfo | URL) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/api/notes/draft-nav-test')) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                id: 'draft-nav-test',
+                title: '草稿预览文章',
+                summary: '未发布草稿摘要',
+                category: '系统架构',
+                status: 'draft',
+                slug: 'draft-nav-test',
+                contentJson: JSON.stringify({ type: 'doc', content: [] }),
+                contentText: '未发布草稿正文',
+                reviewCount: 0,
+                createdAt: '2026-10-01T12:00:00.000Z',
+                updatedAt: '2026-10-01T12:00:00.000Z',
+                lastReviewedAt: null,
+                isFeatured: false,
+                isPinned: false,
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (urlStr.includes('/api/assets')) {
+          return new Response(
+            JSON.stringify({ success: true, data: [] }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response('{}', { status: 200 });
+      });
+
+      renderWithEntry({
+        pathname: '/knowledge/notes/draft-nav-test/read',
+        state: {
+          kind: 'editor_preview',
+          fromPath: '/knowledge/notes/draft-nav-test',
+          fromLabel: '← 返回正在编辑的文章',
+        },
+      });
+
+      expect(await screen.findByRole('heading', { level: 1, name: '草稿预览文章' })).toBeInTheDocument();
+
+      const returnLink = screen.getByTestId('knowledge-read-return-link');
+      expect(returnLink).toHaveTextContent('← 返回正在编辑的文章');
+      expect(returnLink).toHaveAttribute('href', '/knowledge/notes/draft-nav-test');
+    });
+
+    it('returns to notes list and displays sanitized action when opened from list or directly', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: RequestInfo | URL) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/api/notes/published-nav-test')) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                id: 'published-nav-test',
+                title: '已发布知识库文章',
+                summary: '已发布内容摘要',
+                category: '工程实践',
+                status: 'published',
+                slug: 'published-nav-test',
+                contentJson: JSON.stringify({ type: 'doc', content: [] }),
+                contentText: '已发布正文',
+                reviewCount: 0,
+                createdAt: '2026-10-01T12:00:00.000Z',
+                updatedAt: '2026-10-01T12:00:00.000Z',
+                lastReviewedAt: null,
+                isFeatured: true,
+                isPinned: false,
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (urlStr.includes('/api/assets')) {
+          return new Response(
+            JSON.stringify({ success: true, data: [] }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response('{}', { status: 200 });
+      });
+
+      renderWithEntry('/knowledge/notes/published-nav-test/read');
+
+      expect(await screen.findByRole('heading', { level: 1, name: '已发布知识库文章' })).toBeInTheDocument();
+
+      const returnLink = screen.getByTestId('knowledge-read-return-link');
+      expect(returnLink).toHaveTextContent('← 返回文章列表');
+      expect(returnLink).toHaveAttribute('href', '/knowledge/notes');
+
+      // Verify sanitized "查看文章 ↗" action (replacing legacy "查看公开文章 ↗")
+      expect(screen.getByRole('link', { name: '查看文章 ↗' })).toHaveAttribute(
+        'href',
+        '/posts/published-nav-test',
+      );
+      expect(screen.queryByText(/查看公开文章/)).not.toBeInTheDocument();
+    });
   });
 });
