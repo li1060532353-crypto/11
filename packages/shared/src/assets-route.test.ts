@@ -90,6 +90,7 @@ function routeDb() {
   const prepare = (sql: string) => ({
     bind: (...values: unknown[]) => ({
       async first() {
+        if (sql.includes('AS referenced')) return { referenced: 0 };
         if (sql.includes('FROM notes')) return values[0] === 'note-1' ? { id: 'note-1' } : null;
         if (sql.includes('FROM assets')) return assets.get(String(values[0])) ?? null;
         return null;

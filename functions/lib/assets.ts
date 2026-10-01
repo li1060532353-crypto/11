@@ -178,18 +178,23 @@ export function createD1AssetStore(db: D1Database): AssetStore {
     );
   return {
     async isReferenced(assetId) {
-      return !!(await db
+      const url = `/api/assets/${assetId}`;
+      const row = await db
         .prepare(
           `WITH documents(content) AS (
         SELECT content_json FROM notes UNION ALL
         SELECT published_content_json FROM notes WHERE published_content_json IS NOT NULL UNION ALL
         SELECT content_json FROM note_versions
-      ) SELECT 1 AS found FROM documents, json_tree(documents.content) AS node
+      ) SELECT EXISTS(SELECT 1 FROM documents, json_tree(documents.content) AS node
       WHERE (node.key = 'assetId' AND node.value = ?)
-        OR (node.key = 'href' AND (node.value = ? OR node.value GLOB ?)) LIMIT 1`,
+        OR (node.key = 'href' AND (node.value = ? OR substr(node.value, 1, ?) IN (?, ?)))) AS referenced`,
         )
-        .bind(assetId, `/api/assets/${assetId}`, `/api/assets/${assetId}[?#]*`)
-        .first());
+        .bind(assetId, url, url.length + 1, `${url}?`, `${url}#`)
+        .first<{ referenced: number }>();
+      if (!row || (row.referenced !== 0 && row.referenced !== 1)) {
+        throw new Error('Asset reference lookup returned no decision');
+      }
+      return row.referenced === 1;
     },
     async noteExists(noteId) {
       return !!(await db.prepare('SELECT id FROM notes WHERE id = ?').bind(noteId).first());

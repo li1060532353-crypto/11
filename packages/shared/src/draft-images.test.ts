@@ -71,7 +71,16 @@ describe('private image delivery and deletion', () => {
     );
     const store = createD1AssetStore({
       prepare: (sql: string) => ({
-        bind: (...args: string[]) => ({ first: async () => db.prepare(sql).get(...args) ?? null }),
+        bind: (...args: string[]) => ({
+          first: async () => {
+            const row = db.prepare(sql).get(...args);
+            expect(
+              row,
+              'Reference query must return a boolean row even when no document matches',
+            ).toBeDefined();
+            return row;
+          },
+        }),
       }),
     } as unknown as D1Database);
     try {
@@ -79,6 +88,7 @@ describe('private image delivery and deletion', () => {
         for (const content of [
           doc(image),
           JSON.stringify({ marks: [{ attrs: { href: '/api/assets/asset-1?inline=1' } }] }),
+          JSON.stringify({ marks: [{ attrs: { href: '/api/assets/asset-1#download' } }] }),
         ]) {
           db.exec('DELETE FROM notes; DELETE FROM note_versions');
           if (source === 'version') db.prepare('INSERT INTO note_versions VALUES (?)').run(content);
@@ -91,6 +101,13 @@ describe('private image delivery and deletion', () => {
           expect(await store.isReferenced('asset')).toBe(false);
         }
       }
+      const uuid = '677067cf-d9e9-4dbe-a2df-29f4099fbaec';
+      db.exec('DELETE FROM notes; DELETE FROM note_versions');
+      db.prepare('INSERT INTO notes VALUES (?,NULL)').run(
+        JSON.stringify({ marks: [{ attrs: { href: `/api/assets/${uuid}?inline=1` } }] }),
+      );
+      expect(await store.isReferenced(uuid)).toBe(true);
+      expect(await store.isReferenced(uuid.slice(0, -1))).toBe(false);
     } finally {
       db.close();
     }
@@ -140,7 +157,7 @@ describe('private image delivery and deletion', () => {
     expect(bucket.delete).not.toHaveBeenCalled();
   });
   it('checks all persisted document sources with bound asset references', async () => {
-    const first = vi.fn(async () => ({ found: 1 }));
+    const first = vi.fn(async () => ({ referenced: 1 }));
     const bind = vi.fn(() => ({ first }));
     const prepare = vi.fn<(sql: string) => { bind: typeof bind }>(() => ({ bind }));
     const store = createD1AssetStore({ prepare } as unknown as D1Database);
@@ -149,6 +166,13 @@ describe('private image delivery and deletion', () => {
     expect(sql).toContain('published_content_json');
     expect(sql).toContain('note_versions');
     expect(sql).toContain('json_tree');
-    expect(bind).toHaveBeenCalledWith('asset-1', '/api/assets/asset-1', '/api/assets/asset-1[?#]*');
+    expect(sql).not.toMatch(/\b(?:LIKE|GLOB)\b/u);
+    expect(bind).toHaveBeenCalledWith(
+      'asset-1',
+      '/api/assets/asset-1',
+      20,
+      '/api/assets/asset-1?',
+      '/api/assets/asset-1#',
+    );
   });
 });
