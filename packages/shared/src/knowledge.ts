@@ -25,7 +25,11 @@ export const knowledgeApiRoutes = [
   { method: 'GET', path: '/api/notes/:id' },
   { method: 'PATCH', path: '/api/notes/:id' },
   { method: 'DELETE', path: '/api/notes/:id' },
+  { method: 'POST', path: '/api/notes/:id/publish' },
+  { method: 'POST', path: '/api/notes/:id/unpublish' },
+  { method: 'POST', path: '/api/notes/:id/archive' },
   { method: 'POST', path: '/api/notes/:id/restore' },
+  { method: 'POST', path: '/api/notes/:id/restore-version' },
   { method: 'POST', path: '/api/notes/:id/review' },
   { method: 'POST', path: '/api/notes/:id/versions' },
   { method: 'GET', path: '/api/notes/:id/versions' },
@@ -86,6 +90,10 @@ export type NoteRecord = {
   summary: string;
   contentJson: string;
   contentText: string;
+  publishedTitle?: string | null;
+  publishedSummary?: string | null;
+  publishedContentJson?: string | null;
+  publishedContentText?: string | null;
   category: string;
   status: NoteStatus;
   isPinned: boolean;
@@ -122,6 +130,31 @@ export type AssetRecord = {
   createdAt: string;
 };
 
+export const noteSortOptions = ['updated_desc', 'published_desc', 'title_asc'] as const;
+export type NoteSortOption = (typeof noteSortOptions)[number];
+
+export type BatchOperationResult = {
+  total: number;
+  succeeded: readonly string[];
+  failed: readonly {
+    id: string;
+    title: string;
+    error: string;
+  }[];
+};
+
+export type PublishNoteRequest = {
+  expectedUpdatedAt?: string;
+};
+
+export type RestoreVersionRequest = {
+  versionId: string;
+  currentDraft?: {
+    contentJson: string;
+    contentText?: string;
+  };
+};
+
 export type Pagination = { page: number; pageSize: number; totalItems: number; totalPages: number };
 export type Paginated<T> = Pagination & { items: readonly T[] };
 export type NoteListQuery = {
@@ -133,6 +166,7 @@ export type NoteListQuery = {
   pinned?: boolean;
   featured?: boolean;
   slug?: string;
+  sort?: NoteSortOption;
 };
 export type CreateNoteRequest = Pick<
   NoteRecord,
@@ -142,6 +176,10 @@ export type CreateNoteRequest = Pick<
   publishedAt?: string | null;
   slug?: string;
   tags?: readonly string[];
+  publishedTitle?: string | null;
+  publishedSummary?: string | null;
+  publishedContentJson?: string | null;
+  publishedContentText?: string | null;
 };
 export type UpdateNoteRequest = Partial<CreateNoteRequest>;
 export type NoteVersionRecord = Pick<
@@ -228,7 +266,14 @@ export type ApiRouteContractMap = {
   'GET /api/notes/:id': { request: EmptyResponse; response: NoteRecord };
   'PATCH /api/notes/:id': { request: UpdateNoteRequest; response: NoteRecord };
   'DELETE /api/notes/:id': { request: EmptyResponse; response: NoteRecord };
+  'POST /api/notes/:id/publish': { request: PublishNoteRequest; response: NoteRecord };
+  'POST /api/notes/:id/unpublish': { request: EmptyResponse; response: NoteRecord };
+  'POST /api/notes/:id/archive': { request: EmptyResponse; response: NoteRecord };
   'POST /api/notes/:id/restore': { request: EmptyResponse; response: NoteRecord };
+  'POST /api/notes/:id/restore-version': {
+    request: RestoreVersionRequest;
+    response: NoteRecord;
+  };
   'POST /api/notes/:id/review': { request: EmptyResponse; response: NoteRecord };
   'POST /api/notes/:id/versions': { request: EmptyResponse; response: NoteVersionRecord };
   'GET /api/notes/:id/versions': { request: EmptyResponse; response: readonly NoteVersionRecord[] };

@@ -3,6 +3,8 @@ import {
   type ApiResponseFor,
   highlightKinds,
   type NoteRecord,
+  type NoteSortOption,
+  noteSortOptions,
   type NoteVersionRecord,
 } from '../../packages/shared/src/index';
 
@@ -317,6 +319,7 @@ export type NoteStore = {
   saveWithTags(note: NoteRecord, tags?: readonly string[]): Promise<NoteRecord>;
   createVersion(note: NoteRecord, versionId: string): Promise<NoteVersionRecord>;
   listVersions(noteId: string): Promise<readonly NoteVersionRecord[]>;
+  findVersion?(noteId: string, versionId: string): Promise<NoteVersionRecord | null>;
 };
 
 export function createNoteService(
@@ -339,13 +342,27 @@ export function createNoteService(
           : status === 'published'
             ? timestamp
             : null;
+      const contentText = contentTextFromTiptapJson(input.contentJson);
+      const isPublished = status === 'published';
       const note: NoteRecord = {
         id: noteId,
         slug: input.slug ? slugify(input.slug) : `${slugify(input.title)}-${noteId}`,
         title: input.title,
         summary: input.summary,
         contentJson: input.contentJson,
-        contentText: contentTextFromTiptapJson(input.contentJson),
+        contentText,
+        publishedTitle: isPublished
+          ? (input.publishedTitle ?? input.title)
+          : (input.publishedTitle ?? null),
+        publishedSummary: isPublished
+          ? (input.publishedSummary ?? input.summary)
+          : (input.publishedSummary ?? null),
+        publishedContentJson: isPublished
+          ? (input.publishedContentJson ?? input.contentJson)
+          : (input.publishedContentJson ?? null),
+        publishedContentText: isPublished
+          ? (input.publishedContentText ?? contentText)
+          : (input.publishedContentText ?? null),
         category: input.category,
         status,
         isPinned: input.isPinned,
@@ -395,10 +412,70 @@ export function createNoteService(
             changes.contentJson === undefined
               ? existing.contentText
               : contentTextFromTiptapJson(contentJson),
+          publishedTitle: existing.publishedTitle ?? null,
+          publishedSummary: existing.publishedSummary ?? null,
+          publishedContentJson: existing.publishedContentJson ?? null,
+          publishedContentText: existing.publishedContentText ?? null,
           updatedAt: now(),
         },
         tags,
       );
+    },
+    async publish(
+      noteId: string,
+      input: ApiRequestFor<'POST /api/notes/:id/publish'> = {},
+    ) {
+      const existing = await store.find(noteId);
+      if (!existing) return null;
+
+      if (input?.expectedUpdatedAt && existing.updatedAt !== input.expectedUpdatedAt) {
+        throw new NoteDomainError(
+          'STALE_REVISION_REJECTED',
+          'Note has been modified since last viewed',
+        );
+      }
+
+      if (!existing.title || !existing.title.trim()) {
+        throw new NoteDomainError('VALIDATION_ERROR', 'Title is required for publishing');
+      }
+      if (!existing.slug || !existing.slug.trim()) {
+        throw new NoteDomainError('VALIDATION_ERROR', 'Slug is required for publishing');
+      }
+      if (!existing.contentJson || !validDocumentJson(existing.contentJson)) {
+        throw new NoteDomainError(
+          'VALIDATION_ERROR',
+          'Valid content document is required for publishing',
+        );
+      }
+
+      const conflicting = await store.list({ slug: existing.slug });
+      if (conflicting.items.some((item) => item.id !== noteId)) {
+        throw new NoteDomainError('SLUG_CONFLICT', 'A note with this slug already exists');
+      }
+
+      const timestamp = now();
+      const publishedNote: NoteRecord = {
+        ...existing,
+        publishedTitle: existing.title,
+        publishedSummary: existing.summary,
+        publishedContentJson: existing.contentJson,
+        publishedContentText: existing.contentText,
+        status: 'published',
+        publishedAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      return store.save(publishedNote);
+    },
+    async unpublish(noteId: string) {
+      const existing = await store.find(noteId);
+      if (!existing) return null;
+      const timestamp = now();
+      return store.save({
+        ...existing,
+        status: 'draft',
+        updatedAt: timestamp,
+      });
     },
     async archive(noteId: string) {
       const existing = await store.find(noteId);
@@ -407,6 +484,96 @@ export function createNoteService(
     async restore(noteId: string) {
       const existing = await store.find(noteId);
       return existing ? store.save({ ...existing, status: 'draft', updatedAt: now() }) : null;
+    },
+    async restoreVersion(
+      noteId: string,
+      input: ApiRequestFor<'POST /api/notes/:id/restore-version'>,
+    ) {
+      if (
+        !input ||
+        typeof input !== 'object' ||
+        typeof input.versionId !== 'string' ||
+        !input.versionId.trim()
+      ) {
+        throw new NoteDomainError('VALIDATION_ERROR', 'Version ID is required');
+      }
+
+      const existing = await store.find(noteId);
+      if (!existing) return null;
+
+      let targetVersion: NoteVersionRecord | null = null;
+      if (store.findVersion) {
+        targetVersion = await store.findVersion(noteId, input.versionId);
+      } else {
+        const versions = await store.listVersions(noteId);
+        targetVersion = versions.find((v) => v.id === input.versionId) ?? null;
+      }
+
+      if (!targetVersion) {
+        throw new NoteDomainError('VERSION_NOT_FOUND', 'Target version not found');
+      }
+
+      let currentContentJson = existing.contentJson;
+      let currentContentText = existing.contentText;
+
+      if (input.currentDraft) {
+        if (
+          typeof input.currentDraft !== 'object' ||
+          !validDocumentJson(input.currentDraft.contentJson)
+        ) {
+          throw new NoteDomainError('PRE_RESTORE_BACKUP_FAILED', 'Invalid current draft content');
+        }
+        currentContentJson = input.currentDraft.contentJson;
+        currentContentText =
+          input.currentDraft.contentText ?? contentTextFromTiptapJson(currentContentJson);
+      }
+
+      const timestamp = now();
+
+      // 步骤 1：持久化当前编辑草稿
+      try {
+        if (input.currentDraft) {
+          await store.save({
+            ...existing,
+            contentJson: currentContentJson,
+            contentText: currentContentText,
+            updatedAt: timestamp,
+          });
+        }
+      } catch {
+        throw new NoteDomainError(
+          'PRE_RESTORE_BACKUP_FAILED',
+          'Failed to persist current draft before restore',
+        );
+      }
+
+      // 步骤 2：自动向 note_versions 插入前置保护快照
+      try {
+        const backupVersionId = id();
+        await store.createVersion(
+          {
+            ...existing,
+            contentJson: currentContentJson,
+            contentText: currentContentText,
+            updatedAt: timestamp,
+          },
+          backupVersionId,
+        );
+      } catch {
+        throw new NoteDomainError(
+          'PRE_RESTORE_BACKUP_FAILED',
+          'Failed to create pre-restore backup snapshot',
+        );
+      }
+
+      // 步骤 3：仅当备份成功后，才将目标版本的内容恢复到工作草稿 content_json, content_text。绝不触碰 published_* 快照。
+      const restoreTimestamp = now();
+      return store.save({
+        ...existing,
+        contentJson: targetVersion.contentJson,
+        contentText: targetVersion.contentText,
+        updatedAt: restoreTimestamp,
+      });
     },
     async review(noteId: string) {
       const existing = await store.find(noteId);
@@ -431,8 +598,8 @@ export function createNoteService(
 }
 
 const noteColumns =
-  'id,title,slug,summary,content_json,content_text,category,status,is_pinned,is_featured,published_at,review_count,created_at,updated_at,last_reviewed_at';
-const noteWrite = `INSERT INTO notes (${noteColumns}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,slug=excluded.slug,summary=excluded.summary,content_json=excluded.content_json,content_text=excluded.content_text,category=excluded.category,status=excluded.status,is_pinned=excluded.is_pinned,is_featured=excluded.is_featured,published_at=excluded.published_at,review_count=excluded.review_count,updated_at=excluded.updated_at,last_reviewed_at=excluded.last_reviewed_at`;
+  'id,title,slug,summary,content_json,content_text,published_title,published_summary,published_content_json,published_content_text,category,status,is_pinned,is_featured,published_at,review_count,created_at,updated_at,last_reviewed_at';
+const noteWrite = `INSERT INTO notes (${noteColumns}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,slug=excluded.slug,summary=excluded.summary,content_json=excluded.content_json,content_text=excluded.content_text,published_title=excluded.published_title,published_summary=excluded.published_summary,published_content_json=excluded.published_content_json,published_content_text=excluded.published_content_text,category=excluded.category,status=excluded.status,is_pinned=excluded.is_pinned,is_featured=excluded.is_featured,published_at=excluded.published_at,review_count=excluded.review_count,updated_at=excluded.updated_at,last_reviewed_at=excluded.last_reviewed_at`;
 
 function mapNote(row: Record<string, unknown>): NoteRecord {
   return {
@@ -442,6 +609,22 @@ function mapNote(row: Record<string, unknown>): NoteRecord {
     summary: String(row.summary),
     contentJson: String(row.content_json),
     contentText: String(row.content_text),
+    publishedTitle:
+      row.published_title !== undefined && row.published_title !== null
+        ? String(row.published_title)
+        : null,
+    publishedSummary:
+      row.published_summary !== undefined && row.published_summary !== null
+        ? String(row.published_summary)
+        : null,
+    publishedContentJson:
+      row.published_content_json !== undefined && row.published_content_json !== null
+        ? String(row.published_content_json)
+        : null,
+    publishedContentText:
+      row.published_content_text !== undefined && row.published_content_text !== null
+        ? String(row.published_content_text)
+        : null,
     category: String(row.category),
     status: row.status as NoteRecord['status'],
     isPinned: Number(row.is_pinned) === 1,
@@ -462,6 +645,10 @@ function bindNote(statement: D1PreparedStatement, note: NoteRecord) {
     note.summary,
     note.contentJson,
     note.contentText,
+    note.publishedTitle ?? null,
+    note.publishedSummary ?? null,
+    note.publishedContentJson ?? null,
+    note.publishedContentText ?? null,
     note.category,
     note.status,
     note.isPinned ? 1 : 0,
@@ -481,9 +668,14 @@ export function createD1NoteStore(db: D1Database): NoteStore {
       const pageSize = Math.min(100, query.pageSize ?? 20);
       const where: string[] = [];
       const values: unknown[] = [];
+      const isPublishedQuery = query.status === 'published';
+
       if (query.status) {
         where.push('notes.status = ?');
         values.push(query.status);
+      }
+      if (isPublishedQuery) {
+        where.push('notes.published_content_json IS NOT NULL');
       }
       if (query.category) {
         where.push('notes.category = ?');
@@ -508,8 +700,62 @@ export function createD1NoteStore(db: D1Database): NoteStore {
         values.push(query.tag);
       }
       const clause = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+
+      let orderBy: string;
+      if (query.sort === 'published_desc') {
+        orderBy = 'notes.published_at DESC NULLS LAST, notes.updated_at DESC';
+      } else if (query.sort === 'title_asc') {
+        orderBy = 'notes.title ASC';
+      } else if (query.sort === 'updated_desc') {
+        orderBy = 'notes.updated_at DESC';
+      } else if (isPublishedQuery) {
+        orderBy = 'notes.is_pinned DESC, notes.published_at DESC';
+      } else {
+        orderBy = 'notes.updated_at DESC';
+      }
+
+      const selectCols = isPublishedQuery
+        ? `notes.id,
+           COALESCE(notes.published_title, notes.title) AS title,
+           notes.slug,
+           COALESCE(notes.published_summary, notes.summary) AS summary,
+           notes.published_content_json AS content_json,
+           notes.published_content_text AS content_text,
+           notes.published_title,
+           notes.published_summary,
+           notes.published_content_json,
+           notes.published_content_text,
+           notes.category,
+           notes.status,
+           notes.is_pinned,
+           notes.is_featured,
+           notes.published_at,
+           notes.review_count,
+           notes.created_at,
+           notes.updated_at,
+           notes.last_reviewed_at`
+        : `notes.id,
+           notes.title,
+           notes.slug,
+           notes.summary,
+           notes.content_json,
+           notes.content_text,
+           notes.published_title,
+           notes.published_summary,
+           notes.published_content_json,
+           notes.published_content_text,
+           notes.category,
+           notes.status,
+           notes.is_pinned,
+           notes.is_featured,
+           notes.published_at,
+           notes.review_count,
+           notes.created_at,
+           notes.updated_at,
+           notes.last_reviewed_at`;
+
       const result = await db
-        .prepare(`SELECT * FROM notes${clause} ORDER BY updated_at DESC LIMIT ? OFFSET ?`)
+        .prepare(`SELECT ${selectCols} FROM notes${clause} ORDER BY ${orderBy} LIMIT ? OFFSET ?`)
         .bind(...values, pageSize, (page - 1) * pageSize)
         .all<Record<string, unknown>>();
       const count = await db
@@ -586,6 +832,22 @@ export function createD1NoteStore(db: D1Database): NoteStore {
         createdAt: String(row.created_at),
       }));
     },
+    async findVersion(noteId, versionId) {
+      const row = await db
+        .prepare(
+          'SELECT id,content_json,content_text,created_at FROM note_versions WHERE note_id = ? AND id = ?',
+        )
+        .bind(noteId, versionId)
+        .first<Record<string, unknown>>();
+      return row
+        ? {
+            id: String(row.id),
+            contentJson: String(row.content_json),
+            contentText: String(row.content_text),
+            createdAt: String(row.created_at),
+          }
+        : null;
+    },
   };
 }
 
@@ -602,6 +864,7 @@ export function parseNoteListQuery(request: Request): ApiRequestFor<'GET /api/no
     pinned?: boolean;
     featured?: boolean;
     slug?: string;
+    sort?: NoteSortOption;
   } = {};
   for (const key of ['page', 'pageSize'] as const) {
     if (!params.has(key)) continue;
@@ -635,6 +898,13 @@ export function parseNoteListQuery(request: Request): ApiRequestFor<'GET /api/no
   if (params.has('slug')) {
     const value = params.get('slug');
     if (value) result.slug = value;
+  }
+  if (params.has('sort')) {
+    const sort = params.get('sort');
+    if (!sort || !noteSortOptions.includes(sort as NoteSortOption)) {
+      throw new NoteDomainError('VALIDATION_ERROR', 'Invalid sort');
+    }
+    result.sort = sort as NoteSortOption;
   }
   return result;
 }
@@ -688,6 +958,30 @@ function validateCreate(value: unknown): asserts value is ApiRequestFor<'POST /a
   )
     throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload');
   if (input.slug !== undefined && (typeof input.slug !== 'string' || !input.slug.trim()))
+    throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload');
+  if (
+    input.publishedTitle !== undefined &&
+    input.publishedTitle !== null &&
+    typeof input.publishedTitle !== 'string'
+  )
+    throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload');
+  if (
+    input.publishedSummary !== undefined &&
+    input.publishedSummary !== null &&
+    typeof input.publishedSummary !== 'string'
+  )
+    throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload');
+  if (
+    input.publishedContentJson !== undefined &&
+    input.publishedContentJson !== null &&
+    !validDocumentJson(input.publishedContentJson)
+  )
+    throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload');
+  if (
+    input.publishedContentText !== undefined &&
+    input.publishedContentText !== null &&
+    typeof input.publishedContentText !== 'string'
+  )
     throw new NoteDomainError('VALIDATION_ERROR', 'Invalid note payload');
 }
 function validateUpdate(value: unknown): asserts value is ApiRequestFor<'PATCH /api/notes/:id'> {
