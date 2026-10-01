@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "DATA-01",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-LOCAL-FULL",
+  "command": "node scripts/content-import.mjs --check && node --test scripts/content-import.test.mjs",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/DATA-01/execution.log",
+      "description": "既有生产与基线中的历史发布文章在执行迁移脚本后，访问与呈现 100% 兼容 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "基线静态文章 discrete-convolution 等迁移后 slug 映射一致，公式、代码块及元数据 100% 兼容"
+}

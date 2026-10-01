@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "NAV-03",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-INTEG",
+  "command": "pnpm --filter @namdw/web exec vitest run src/pages/posts/PostDetailPage.test.tsx --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/NAV-03/execution.log",
+      "description": "外链或新标签页直达文章详情，点击返回平滑兜底至站内文章列表 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "无来源状态或恶意外链自动平滑回退至白名单 /posts 并展示 ← 返回文章列表"
+}

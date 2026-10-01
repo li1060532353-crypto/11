@@ -175,7 +175,7 @@ describe('EditorPage presentation', () => {
       can: () => ({ undo: () => true, redo: () => true }),
     };
 
-    render(<EditorPage model={editorFixture} editor={mockEditor} />);
+    render(<EditorPage model={editorFixture} editor={mockEditor as never} />);
     const titleInput = screen.getByLabelText('Title');
     fireEvent.keyDown(titleInput, { key: 'Enter' });
     expect(focusFn).toHaveBeenCalledWith('start');

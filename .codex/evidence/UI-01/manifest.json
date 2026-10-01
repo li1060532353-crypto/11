@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "UI-01",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-INTEG",
+  "command": "pnpm --filter @namdw/web exec vitest run src/styles/visual-contract.test.ts --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/UI-01/execution.log",
+      "description": "跨 1440px / 1024px / 390px / 320px 四种视口尺寸下，主操作可用且无页面级横向溢出 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "多视口响应式断点完备，无 >320px 硬编码 min-width，移动端侧边栏折叠为抽屉，无横向溢出"
+}

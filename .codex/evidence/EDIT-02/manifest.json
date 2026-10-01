@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "EDIT-02",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-INTEG",
+  "command": "pnpm --filter @namdw/web exec vitest run src/knowledge/knowledge-editor.test.tsx --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/EDIT-02/execution.log",
+      "description": "快速连续输入与后台自动保存的网络响应竞态防护，旧响应不得冲掉新输入 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "时序竞态防护机制生效，陈旧响应被丢弃，未保存最新文字不被旧 payload 覆盖"
+}

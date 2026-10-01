@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "LIST-01",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-INTEG",
+  "command": "pnpm --filter @namdw/web exec vitest run src/knowledge-ui/NotesPage.test.tsx --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/LIST-01/execution.log",
+      "description": "文章管理列表状态页签切换、筛选、刷新及浏览器前进后退与 URL 严格一致 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "Tab、分类、搜索词、排序与 URL SearchParams 双向绑定，刷新前进后退状态无缝同步"
+}

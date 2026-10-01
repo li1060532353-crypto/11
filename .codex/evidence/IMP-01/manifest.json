@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "IMP-01",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-LOCAL-FULL",
+  "command": "pnpm --filter @namdw/web exec vitest run src/knowledge/KnowledgeImportRoute.test.tsx --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/IMP-01/execution.log",
+      "description": "批量导入多个 Markdown 文件，单文件损坏时逐项反馈错误且支持单项重试 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "单文件损坏错误隔离，其余合法文件正常入库，支持仅重试失败项且不重复上传成功项"
+}

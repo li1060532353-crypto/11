@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "AUTH-01",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-LOCAL-FULL",
+  "command": "node scripts/verify-cloudflare-config.mjs && node --test scripts/verify-cloudflare-config.test.mjs && pnpm --filter @namdw/shared exec vitest run src/access-auth.test.ts --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/AUTH-01/execution.log",
+      "description": "所有后台管理与变更操作均受 Cloudflare Access 边界保护，未授权直接阻断 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "未携带 Access JWT 的请求一律返回 401/403，配置校验脚本核验生产配置无 bypass 泄漏"
+}

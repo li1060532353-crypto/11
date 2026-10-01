@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "VER-01",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-LOCAL-FULL",
+  "command": "pnpm --filter @namdw/web exec vitest run src/knowledge/knowledge-editor.test.tsx --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/VER-01/execution.log",
+      "description": "恢复历史版本前强制执行保护性保存与备份，备份失败强行中止并保全当前正文 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "两阶段恢复安全熔断，备份失败时坚决中止覆盖，当前编辑器正文毫发无损"
+}

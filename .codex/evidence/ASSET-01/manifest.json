@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "ASSET-01",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-LOCAL-FULL",
+  "command": "pnpm --filter @namdw/web exec vitest run src/knowledge/knowledge-editor.test.tsx --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/ASSET-01/execution.log",
+      "description": "附件上传或网络异常导致加载失败，错误明确可重试且正文富文本区不受阻 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "附件 504 超时提示明确并提供重试按钮，主编辑器富文本区域无遮罩冻结，输入顺畅"
+}

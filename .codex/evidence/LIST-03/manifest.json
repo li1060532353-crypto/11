@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "LIST-03",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-INTEG",
+  "command": "pnpm --filter @namdw/web exec vitest run src/knowledge-ui/NotesPage.test.tsx --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/LIST-03/execution.log",
+      "description": "某分页唯一文章归档后，列表自动平滑回退至上一页，杜绝虚假空白页 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "第 2 页末项文章归档后，总页数缩减，分页自动平滑回退至第 1 页"
+}

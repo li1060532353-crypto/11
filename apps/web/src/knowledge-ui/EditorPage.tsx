@@ -5,6 +5,7 @@ import { AssetPanel } from './AssetPanel';
 import type { EditorAsset, EditorViewModel, HighlightKind, NoteStatus } from './editor-fixtures';
 import { highlightKinds } from './editor-fixtures';
 import type { NoteVersionRecord } from '@namdw/shared';
+import type { Editor } from '@tiptap/react';
 import './knowledge.css';
 
 export type EditorPresentationState = 'unchanged' | 'unsaved' | 'saving' | 'saved' | 'failed';
@@ -16,7 +17,7 @@ export type EditorPageProps = {
   versionState?: VersionPresentationState;
   selectedHighlight?: HighlightKind | null;
   documentSlot?: ReactNode;
-  editor?: { getText?: () => string } | null;
+  editor?: Editor | null;
   versions?: readonly NoteVersionRecord[] | undefined;
   onTitleChange?: (value: string) => void;
   onSummaryChange?: (value: string) => void;

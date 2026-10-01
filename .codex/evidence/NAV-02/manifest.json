@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "NAV-02",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-INTEG",
+  "command": "pnpm --filter @namdw/web exec vitest run src/pages/posts/PostDetailPage.test.tsx --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/NAV-02/execution.log",
+      "description": "连续点击上一篇/下一篇翻页阅读后返回，杜绝无限死循环并正确回退来源 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "连续翻页递增 hopCount 并透传 rootSource，底部呈现直接返回最初来源控制条，杜绝无限死循环"
+}

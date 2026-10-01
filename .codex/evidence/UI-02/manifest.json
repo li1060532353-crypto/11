@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "UI-02",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-INTEG",
+  "command": "pnpm --filter @namdw/web exec vitest run src/knowledge-ui/EditorPage.test.tsx --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/UI-02/execution.log",
+      "description": "键盘导航、Esc 键退出、属性抽屉打开关闭遵循 WAI-ARIA 标准，焦点可见且合理回跳 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "抽屉与弹窗焦点陷阱完备，Esc 键平滑退出并精准回跳至触发按钮，焦点环对比度 >= 3:1"
+}

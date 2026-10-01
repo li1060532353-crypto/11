@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "caseId": "PUB-04",
+  "candidateSha": "d276cdd",
+  "timestamp": "2026-10-01T15:22:58.528Z",
+  "executedByRole": "Q",
+  "actualModel": "inherit",
+  "environment": "ENV-LOCAL-FULL",
+  "command": "pnpm --filter @namdw/shared exec vitest run src/notes-route.test.ts --reporter=verbose",
+  "exitCode": 0,
+  "artifacts": [
+    {
+      "type": "LOG",
+      "path": ".codex/evidence/PUB-04/execution.log",
+      "description": "将已归档文章点击【恢复】，该文章必须严格恢复为【草稿】状态，绝不自动重新发布 自动化测试套件执行终端输出日志"
+    }
+  ],
+  "verificationVerdict": "PASS",
+  "remarks": "归档恢复接口强制重置 status 为 draft，绝不直接恢复为 published 状态"
+}
