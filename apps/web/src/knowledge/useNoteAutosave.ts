@@ -24,6 +24,7 @@ export function useNoteAutosave({
   const activeRef = useRef<Promise<boolean> | null>(null);
   const disposedRef = useRef(false);
   const [state, setState] = useState<EditorPresentationState>('unchanged');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [rescheduleGeneration, setRescheduleGeneration] = useState(0);
   valueRef.current = value;
   persistedRef.current = persistedValue;
@@ -46,7 +47,10 @@ export function useNoteAutosave({
         await save(snapshot, controller.signal);
         if (disposedRef.current || snapshot !== valueRef.current) return false;
         onPersisted(snapshot);
-        if (!disposedRef.current) setState('saved');
+        if (!disposedRef.current) {
+          setState('saved');
+          setLastSavedAt(new Date());
+        }
         return true;
       } catch {
         if (!disposedRef.current && snapshot === valueRef.current) setState('failed');
@@ -86,5 +90,5 @@ export function useNoteAutosave({
     },
     [],
   );
-  return { dirty, state, saveCurrent };
+  return { dirty, state, saveCurrent, lastSavedAt };
 }

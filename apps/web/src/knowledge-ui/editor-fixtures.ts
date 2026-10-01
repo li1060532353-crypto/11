@@ -14,6 +14,7 @@ export type EditorAsset = Pick<AssetRecord, 'id'> & {
   progress?: number;
   errorMessage?: string | undefined;
   busy?: 'download' | 'delete' | undefined;
+  file?: File | undefined;
 };
 
 export type EditorViewModel = {
