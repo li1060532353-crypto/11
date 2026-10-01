@@ -40,28 +40,34 @@
 
 ---
 
-## Wave 3: 编辑工作台与全栈打通（准备启动）
+## Wave 3: 编辑工作台与全栈打通（已完成并集成）
 
 ### 任务 4: 编辑工作台与发布流转重构 (`TASK-W3-E`)
 - **负责人**: 编辑器实现代理 (Role E)
-- **目标**: 改造编辑工作台为“正文优先 + 辅助抽屉”架构；吸顶固定操作栏（状态/预览/保存草稿/发布/更新发布）；无边框标题 + 完整 Tiptap 富文本工具栏（标题级/列表/引用/代码块/表格/五色语义高亮）；右侧收纳摘要/Slug/分类/标签/精选/置顶及附件面板与版本历史；实现新建模式下的立即创建与离开防护 (`beforeunload` + 站内跳转拦截)；实现版本恢复前的前置强制备份与失败强行熔断拦截。
-- **允许文件 (Allowed Files)**:
-  - `apps/web/src/knowledge-ui/EditorPage.tsx`
-  - `apps/web/src/knowledge/KnowledgeEditorRoute.tsx`
-  - `apps/web/src/knowledge/useNoteAutosave.ts`
-  - `apps/web/src/knowledge-ui/AssetPanel.tsx`
-  - `apps/web/src/knowledge-ui/editor-fixtures.ts`
-  - `apps/web/src/knowledge-ui/EditorPage.test.tsx`
-  - `apps/web/src/knowledge/knowledge-editor.test.tsx`
-- **依赖验收 ID**: `EDIT-01`, `EDIT-02`, `EDIT-03`, `EDIT-04`, `PUB-01`, `PUB-02`, `PUB-03`, `VER-01`, `VER-02`, `ASSET-01`
-- **状态**: `PENDING`
+- **提交 SHA**: `77cad666f48ea42515de91813774c54f1691c3e2`
+- **目标**: 改造编辑工作台为“正文优先 + 辅助抽屉”架构；吸顶固定操作栏（状态/预览/保存草稿/发布/更新发布）；无边框标题 + 完整 Tiptap 富文本工具栏（标题级/列表/引用/代码块/表格/五色语义高亮）；右侧收纳摘要/Slug/分类/标签/精选/置顶及附件面板与版本历史；实现新建模式下的离开防护 (`beforeunload` + 站内跳转拦截)；实现版本恢复前的前置强制备份与失败强行熔断拦截。
+- **状态**: **INTEGRATED**
+
+### 任务 5: 独立安全与代码质量审查 (`TASK-W3-R`)
+- **负责人**: 独立安全审查代理 (Role R)
+- **交付物**: [wave2-security-review.md](file:///E:/AIblog/personal-blog-source/docs/reviews/wave2-security-review.md)
+- **目标**: 针对已集成的 Wave 2 代码进行独立安全与数据流转审计，发现并推动修复 SEC-01（搜索未隔离草稿）、SEC-02（版本恢复绕过熔断）、SEC-03（发布已归档文章拦截）、ARCH-02（管理端搜索丢分类）、PERF-01（滚动 RAF 清理）等核心问题。
+- **状态**: **VERIFIED**
+
+### 任务 6: Markdown 批量导入增强与单项重试 (`TASK-W3-I`)
+- **负责人**: Markdown 导入优化代理 (Role I)
+- **提交 SHA**: `5265745963e665675372e7b8eabc18de2028f103`
+- **目标**: 落实 IMP-01 规范，实现批量导入中的单项文件损坏/解析容错、分项结果展示、重复项预警及【仅重试失败项】交互，杜绝重复导入成功文件。
+- **状态**: **INTEGRATED**
 
 ---
 
 ## Wave 4: 集成验证与多维独立验收（门禁关卡 G4）
 
+- **集成候选提交 (CANDIDATE_SHA)**: `d31a4b3`
 - **主控集成 (Role C)**: 串行合并代码、打通 Functions 真实接口、验证动态缓存失效、触发全局构建与冒烟测试。
 - **独立验收 (Role Q, R, V)**:
   - `Role Q`: 针对固定候选版本核查全量 24 项验收场景符合性。
   - `Role R`: 独立审查代码质量、并发时序竞态、权限边界与数据迁移安全。
   - `Role V`: 启动本地真实 Cloudflare Functions，在多视口真实浏览器中执行全链路端到端验收与截图取证。
+
