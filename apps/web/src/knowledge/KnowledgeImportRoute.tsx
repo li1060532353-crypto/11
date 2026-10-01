@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import { useCallback, useId, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   parseMarkdownToTiptap,
@@ -15,12 +15,13 @@ import { invalidateDynamicContent } from '../content/dynamicContentSync';
 import '../knowledge-ui/knowledge.css';
 import '../styles/reading.css';
 
-type FileItem = {
+export type FileItem = {
   id: string;
   name: string;
   sizeBytes: number;
   content: string;
-  parsed: MarkdownConversionResult;
+  file?: File;
+  parsed: MarkdownConversionResult | null;
   title: string;
   summary: string;
   category: string;
@@ -31,13 +32,15 @@ type FileItem = {
   message?: string | undefined;
   errorMessage?: string | undefined;
   importedNote?: NoteRecord | undefined;
+  isDuplicate: boolean;
 };
 
-type Step = 'select' | 'inspect' | 'complete';
+export type Step = 'select' | 'inspect' | 'complete';
 
 export function KnowledgeImportRoute() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formIdPrefix = useId();
   const [step, setStep] = useState<Step>('select');
   const [items, setItems] = useState<FileItem[]>([]);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
@@ -48,6 +51,20 @@ export function KnowledgeImportRoute() {
 
   const activeItem = items[activeItemIndex];
 
+  // Helper to safely parse markdown content
+  const parseContentSafely = useCallback((content: string, filename: string): MarkdownConversionResult => {
+    // Check for corrupted or non-text characters
+    if (content.includes('\0')) {
+      throw new Error('Markdown 结构解析失败: 文件包含非法不可解析字符');
+    }
+    // Check for malformed / unclosed YAML frontmatter
+    if (/^---\r?\n/.test(content) && !/^---\r?\n[\s\S]*?\r?\n---\r?\n?/.test(content)) {
+      throw new Error('YAML frontmatter 解析失败: 未闭合的 FrontMatter 区块');
+    }
+
+    return parseMarkdownToTiptap(content, filename);
+  }, []);
+
   const handleFiles = useCallback((fileList: FileList | File[]) => {
     const validFiles = Array.from(fileList).filter((file) =>
       /\.(?:md|markdown|txt)$/i.test(file.name),
@@ -55,37 +72,119 @@ export function KnowledgeImportRoute() {
 
     if (validFiles.length === 0) return;
 
-    const reads = validFiles.map((file) => {
+    // Detect duplicate file names in incoming batch
+    const filenameCounts = new Map<string, number>();
+    for (const f of validFiles) {
+      filenameCounts.set(f.name, (filenameCounts.get(f.name) ?? 0) + 1);
+    }
+
+    const readFilePromise = (file: File): Promise<FileItem> => {
+      const baseName = file.name.replace(/\.(?:md|markdown|txt)$/i, '');
+      const defaultSlug = baseName.toLowerCase().replace(/[^\p{Letter}\p{Number}\s-]/gu, '').trim().replace(/[\s-]+/gu, '-') || 'note';
+      const isDuplicate = (filenameCounts.get(file.name) ?? 0) > 1;
+
+      const baseItem: Omit<FileItem, 'parsed' | 'status' | 'errorMessage'> = {
+        id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
+        name: file.name,
+        sizeBytes: file.size,
+        content: '',
+        file,
+        title: baseName,
+        summary: '',
+        category: '通用',
+        tagsString: '',
+        slug: defaultSlug,
+        overwrite: false,
+        isDuplicate,
+      };
+
       return new Promise<FileItem>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const content = String(reader.result ?? '');
-          const parsed = parseMarkdownToTiptap(content, file.name);
-          resolve({
-            id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
-            name: file.name,
-            sizeBytes: file.size,
-            content,
-            parsed,
-            title: parsed.metadata.title,
-            summary: parsed.metadata.summary,
-            category: parsed.metadata.category,
-            tagsString: parsed.metadata.tags.join(', '),
-            slug: parsed.metadata.slug,
-            overwrite: false,
-            status: 'pending',
+        let settled = false;
+        const safeResolve = (item: FileItem) => {
+          if (!settled) {
+            settled = true;
+            resolve(item);
+          }
+        };
+
+        const onFileContent = (content: string) => {
+          try {
+            const parsed = parseContentSafely(content, file.name);
+            safeResolve({
+              ...baseItem,
+              content,
+              parsed,
+              title: parsed.metadata.title || baseItem.title,
+              summary: parsed.metadata.summary,
+              category: parsed.metadata.category || '通用',
+              tagsString: parsed.metadata.tags.join(', '),
+              slug: parsed.metadata.slug || baseItem.slug,
+              status: 'pending',
+            });
+          } catch (err) {
+            let errorMsg = err instanceof Error ? err.message : 'Markdown 结构解析失败';
+            if (/yaml|frontmatter/i.test(errorMsg) && !errorMsg.startsWith('YAML frontmatter')) {
+              errorMsg = `YAML frontmatter 解析失败: ${errorMsg}`;
+            }
+            safeResolve({
+              ...baseItem,
+              content,
+              parsed: null,
+              status: 'failed',
+              errorMessage: errorMsg,
+            });
+          }
+        };
+
+        const onFileError = (err?: DOMException | Error | null) => {
+          safeResolve({
+            ...baseItem,
+            content: '',
+            parsed: null,
+            status: 'failed',
+            errorMessage: err?.message ? `文件读取失败 (${err.message})` : '文件读取失败 (FileReader 异常)',
           });
         };
-        reader.readAsText(file, 'utf-8');
+
+        try {
+          if (typeof file.text === 'function') {
+            file.text().then(onFileContent, onFileError);
+          } else if (typeof FileReader !== 'undefined') {
+            const reader = new FileReader();
+            reader.onload = () => onFileContent(String(reader.result ?? ''));
+            reader.onerror = () => onFileError(reader.error);
+            reader.onabort = () => onFileError(new Error('文件读取被中止'));
+            reader.readAsText(file, 'utf-8');
+          } else {
+            onFileError(new Error('FileReader not supported in environment'));
+          }
+        } catch (err) {
+          onFileError(err instanceof Error ? err : null);
+        }
       });
-    });
+    };
+
+    const reads = validFiles.map(readFilePromise);
 
     Promise.all(reads).then((newItems) => {
-      setItems((prev) => [...prev, ...newItems]);
+      // Check slug duplicate collisions across the batch
+      const slugCounts = new Map<string, number>();
+      for (const it of newItems) {
+        if (it.slug) {
+          slugCounts.set(it.slug, (slugCounts.get(it.slug) ?? 0) + 1);
+        }
+      }
+
+      const finalItems = newItems.map((it) => {
+        const hasDup = Boolean(it.isDuplicate || (it.slug && (slugCounts.get(it.slug) ?? 0) > 1));
+        return hasDup ? { ...it, isDuplicate: true } : it;
+      });
+
+      setItems(finalItems);
       setStep('inspect');
       setActiveItemIndex(0);
     });
-  }, []);
+  }, [parseContentSafely]);
 
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -110,95 +209,51 @@ export function KnowledgeImportRoute() {
     }
   };
 
-  // Step 3: Run batch import with concurrency 3
-  const runBatchImport = async () => {
-    setStep('complete');
-    setImporting(true);
-    setCompletedCount(0);
-
-    const queue = [...items];
-    const concurrency = 3;
-    let index = 0;
-    let done = 0;
-
-    const worker = async () => {
-      while (index < queue.length) {
-        const currentIdx = index++;
-        const item = queue[currentIdx];
-        if (!item || item.status === 'imported') continue;
-
-        // Set uploading state
-        setItems((prev) =>
-          prev.map((it, i) => (i === currentIdx ? { ...it, status: 'uploading' } : it)),
-        );
-
-        try {
-          const tags = item.tagsString
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean);
-
-          const result = await importMarkdownNote({
-            filename: item.name,
-            content: item.content,
-            overwrite: Boolean(item.overwrite),
-            metadata: {
-              title: item.title,
-              summary: item.summary,
-              category: item.category,
-              tags,
-              slug: item.slug,
-              isFeatured: item.parsed.metadata.isFeatured,
-              publishedAt: item.parsed.metadata.publishedAt,
-              status: 'draft',
-            },
-          });
-
-          setItems((prev) =>
-            prev.map((it, i) =>
-              i === currentIdx
-                ? {
-                    ...it,
-                    status: result.status,
-                    importedNote: result.note,
-                    message: result.message,
-                    errorMessage: result.status === 'failed' ? result.message : undefined,
-                  }
-                : it,
-            ),
-          );
-        } catch (err) {
-          setItems((prev) =>
-            prev.map((it, i) =>
-              i === currentIdx
-                ? {
-                    ...it,
-                    status: 'failed',
-                    errorMessage: err instanceof Error ? err.message : '导入失败',
-                  }
-                : it,
-            ),
-          );
-        } finally {
-          done++;
-          setCompletedCount(done);
-        }
-      }
-    };
-
-    const workers = Array.from({ length: Math.min(concurrency, queue.length) }, () => worker());
-    await Promise.all(workers);
-    invalidateDynamicContent();
-    setImporting(false);
-  };
-
-  const retrySingle = async (itemIdx: number) => {
+  // Execute import for a single item by index
+  const executeItemImport = async (itemIdx: number): Promise<boolean> => {
     const item = items[itemIdx];
-    if (!item) return;
+    if (!item) return false;
 
+    let content = item.content;
+    let parsed = item.parsed;
+    let parseError: string | null = null;
+
+    // If item was failed due to parse error, attempt re-parsing
+    if (!parsed) {
+      try {
+        if (!content && item.file && typeof item.file.text === 'function') {
+          content = await item.file.text();
+        }
+        parsed = parseContentSafely(content, item.name);
+      } catch (err) {
+        let msg = err instanceof Error ? err.message : 'Markdown 结构解析失败';
+        if (/yaml|frontmatter/i.test(msg) && !msg.startsWith('YAML frontmatter')) {
+          msg = `YAML frontmatter 解析失败: ${msg}`;
+        }
+        parseError = msg;
+      }
+    }
+
+    if (!parsed || parseError) {
+      setItems((prev) =>
+        prev.map((it, i) =>
+          i === itemIdx
+            ? {
+                ...it,
+                content,
+                status: 'failed',
+                errorMessage: parseError || 'Markdown 结构解析失败',
+              }
+            : it,
+        ),
+      );
+      return false;
+    }
+
+    // Set uploading state
     setItems((prev) =>
       prev.map((it, i) =>
-        i === itemIdx ? { ...it, status: 'uploading', errorMessage: undefined } : it,
+        i === itemIdx ? { ...it, content, parsed, status: 'uploading', errorMessage: undefined } : it,
       ),
     );
 
@@ -210,21 +265,20 @@ export function KnowledgeImportRoute() {
 
       const result = await importMarkdownNote({
         filename: item.name,
-        content: item.content,
+        content: content || item.content,
         overwrite: Boolean(item.overwrite),
         metadata: {
-          title: item.title,
-          summary: item.summary,
-          category: item.category,
+          title: item.title || parsed.metadata.title,
+          summary: item.summary || parsed.metadata.summary,
+          category: item.category || parsed.metadata.category || '通用',
           tags,
-          slug: item.slug,
-          isFeatured: item.parsed.metadata.isFeatured,
-          publishedAt: item.parsed.metadata.publishedAt,
+          slug: item.slug || parsed.metadata.slug,
+          isFeatured: parsed.metadata.isFeatured,
+          publishedAt: parsed.metadata.publishedAt,
           status: 'draft',
         },
       });
 
-      invalidateDynamicContent();
       setItems((prev) =>
         prev.map((it, i) =>
           i === itemIdx
@@ -234,24 +288,142 @@ export function KnowledgeImportRoute() {
                 importedNote: result.note,
                 message: result.message,
                 errorMessage: result.status === 'failed' ? result.message : undefined,
+                isDuplicate: result.status === 'skipped' ? true : it.isDuplicate,
               }
             : it,
         ),
       );
+      return result.status === 'imported';
     } catch (err) {
+      let errorMsg = '导入失败';
+      if (err instanceof Error) {
+        errorMsg = err.message;
+      }
+      if (err && typeof err === 'object' && 'kind' in err) {
+        const kind = (err as { kind: string }).kind;
+        if (kind === 'network') errorMsg = '网络请求超时';
+        else if (kind === 'repository') errorMsg = '服务器存储异常';
+        else if (kind === 'validation') errorMsg = '数据校验未通过';
+        else if (kind === 'conflict') errorMsg = '检测到重复文章，建议确认是否覆盖';
+      }
+
       setItems((prev) =>
         prev.map((it, i) =>
           i === itemIdx
             ? {
                 ...it,
                 status: 'failed',
-                errorMessage: err instanceof Error ? err.message : '重试失败',
+                errorMessage: errorMsg,
               }
             : it,
         ),
       );
+      return false;
     }
   };
+
+  // Step 3: Run batch import with concurrency 3
+  const runBatchImport = async () => {
+    setStep('complete');
+    setImporting(true);
+    setCompletedCount(0);
+
+    const queueIndices = items
+      .map((it, idx) => ({ it, idx }))
+      .filter(({ it }) => it.status !== 'imported');
+
+    const concurrency = 3;
+    let queuePos = 0;
+    let done = 0;
+
+    const worker = async () => {
+      while (queuePos < queueIndices.length) {
+        const current = queueIndices[queuePos++];
+        if (!current) break;
+        const { it: item, idx: currentIdx } = current;
+
+        // If item already failed during initial reading/parsing, keep as failed and proceed
+        if (item.status === 'failed') {
+          done++;
+          setCompletedCount(done);
+          continue;
+        }
+
+        await executeItemImport(currentIdx);
+        done++;
+        setCompletedCount(done);
+      }
+    };
+
+    const workerCount = Math.min(concurrency, queueIndices.length || 1);
+    const workers = Array.from({ length: workerCount }, () => worker());
+    await Promise.all(workers);
+    invalidateDynamicContent();
+    setImporting(false);
+  };
+
+  // Single item retry
+  const retrySingle = async (itemIdx: number) => {
+    setImporting(true);
+    await executeItemImport(itemIdx);
+    invalidateDynamicContent();
+    setImporting(false);
+  };
+
+  // Retry with overwrite enabled
+  const retryWithOverwrite = async (itemIdx: number) => {
+    setItems((prev) =>
+      prev.map((it, i) => (i === itemIdx ? { ...it, overwrite: true } : it)),
+    );
+    setImporting(true);
+    // Directly run with overwrite set to true
+    const item = items[itemIdx];
+    if (item) {
+      item.overwrite = true;
+    }
+    await executeItemImport(itemIdx);
+    invalidateDynamicContent();
+    setImporting(false);
+  };
+
+  // Retry ONLY failed items with concurrency <= 3
+  const retryFailedOnly = async () => {
+    const failedIndices = items
+      .map((it, idx) => ({ it, idx }))
+      .filter(({ it }) => it.status === 'failed');
+
+    if (failedIndices.length === 0) return;
+
+    setImporting(true);
+    let done = 0;
+    setCompletedCount(0);
+
+    const concurrency = 3;
+    let queuePos = 0;
+
+    const worker = async () => {
+      while (queuePos < failedIndices.length) {
+        const current = failedIndices[queuePos++];
+        if (!current) break;
+        const { idx: currentIdx } = current;
+        await executeItemImport(currentIdx);
+        done++;
+        setCompletedCount(done);
+      }
+    };
+
+    const workerCount = Math.min(concurrency, failedIndices.length);
+    const workers = Array.from({ length: workerCount }, () => worker());
+    await Promise.all(workers);
+    invalidateDynamicContent();
+    setImporting(false);
+  };
+
+  // Statistics for Step 3
+  const successCount = items.filter((it) => it.status === 'imported').length;
+  const failedCount = items.filter((it) => it.status === 'failed').length;
+  const skippedCount = items.filter((it) => it.status === 'skipped').length;
+  const hasDuplicateWarning = items.some((it) => it.isDuplicate || it.status === 'skipped');
 
   return (
     <div className="page-canvas knowledge-import-canvas">
@@ -337,16 +509,28 @@ export function KnowledgeImportRoute() {
                     <li key={it.id}>
                       <strong>{it.name}</strong> ({Math.round(it.sizeBytes / 1024)} KB) — 识别标题：
                       {it.title}
+                      {it.status === 'failed' ? (
+                        <span style={{ color: '#dc2626', marginLeft: '0.5rem', fontWeight: 600 }}>
+                          [解析失败: {it.errorMessage}]
+                        </span>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
-                <div style={{ marginTop: '1.5rem' }}>
+                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
                   <button
                     type="button"
                     className="knowledge-button knowledge-button--primary"
                     onClick={() => setStep('inspect')}
                   >
                     下一步：检查内容与排版
+                  </button>
+                  <button
+                    type="button"
+                    className="knowledge-button knowledge-button--secondary"
+                    onClick={runBatchImport}
+                  >
+                    直接批量导入 ({items.filter((it) => it.status !== 'failed').length} 篇)
                   </button>
                 </div>
               </div>
@@ -383,11 +567,49 @@ export function KnowledgeImportRoute() {
                     key={it.id}
                     type="button"
                     className={`knowledge-button ${idx === activeItemIndex ? 'knowledge-button--secondary' : 'knowledge-button--quiet'}`}
+                    style={
+                      it.status === 'failed'
+                        ? { borderColor: '#ef4444', color: '#dc2626' }
+                        : undefined
+                    }
                     onClick={() => setActiveItemIndex(idx)}
                   >
+                    {it.status === 'failed' ? '⚠ ' : ''}
                     {it.name}
                   </button>
                 ))}
+              </div>
+            ) : null}
+
+            {/* Duplicate article warning banner */}
+            {hasDuplicateWarning ? (
+              <div
+                className="knowledge-import-card knowledge-import-duplicate-banner"
+                style={{
+                  marginBottom: '1rem',
+                  borderLeft: '4px solid #f59e0b',
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.75rem 1rem',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                }}
+              >
+                <span style={{ color: '#b45309', fontWeight: 600 }}>
+                  ⚠ 检测到重复文章，建议确认是否覆盖
+                </span>
+                <button
+                  type="button"
+                  className="knowledge-button knowledge-button--quiet"
+                  style={{ fontSize: '0.85rem' }}
+                  onClick={() => {
+                    setItems((prev) => prev.map((it) => ({ ...it, overwrite: true })));
+                  }}
+                >
+                  全部开启覆盖
+                </button>
               </div>
             ) : null}
 
@@ -398,11 +620,34 @@ export function KnowledgeImportRoute() {
               >
                 <div className="knowledge-import-card">
                   <h3>文档元数据</h3>
-                  <label className="knowledge-editor__field">
+
+                  {activeItem.status === 'failed' ? (
+                    <div
+                      className="knowledge-import-card knowledge-import-card--error"
+                      style={{
+                        marginBottom: '1rem',
+                        borderLeft: '4px solid #ef4444',
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        padding: '0.75rem 1rem',
+                      }}
+                    >
+                      <h4 style={{ color: '#dc2626', margin: '0 0 0.5rem 0' }}>⚠ 该文件解析失败</h4>
+                      <p style={{ color: '#dc2626', fontWeight: 600, margin: '0 0 0.5rem 0' }}>
+                        {activeItem.errorMessage || 'Markdown 结构解析失败'}
+                      </p>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', margin: 0 }}>
+                        批量导入时将隔离此错误并跳过此文件，不影响其余文件正常入库。
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <label className="knowledge-editor__field" htmlFor={`${formIdPrefix}-title`}>
                     <span>文章标题</span>
                     <input
+                      id={`${formIdPrefix}-title`}
                       type="text"
                       value={activeItem.title}
+                      disabled={activeItem.status === 'failed'}
                       onChange={(e) => {
                         const val = e.target.value;
                         setItems((prev) =>
@@ -412,11 +657,13 @@ export function KnowledgeImportRoute() {
                     />
                   </label>
 
-                  <label className="knowledge-editor__field">
+                  <label className="knowledge-editor__field" htmlFor={`${formIdPrefix}-summary`}>
                     <span>摘要</span>
                     <textarea
+                      id={`${formIdPrefix}-summary`}
                       rows={3}
                       value={activeItem.summary}
+                      disabled={activeItem.status === 'failed'}
                       onChange={(e) => {
                         const val = e.target.value;
                         setItems((prev) =>
@@ -428,11 +675,13 @@ export function KnowledgeImportRoute() {
                     />
                   </label>
 
-                  <label className="knowledge-editor__field">
+                  <label className="knowledge-editor__field" htmlFor={`${formIdPrefix}-category`}>
                     <span>分类</span>
                     <input
+                      id={`${formIdPrefix}-category`}
                       type="text"
                       value={activeItem.category}
+                      disabled={activeItem.status === 'failed'}
                       onChange={(e) => {
                         const val = e.target.value;
                         setItems((prev) =>
@@ -444,11 +693,13 @@ export function KnowledgeImportRoute() {
                     />
                   </label>
 
-                  <label className="knowledge-editor__field">
+                  <label className="knowledge-editor__field" htmlFor={`${formIdPrefix}-tags`}>
                     <span>标签 (逗号分隔)</span>
                     <input
+                      id={`${formIdPrefix}-tags`}
                       type="text"
                       value={activeItem.tagsString}
+                      disabled={activeItem.status === 'failed'}
                       onChange={(e) => {
                         const val = e.target.value;
                         setItems((prev) =>
@@ -460,11 +711,13 @@ export function KnowledgeImportRoute() {
                     />
                   </label>
 
-                  <label className="knowledge-editor__field">
+                  <label className="knowledge-editor__field" htmlFor={`${formIdPrefix}-slug`}>
                     <span>链接标识 (Slug)</span>
                     <input
+                      id={`${formIdPrefix}-slug`}
                       type="text"
                       value={activeItem.slug}
+                      disabled={activeItem.status === 'failed'}
                       onChange={(e) => {
                         const val = e.target.value;
                         setItems((prev) =>
@@ -477,6 +730,7 @@ export function KnowledgeImportRoute() {
                   </label>
 
                   <label
+                    htmlFor={`${formIdPrefix}-overwrite`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -487,6 +741,7 @@ export function KnowledgeImportRoute() {
                     }}
                   >
                     <input
+                      id={`${formIdPrefix}-overwrite`}
                       type="checkbox"
                       checked={Boolean(activeItem.overwrite)}
                       onChange={(e) => {
@@ -502,8 +757,8 @@ export function KnowledgeImportRoute() {
                   </label>
                 </div>
 
-                {/* Compatibility Warnings */}
-                {activeItem.parsed.warnings.length > 0 ? (
+                {/* Compatibility Warnings or Status */}
+                {activeItem.parsed && activeItem.parsed.warnings.length > 0 ? (
                   <div className="knowledge-import-card knowledge-import-warnings">
                     <h4>兼容性提示 ({activeItem.parsed.warnings.length})</h4>
                     <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
@@ -517,7 +772,7 @@ export function KnowledgeImportRoute() {
                       ))}
                     </ul>
                   </div>
-                ) : (
+                ) : activeItem.status !== 'failed' ? (
                   <div
                     className="knowledge-import-card"
                     style={{ background: 'rgba(52, 199, 89, 0.08)' }}
@@ -526,7 +781,7 @@ export function KnowledgeImportRoute() {
                       ✓ 语法完全兼容（表格、代码块、引用均保留）
                     </p>
                   </div>
-                )}
+                ) : null}
 
                 <div className="knowledge-import-meta-actions">
                   <button
@@ -540,8 +795,9 @@ export function KnowledgeImportRoute() {
                     type="button"
                     className="knowledge-button knowledge-button--primary"
                     onClick={runBatchImport}
+                    disabled={items.every((it) => it.status === 'failed')}
                   >
-                    导入为草稿 ({items.length} 篇)
+                    导入为草稿 ({items.filter((it) => it.status !== 'failed').length} 篇)
                   </button>
                 </div>
               </aside>
@@ -550,31 +806,61 @@ export function KnowledgeImportRoute() {
               <div
                 className={`knowledge-import-preview-panel ${mobileView === 'preview' ? 'is-visible' : ''}`}
               >
-                <article className="post-detail" style={{ padding: 0 }}>
-                  <header className="post-detail__header" style={{ paddingBottom: '1.5rem' }}>
-                    <div className="post-detail__intro">
-                      <p className="eyebrow">Import Preview</p>
-                      <h1>{activeItem.title}</h1>
-                      <p className="post-detail__summary">{activeItem.summary}</p>
-                      <div className="post-meta">
-                        <span className="post-meta__category">{activeItem.category}</span>
-                        <span className="post-meta__divider">·</span>
-                        <span>{activeItem.tagsString || '无标签'}</span>
+                {activeItem.parsed ? (
+                  <article className="post-detail" style={{ padding: 0 }}>
+                    <header className="post-detail__header" style={{ paddingBottom: '1.5rem' }}>
+                      <div className="post-detail__intro">
+                        <p className="eyebrow">Import Preview</p>
+                        <h1>{activeItem.title}</h1>
+                        <p className="post-detail__summary">{activeItem.summary}</p>
+                        <div className="post-meta">
+                          <span className="post-meta__category">{activeItem.category}</span>
+                          <span className="post-meta__divider">·</span>
+                          <span>{activeItem.tagsString || '无标签'}</span>
+                        </div>
+                      </div>
+                    </header>
+
+                    <div className="post-detail__layout" style={{ marginTop: '1.5rem' }}>
+                      <aside className="post-detail__toc">
+                        <TableOfContents
+                          headings={extractHeadingsFromDocument(activeItem.parsed.document)}
+                        />
+                      </aside>
+                      <div className="markdown-body">
+                        <TiptapRenderer content={activeItem.parsed.document} />
                       </div>
                     </div>
-                  </header>
-
-                  <div className="post-detail__layout" style={{ marginTop: '1.5rem' }}>
-                    <aside className="post-detail__toc">
-                      <TableOfContents
-                        headings={extractHeadingsFromDocument(activeItem.parsed.document)}
-                      />
-                    </aside>
-                    <div className="markdown-body">
-                      <TiptapRenderer content={activeItem.parsed.document} />
-                    </div>
+                  </article>
+                ) : (
+                  <div
+                    className="knowledge-import-error-preview"
+                    style={{ padding: '3rem 1.5rem', textAlign: 'center', color: 'var(--color-muted)' }}
+                  >
+                    <p style={{ fontSize: '1.1rem', fontWeight: 600, color: '#dc2626' }}>
+                      无法渲染富文本预览：{activeItem.errorMessage || '文件解析失败'}
+                    </p>
+                    <p style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                      该文件无法被解析为规范的 Markdown。其余正常文件仍可继续正常导入。
+                    </p>
+                    {activeItem.content ? (
+                      <pre
+                        style={{
+                          textAlign: 'left',
+                          maxHeight: '320px',
+                          overflow: 'auto',
+                          background: 'var(--color-soft, #f5f5f7)',
+                          padding: '1rem',
+                          borderRadius: '0.5rem',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-all',
+                        }}
+                      >
+                        {activeItem.content}
+                      </pre>
+                    ) : null}
                   </div>
-                </article>
+                )}
               </div>
             </div>
           </section>
@@ -584,11 +870,58 @@ export function KnowledgeImportRoute() {
         {step === 'complete' ? (
           <section className="knowledge-import-complete">
             <div className="knowledge-import-card">
-              <h3>
+              <h3 className="knowledge-import-complete-title">
                 {importing
                   ? `正在导入… (已完成 ${completedCount} / ${items.length} 个文件)`
-                  : '导入完成'}
+                  : `导入完成：${successCount} 篇成功，${failedCount} 篇失败，${skippedCount} 篇跳过`}
               </h3>
+
+              {!importing ? (
+                <div
+                  className="knowledge-import-summary"
+                  style={{
+                    display: 'flex',
+                    gap: '0.75rem',
+                    alignItems: 'center',
+                    marginBottom: '1.25rem',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span className="knowledge-badge knowledge-badge--published" style={{ fontWeight: 600 }}>
+                    成功 {successCount} 篇
+                  </span>
+                  {failedCount > 0 ? (
+                    <span
+                      className="knowledge-badge knowledge-badge--archived"
+                      style={{ fontWeight: 600, background: '#fee2e2', color: '#dc2626' }}
+                    >
+                      失败 {failedCount} 篇
+                    </span>
+                  ) : null}
+                  {skippedCount > 0 ? (
+                    <span className="knowledge-badge knowledge-badge--draft" style={{ fontWeight: 600 }}>
+                      跳过 {skippedCount} 篇
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Duplicate article warning in complete view */}
+              {hasDuplicateWarning && !importing ? (
+                <div
+                  className="knowledge-import-card knowledge-import-duplicate-banner"
+                  style={{
+                    marginBottom: '1rem',
+                    borderLeft: '4px solid #f59e0b',
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    padding: '0.75rem 1rem',
+                  }}
+                >
+                  <p style={{ color: '#b45309', margin: 0, fontWeight: 600 }}>
+                    ⚠ 检测到重复文章，建议确认是否覆盖
+                  </p>
+                </div>
+              ) : null}
 
               <div className="knowledge-import-results-list">
                 {items.map((it, idx) => (
@@ -613,7 +946,15 @@ export function KnowledgeImportRoute() {
                         </span>
                       ) : null}
                       {it.status === 'failed' ? (
-                        <span className="knowledge-badge knowledge-badge--archived">
+                        <span
+                          className="knowledge-badge knowledge-badge--archived"
+                          style={{
+                            background: '#fee2e2',
+                            color: '#dc2626',
+                            borderColor: '#fca5a5',
+                            fontWeight: 600,
+                          }}
+                        >
                           失败: {it.errorMessage}
                         </span>
                       ) : null}
@@ -636,7 +977,16 @@ export function KnowledgeImportRoute() {
                           </Link>
                         </>
                       ) : null}
-                      {it.status === 'failed' ? (
+                      {it.status === 'skipped' && !importing ? (
+                        <button
+                          type="button"
+                          className="knowledge-button knowledge-button--secondary"
+                          onClick={() => retryWithOverwrite(idx)}
+                        >
+                          覆盖导入
+                        </button>
+                      ) : null}
+                      {it.status === 'failed' && !importing ? (
                         <button
                           type="button"
                           className="knowledge-button knowledge-button--secondary"
@@ -651,7 +1001,18 @@ export function KnowledgeImportRoute() {
               </div>
 
               {!importing ? (
-                <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
+                <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  {failedCount > 0 ? (
+                    <button
+                      type="button"
+                      className="knowledge-button knowledge-button--secondary knowledge-import-retry-failed-btn"
+                      style={{ borderColor: '#ef4444', color: '#dc2626', fontWeight: 600 }}
+                      onClick={retryFailedOnly}
+                      aria-label="仅重试失败项"
+                    >
+                      仅重试失败项
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="knowledge-button knowledge-button--primary"
