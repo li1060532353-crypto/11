@@ -272,6 +272,41 @@ export async function restoreKnowledgeNote(noteId: string, signal?: AbortSignal)
     signal,
   );
 }
+export async function publishKnowledgeNote(
+  noteId: string,
+  input?: ApiRequestFor<'POST /api/notes/:id/publish'>,
+  signal?: AbortSignal,
+) {
+  return jsonRequest(
+    `/api/notes/${encodeURIComponent(noteId)}/publish`,
+    'POST',
+    isNote,
+    input ?? {},
+    signal,
+  );
+}
+export async function unpublishKnowledgeNote(noteId: string, signal?: AbortSignal) {
+  return jsonRequest(
+    `/api/notes/${encodeURIComponent(noteId)}/unpublish`,
+    'POST',
+    isNote,
+    undefined,
+    signal,
+  );
+}
+export async function restoreVersionKnowledgeNote(
+  noteId: string,
+  input: ApiRequestFor<'POST /api/notes/:id/restore-version'>,
+  signal?: AbortSignal,
+) {
+  return jsonRequest(
+    `/api/notes/${encodeURIComponent(noteId)}/restore-version`,
+    'POST',
+    isNote,
+    input,
+    signal,
+  );
+}
 export async function createKnowledgeNoteVersion(noteId: string, signal?: AbortSignal) {
   return jsonRequest(
     `/api/notes/${encodeURIComponent(noteId)}/versions`,

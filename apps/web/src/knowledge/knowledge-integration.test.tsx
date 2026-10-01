@@ -189,9 +189,9 @@ describe('knowledge read-only integration', () => {
         <KnowledgeNotesRoute />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('status')).toHaveTextContent('Loading articles');
+    expect(screen.getByRole('status')).toHaveTextContent('正在加载文章列表…');
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'No articles yet' })).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: '知识库暂无文章' })).toBeInTheDocument(),
     );
     expect(
       vi
@@ -217,9 +217,9 @@ describe('knowledge read-only integration', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'Articles' })).toBeInTheDocument();
-    expect(screen.getByText('Draft')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Edit Note' })).toHaveAttribute(
+    expect(await screen.findByRole('heading', { name: '文章管理' })).toBeInTheDocument();
+    expect(screen.getAllByText('草稿').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('link', { name: '编辑 Note' })).toHaveAttribute(
       'href',
       '/knowledge/notes/n1',
     );
@@ -281,10 +281,10 @@ describe('knowledge read-only integration', () => {
       </MemoryRouter>,
     );
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Archive Note' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: '归档 Note' })).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Archive Note' }));
+    fireEvent.click(screen.getByRole('button', { name: '归档 Note' }));
     await waitFor(() =>
       expect(vi.mocked(fetch)).toHaveBeenCalledWith(
         '/api/notes/n1',
@@ -293,9 +293,9 @@ describe('knowledge read-only integration', () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Restore Archived note' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: '恢复 Archived note' })).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Restore Archived note' }));
+    fireEvent.click(screen.getByRole('button', { name: '恢复 Archived note' }));
     await waitFor(() =>
       expect(vi.mocked(fetch)).toHaveBeenCalledWith(
         '/api/notes/n2/restore',
@@ -337,7 +337,7 @@ describe('knowledge read-only integration', () => {
         <KnowledgeNotesRoute />
       </MemoryRouter>,
     );
-    const archive = await screen.findByRole('button', { name: 'Archive Note' });
+    const archive = await screen.findByRole('button', { name: '归档 Note' });
 
     fireEvent.click(archive);
     fireEvent.click(archive);
@@ -377,7 +377,7 @@ describe('knowledge read-only integration', () => {
         <KnowledgeNotesRoute />
       </MemoryRouter>,
     );
-    fireEvent.change(screen.getByLabelText('Search articles'), { target: { value: 'new' } });
+    fireEvent.change(screen.getByLabelText('搜索文章'), { target: { value: 'new' } });
     resolveNew(
       response({
         success: true,
@@ -436,7 +436,7 @@ describe('knowledge read-only integration', () => {
         <KnowledgeDashboardRoute />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('status')).toHaveTextContent('Loading dashboard');
+    expect(screen.getByRole('status')).toHaveTextContent('正在加载仪表盘…');
     expect(screen.queryByText('24')).not.toBeInTheDocument();
     resolveStats(
       response({
@@ -461,7 +461,7 @@ describe('knowledge read-only integration', () => {
     );
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Knowledge dashboard could not be loaded',
+        '仪表盘加载失败',
       ),
     );
     expect(screen.queryByText('24')).not.toBeInTheDocument();
@@ -490,7 +490,7 @@ describe('knowledge read-only integration', () => {
     );
 
     expect(
-      await screen.findByRole('heading', { name: 'Recently edited articles' }),
+      await screen.findByRole('heading', { name: '近期编辑文章' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Recently edited note' })).toHaveAttribute(
       'href',

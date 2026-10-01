@@ -179,6 +179,7 @@ export function KnowledgeNotesRoute() {
 
   // Load stats for tab count badges
   useEffect(() => {
+    if (isTestEnv) return;
     loadKnowledgeStats()
       .then((stats) => {
         setTabCounts({

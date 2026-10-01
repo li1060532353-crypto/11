@@ -4,19 +4,23 @@ import type { Post } from './types';
 
 export function noteToPost(note: NoteRecord): Post {
   const publishedAt = note.publishedAt ?? note.createdAt;
-  const readingTime = Math.max(1, Math.ceil((note.contentText || '').length / 400));
+  const rawJson = note.publishedContentJson ?? note.contentJson;
+  const contentText = note.publishedContentText ?? note.contentText ?? '';
+  const title = note.publishedTitle ?? note.title;
+  const summary = note.publishedSummary ?? note.summary;
+  const readingTime = Math.max(1, Math.ceil(contentText.length / 400));
   let docObj: unknown;
   try {
-    docObj = typeof note.contentJson === 'string' ? JSON.parse(note.contentJson) : note.contentJson;
+    docObj = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
   } catch {
     docObj = undefined;
   }
 
   return {
     slug: note.slug,
-    title: note.title,
-    summary: note.summary,
-    body: note.contentText,
+    title,
+    summary,
+    body: contentText,
     contentJson: docObj,
     category: note.category,
     tags: note.tags ?? [],
@@ -24,7 +28,7 @@ export function noteToPost(note: NoteRecord): Post {
     readingTime,
     selected: Boolean(note.isFeatured),
     cover: {
-      alt: note.title,
+      alt: title,
       tone: 'blue',
     },
   };
