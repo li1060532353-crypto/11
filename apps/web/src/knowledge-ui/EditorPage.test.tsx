@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+﻿import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AssetPanel } from './AssetPanel';
@@ -6,6 +6,19 @@ import { EditorPage, stateLabels } from './EditorPage';
 import { editorFixture } from './editor-fixtures';
 
 describe('EditorPage presentation', () => {
+  it('allows long titles to wrap while preserving a single-line title value', () => {
+    const onTitleChange = vi.fn();
+    render(<EditorPage model={editorFixture} onTitleChange={onTitleChange} />);
+    const title = screen.getByRole('textbox', { name: 'Title' });
+    expect(title.tagName).toBe('TEXTAREA');
+    fireEvent.change(title, { target: { value: 'Long title\ncontinued' } });
+    expect(onTitleChange).toHaveBeenCalledWith('Long title continued');
+  });
+  it('focuses the title and shows an honest initial state for a new document', () => {
+    render(<EditorPage model={{ ...editorFixture, id: undefined, title: '' }} isNew onTitleChange={() => {}} />);
+    expect(screen.getByLabelText('Title')).toHaveFocus();
+    expect(screen.getByRole('status')).toHaveTextContent('尚未创建草稿');
+  });
   it('does not create a nested main landmark inside the application route shell', () => {
     render(<EditorPage model={editorFixture} />);
 

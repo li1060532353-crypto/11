@@ -3,17 +3,27 @@ import type { ContentSourceError } from './types';
 
 export class ContentSourceFailure extends Error {
   readonly error: ContentSourceError;
+  readonly status?: number | undefined;
 
   constructor(error: ContentSourceError) {
     super(error.message);
     this.name = 'ContentSourceFailure';
     this.error = error;
+    this.status = error.status;
   }
 }
 
-type RequestContentOptions = {
-  signal?: AbortSignal;
-  search?: URLSearchParams;
+export function isNotFoundError(error: unknown): boolean {
+  if (error instanceof ContentSourceFailure) {
+    return error.status === 404 || error.error.status === 404;
+  }
+  return false;
+}
+
+export type RequestContentOptions = {
+  signal?: AbortSignal | undefined;
+  search?: URLSearchParams | undefined;
+  timeoutMs?: number | undefined;
 };
 
 const defaultApiBaseUrl = '/api/v1';
@@ -22,16 +32,42 @@ export async function requestContent<T>(
   path: string,
   options: RequestContentOptions = {},
 ): Promise<T> {
+  const timeoutMs = options.timeoutMs ?? 10_000;
+  const controller = new AbortController();
+  let isTimedOut = false;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  if (timeoutMs > 0 && Number.isFinite(timeoutMs)) {
+    timeoutId = setTimeout(() => {
+      isTimedOut = true;
+      controller.abort(new DOMException(`Request timed out after ${timeoutMs}ms`, 'TimeoutError'));
+    }, timeoutMs);
+  }
+
+  const callerSignal = options.signal;
+  const onCallerAbort = () => {
+    controller.abort(callerSignal?.reason);
+  };
+
+  if (callerSignal) {
+    if (callerSignal.aborted) {
+      controller.abort(callerSignal.reason);
+    } else {
+      callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+    }
+  }
+
   try {
     const response = await fetch(buildContentUrl(path, options.search), {
       headers: { Accept: 'application/json' },
-      ...(options.signal ? { signal: options.signal } : {}),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
       throw new ContentSourceFailure({
         kind: 'http',
         message: `Content API responded with ${response.status}`,
+        status: response.status,
       });
     }
 
@@ -50,6 +86,13 @@ export async function requestContent<T>(
       throw error;
     }
 
+    if (isTimedOut || (error instanceof DOMException && error.name === 'TimeoutError')) {
+      throw new ContentSourceFailure({
+        kind: 'network',
+        message: `Content API request timed out after ${timeoutMs}ms`,
+      });
+    }
+
     if (isAbortError(error)) {
       throw new ContentSourceFailure({
         kind: 'aborted',
@@ -61,6 +104,13 @@ export async function requestContent<T>(
       kind: 'network',
       message: error instanceof Error ? error.message : 'Content API request failed',
     });
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+    if (callerSignal) {
+      callerSignal.removeEventListener('abort', onCallerAbort);
+    }
   }
 }
 

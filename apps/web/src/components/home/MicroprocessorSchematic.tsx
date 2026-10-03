@@ -16,25 +16,25 @@ export function MicroprocessorSchematic() {
       {/* Alignment Brackets & Technical Framing */}
       <path
         d="M 10 22 L 10 10 L 22 10"
-        stroke="var(--color-muted, #6e6e73)"
+        stroke="var(--text-secondary, #6e6e73)"
         strokeWidth="1.5"
         strokeLinecap="square"
       />
       <path
         d="M 518 10 L 530 10 L 530 22"
-        stroke="var(--color-muted, #6e6e73)"
+        stroke="var(--text-secondary, #6e6e73)"
         strokeWidth="1.5"
         strokeLinecap="square"
       />
       <path
         d="M 10 344 L 10 356 L 22 356"
-        stroke="var(--color-muted, #6e6e73)"
+        stroke="var(--text-secondary, #6e6e73)"
         strokeWidth="1.5"
         strokeLinecap="square"
       />
       <path
         d="M 518 356 L 530 356 L 530 344"
-        stroke="var(--color-muted, #6e6e73)"
+        stroke="var(--text-secondary, #6e6e73)"
         strokeWidth="1.5"
         strokeLinecap="square"
       />
@@ -47,11 +47,11 @@ export function MicroprocessorSchematic() {
         fontSize="9"
         fontWeight="700"
         letterSpacing="0.08em"
-        fill="var(--color-muted, #6e6e73)"
+        fill="var(--text-secondary, #6e6e73)"
       >
         3D-IC HETEROGENEOUS PACKAGING · ARCH TOPOLOGY
       </text>
-      <circle cx="452" cy="22" r="3.5" fill="var(--color-accent, #0071e3)" />
+      <circle cx="452" cy="22" r="3.5" fill="var(--accent-blue, #2455e8)" />
       <text
         x="462"
         y="25"
@@ -59,7 +59,7 @@ export function MicroprocessorSchematic() {
         fontSize="9"
         fontWeight="600"
         letterSpacing="0.04em"
-        fill="var(--color-accent, #0071e3)"
+        fill="var(--accent-blue, #2455e8)"
       >
         UCIe 32 GT/s
       </text>
@@ -68,7 +68,7 @@ export function MicroprocessorSchematic() {
         y1="34"
         x2="520"
         y2="34"
-        stroke="var(--color-border, rgba(0,0,0,0.1))"
+        stroke="var(--color-border, rgba(29, 29, 31, 0.12))"
         strokeWidth="1"
         strokeDasharray="2 3"
       />
@@ -85,7 +85,7 @@ export function MicroprocessorSchematic() {
         height="128"
         rx="2"
         fill="var(--surface-raised, #ffffff)"
-        stroke="var(--color-ink, #1d1d1f)"
+        stroke="var(--text-primary, #1d1d1f)"
         strokeWidth="1.5"
       />
       <rect
@@ -95,7 +95,7 @@ export function MicroprocessorSchematic() {
         height="22"
         rx="2"
         fill="var(--surface-sunken, #e8e8ed)"
-        stroke="var(--color-ink, #1d1d1f)"
+        stroke="var(--text-primary, #1d1d1f)"
         strokeWidth="1.5"
       />
       <text
@@ -105,7 +105,7 @@ export function MicroprocessorSchematic() {
         fontSize="9.5"
         fontWeight="700"
         letterSpacing="0.04em"
-        fill="var(--color-ink, #1d1d1f)"
+        fill="var(--text-primary, #1d1d1f)"
       >
         COMPUTE LOGIC (CORE MATRIX)
       </text>
@@ -115,7 +115,7 @@ export function MicroprocessorSchematic() {
         fontFamily="var(--font-mono, monospace)"
         fontSize="8"
         fontWeight="600"
-        fill="var(--color-accent, #0071e3)"
+        fill="var(--accent-blue, #2455e8)"
       >
         3nm GAA
       </text>
@@ -128,7 +128,7 @@ export function MicroprocessorSchematic() {
         height="44"
         rx="1.5"
         fill="none"
-        stroke="var(--color-border-strong, #8e8e93)"
+        stroke="var(--text-secondary, #6e6e73)"
         strokeWidth="1"
       />
       <text
@@ -137,7 +137,7 @@ export function MicroprocessorSchematic() {
         fontFamily="var(--font-mono, monospace)"
         fontSize="8"
         fontWeight="700"
-        fill="var(--color-ink, #1d1d1f)"
+        fill="var(--text-primary, #1d1d1f)"
       >
         VECTOR / ALU
       </text>
@@ -159,7 +159,7 @@ export function MicroprocessorSchematic() {
         height="44"
         rx="1.5"
         fill="none"
-        stroke="var(--color-border-strong, #8e8e93)"
+        stroke="var(--text-secondary, #6e6e73)"
         strokeWidth="1"
       />
       <text
@@ -168,7 +168,7 @@ export function MicroprocessorSchematic() {
         fontFamily="var(--font-mono, monospace)"
         fontSize="8"
         fontWeight="700"
-        fill="var(--color-ink, #1d1d1f)"
+        fill="var(--text-primary, #1d1d1f)"
       >
         L2/L3 CACHE
       </text>
@@ -190,7 +190,7 @@ export function MicroprocessorSchematic() {
         height="36"
         rx="1.5"
         fill="none"
-        stroke="var(--color-accent, #0071e3)"
+        stroke="var(--accent-blue, #2455e8)"
         strokeWidth="1"
         strokeDasharray="2 2"
       />
@@ -200,7 +200,7 @@ export function MicroprocessorSchematic() {
         fontFamily="var(--font-mono, monospace)"
         fontSize="8"
         fontWeight="700"
-        fill="var(--color-accent, #0071e3)"
+        fill="var(--accent-blue, #2455e8)"
       >
         AXI5 D2D PHY &amp; ROUTING UNIT
       </text>
@@ -222,7 +222,7 @@ export function MicroprocessorSchematic() {
         height="128"
         rx="2"
         fill="var(--surface-raised, #ffffff)"
-        stroke="var(--color-ink, #1d1d1f)"
+        stroke="var(--text-primary, #1d1d1f)"
         strokeWidth="1.5"
       />
       <rect
@@ -232,7 +232,7 @@ export function MicroprocessorSchematic() {
         height="22"
         rx="2"
         fill="var(--surface-sunken, #e8e8ed)"
-        stroke="var(--color-ink, #1d1d1f)"
+        stroke="var(--text-primary, #1d1d1f)"
         strokeWidth="1.5"
       />
       <text
@@ -242,7 +242,7 @@ export function MicroprocessorSchematic() {
         fontSize="9.5"
         fontWeight="700"
         letterSpacing="0.04em"
-        fill="var(--color-ink, #1d1d1f)"
+        fill="var(--text-primary, #1d1d1f)"
       >
         HBM3e MEMORY (8-HI STACK)
       </text>
@@ -252,7 +252,7 @@ export function MicroprocessorSchematic() {
         fontFamily="var(--font-mono, monospace)"
         fontSize="8"
         fontWeight="600"
-        fill="var(--color-accent, #0071e3)"
+        fill="var(--accent-blue, #2455e8)"
       >
         1.2 TB/s
       </text>
@@ -265,7 +265,7 @@ export function MicroprocessorSchematic() {
         height="18"
         rx="1"
         fill="none"
-        stroke="var(--color-border-strong, #8e8e93)"
+        stroke="var(--text-secondary, #6e6e73)"
         strokeWidth="1"
       />
       <text
@@ -273,7 +273,7 @@ export function MicroprocessorSchematic() {
         y="91"
         fontFamily="var(--font-mono, monospace)"
         fontSize="7.5"
-        fill="var(--color-ink, #1d1d1f)"
+        fill="var(--text-primary, #1d1d1f)"
       >
         DRAM DIE 3 · 24Gb HIGH-SPEED CELL
       </text>
@@ -285,7 +285,7 @@ export function MicroprocessorSchematic() {
         height="18"
         rx="1"
         fill="none"
-        stroke="var(--color-border-strong, #8e8e93)"
+        stroke="var(--text-secondary, #6e6e73)"
         strokeWidth="1"
       />
       <text
@@ -293,7 +293,7 @@ export function MicroprocessorSchematic() {
         y="113"
         fontFamily="var(--font-mono, monospace)"
         fontSize="7.5"
-        fill="var(--color-ink, #1d1d1f)"
+        fill="var(--text-primary, #1d1d1f)"
       >
         DRAM DIE 2 · 24Gb HIGH-SPEED CELL
       </text>
@@ -305,7 +305,7 @@ export function MicroprocessorSchematic() {
         height="18"
         rx="1"
         fill="none"
-        stroke="var(--color-border-strong, #8e8e93)"
+        stroke="var(--text-secondary, #6e6e73)"
         strokeWidth="1"
       />
       <text
@@ -313,7 +313,7 @@ export function MicroprocessorSchematic() {
         y="135"
         fontFamily="var(--font-mono, monospace)"
         fontSize="7.5"
-        fill="var(--color-ink, #1d1d1f)"
+        fill="var(--text-primary, #1d1d1f)"
       >
         DRAM DIE 1 · 24Gb HIGH-SPEED CELL
       </text>
@@ -326,7 +326,7 @@ export function MicroprocessorSchematic() {
         height="24"
         rx="1"
         fill="none"
-        stroke="var(--color-accent, #0071e3)"
+        stroke="var(--accent-blue, #2455e8)"
         strokeWidth="1"
       />
       <text
@@ -335,7 +335,7 @@ export function MicroprocessorSchematic() {
         fontFamily="var(--font-mono, monospace)"
         fontSize="7.5"
         fontWeight="700"
-        fill="var(--color-accent, #0071e3)"
+        fill="var(--accent-blue, #2455e8)"
       >
         HBM CONTROLLER &amp; TEST LOGIC
       </text>
@@ -350,7 +350,7 @@ export function MicroprocessorSchematic() {
           y1="178"
           x2={46 + i * 20}
           y2="190"
-          stroke="var(--color-ink, #1d1d1f)"
+          stroke="var(--text-secondary, #6e6e73)"
           strokeWidth="1.5"
         />
       ))}
@@ -361,7 +361,7 @@ export function MicroprocessorSchematic() {
           y1="178"
           x2={294 + i * 20}
           y2="190"
-          stroke="var(--color-ink, #1d1d1f)"
+          stroke="var(--text-secondary, #6e6e73)"
           strokeWidth="1.5"
         />
       ))}
@@ -375,8 +375,8 @@ export function MicroprocessorSchematic() {
         width="492"
         height="64"
         rx="2"
-        fill="var(--surface-sunken, #f0f0f4)"
-        stroke="var(--color-ink, #1d1d1f)"
+        fill="var(--surface-sunken, #e8e8ed)"
+        stroke="var(--text-primary, #1d1d1f)"
         strokeWidth="1.5"
       />
 
@@ -387,7 +387,7 @@ export function MicroprocessorSchematic() {
         fontSize="8.5"
         fontWeight="700"
         letterSpacing="0.06em"
-        fill="var(--color-ink, #1d1d1f)"
+        fill="var(--text-primary, #1d1d1f)"
       >
         SILICON INTERPOSER (CoWoS HIGH-DENSITY RDL)
       </text>
@@ -395,25 +395,25 @@ export function MicroprocessorSchematic() {
       {/* High-speed RDL interconnect bus traces between Compute & HBM */}
       <path
         d="M 180 190 L 180 220 L 360 220 L 360 190"
-        stroke="var(--color-accent, #0071e3)"
+        stroke="var(--accent-blue, #2455e8)"
         strokeWidth="2"
         fill="none"
       />
       <path
         d="M 195 190 L 195 227 L 345 227 L 345 190"
-        stroke="var(--color-accent, #0071e3)"
+        stroke="var(--accent-blue, #2455e8)"
         strokeWidth="1.5"
-        strokeDasharray="3 2"
         fill="none"
       />
-      <circle cx="270" cy="220" r="3" fill="var(--color-accent, #0071e3)" />
+      <path className="schematic-signal" d="M 195 190 L 195 227 L 345 227 L 345 190" stroke="var(--accent-blue, #2455e8)" strokeWidth="3" pathLength="100" fill="none" aria-hidden="true" />
+      <circle cx="270" cy="220" r="3" fill="var(--accent-blue, #2455e8)" />
       <text
         x="270"
         y="215"
         fontFamily="var(--font-mono, monospace)"
         fontSize="8"
         fontWeight="700"
-        fill="var(--color-accent, #0071e3)"
+        fill="var(--accent-blue, #2455e8)"
         textAnchor="middle"
       >
         UCIe / AXI5 BUS CHANNEL
@@ -427,10 +427,10 @@ export function MicroprocessorSchematic() {
             y1="190"
             x2={x}
             y2="254"
-            stroke="var(--color-ink, #1d1d1f)"
+            stroke="var(--text-secondary, #6e6e73)"
             strokeWidth="2"
           />
-          <circle cx={x} cy="254" r="1.5" fill="var(--color-ink, #1d1d1f)" />
+          <circle cx={x} cy="254" r="1.5" fill="var(--text-secondary, #6e6e73)" />
         </g>
       ))}
 
@@ -464,7 +464,7 @@ export function MicroprocessorSchematic() {
           y1="254"
           x2={34 + i * 23.5}
           y2="266"
-          stroke="var(--color-ink, #1d1d1f)"
+          stroke="var(--text-secondary, #6e6e73)"
           strokeWidth="1.5"
         />
       ))}
@@ -479,7 +479,7 @@ export function MicroprocessorSchematic() {
         height="42"
         rx="2"
         fill="var(--surface-raised, #ffffff)"
-        stroke="var(--color-ink, #1d1d1f)"
+        stroke="var(--text-primary, #1d1d1f)"
         strokeWidth="1.5"
       />
       <text
@@ -489,7 +489,7 @@ export function MicroprocessorSchematic() {
         fontSize="8.5"
         fontWeight="700"
         letterSpacing="0.04em"
-        fill="var(--color-ink, #1d1d1f)"
+        fill="var(--text-primary, #1d1d1f)"
       >
         ORGANIC PACKAGE SUBSTRATE
       </text>
@@ -519,7 +519,7 @@ export function MicroprocessorSchematic() {
         fontFamily="var(--font-mono, monospace)"
         fontSize="7.5"
         fontWeight="600"
-        fill="var(--color-accent, #0071e3)"
+        fill="var(--accent-blue, #2455e8)"
         textAnchor="end"
       >
         SIGNAL INTEGRITY: &gt; 99.8%
@@ -532,7 +532,7 @@ export function MicroprocessorSchematic() {
           cx={28 + i * 32.2}
           cy="320"
           r="6"
-          stroke="var(--color-ink, #1d1d1f)"
+          stroke="var(--text-secondary, #6e6e73)"
           strokeWidth="1"
           fill="none"
         />

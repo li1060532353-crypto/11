@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ContentSourceFailure } from './apiClient';
 import type { ApiPostDetail, ApiPostSummary, ApiProject, ApiTaxonomy } from './apiTypes';
@@ -103,6 +103,10 @@ describe('content gateway', () => {
       },
     ]);
     searchStaticPostsMock.mockReturnValue(staticPage);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('returns API data with api source when list posts succeeds', async () => {
@@ -256,6 +260,128 @@ describe('content gateway', () => {
     expect(requestContentMock).not.toHaveBeenCalled();
     expect(searchStaticPostsMock).toHaveBeenCalledWith('', { page: 2, pageSize: 1 });
     await expect(searchPosts('', { page: 2, pageSize: 1 })).resolves.toEqual({
+      data: staticPage,
+      source: 'fallback',
+    });
+  });
+
+  it('queries /api/public/search on the production gateway when available', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          items: [
+            {
+              slug: 'prod-search-result',
+              title: 'Production Search Result',
+              summary: 'Found via public search',
+              category: 'Search',
+              tags: ['prod'],
+              publishedAt: '2026-03-01T00:00:00.000Z',
+              readingTime: 3,
+              selected: false,
+            },
+          ],
+          page: 2,
+          pageSize: 5,
+          totalItems: 11,
+          totalPages: 3,
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await searchPosts('search-query', { page: 2, pageSize: 5 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/public/search?q=search-query&page=2&pageSize=5',
+      expect.any(Object),
+    );
+    expect(result).toEqual({
+      source: 'api',
+      data: {
+        items: [
+          expect.objectContaining({
+            slug: 'prod-search-result',
+            title: 'Production Search Result',
+            readingTime: 3,
+          }),
+        ],
+        page: 2,
+        pageSize: 5,
+        totalItems: 11,
+        totalPages: 3,
+      },
+    });
+    expect(searchStaticPostsMock).not.toHaveBeenCalled();
+    expect(requestContentMock).not.toHaveBeenCalled();
+  });
+
+  it('uses default page 1 and pageSize 12 for production search when unspecified', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          items: [],
+          page: 1,
+          pageSize: 12,
+          totalItems: 0,
+          totalPages: 1,
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await searchPosts('test');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/public/search?q=test&page=1&pageSize=12',
+      expect.any(Object),
+    );
+  });
+
+  it('falls back to static search on production gateway when public search fails or returns non-ok response', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ success: false, error: 'Service unavailable' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await searchPosts('failing-query', { page: 1, pageSize: 6 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/public/search?q=failing-query&page=1&pageSize=6',
+      expect.any(Object),
+    );
+    expect(searchStaticPostsMock).toHaveBeenCalledWith('failing-query', { page: 1, pageSize: 6 });
+    expect(result).toEqual({
+      data: staticPage,
+      source: 'fallback',
+    });
+  });
+
+  it('falls back to static search on production gateway when public search encounters network error', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    const fetchMock = vi.fn().mockRejectedValue(new Error('Network failure'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await searchPosts('offline-query', { page: 1, pageSize: 12 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/public/search?q=offline-query&page=1&pageSize=12',
+      expect.any(Object),
+    );
+    expect(searchStaticPostsMock).toHaveBeenCalledWith('offline-query', { page: 1, pageSize: 12 });
+    expect(result).toEqual({
       data: staticPage,
       source: 'fallback',
     });

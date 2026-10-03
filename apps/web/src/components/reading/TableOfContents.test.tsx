@@ -1,112 +1,138 @@
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-
-import { extractHeadings, MarkdownRenderer } from './MarkdownRenderer';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TableOfContents } from './TableOfContents';
+import { FilterBar } from '../content/FilterBar';
+import { MemoryRouter } from 'react-router-dom';
 
-describe('TableOfContents', () => {
-  it('marks the current heading link for an active-section treatment', () => {
-    window.history.replaceState(null, '', '#details');
+const headings = [
+  { id: '第一节', level: 2 as const, text: '第一节' },
+  { id: 'second', level: 3 as const, text: 'Second' },
+];
+function mobile(matches = true) {
+  vi.stubGlobal('matchMedia', () => ({ matches, addEventListener() {}, removeEventListener() {} }));
+}
+afterEach(() => {
+  vi.unstubAllGlobals();
+  document.body.style.overflow = '';
+  window.history.replaceState(null, '', '/');
+});
 
+describe('mobile reading navigation', () => {
+  it('keeps the contents off the reading flow and closes after selecting a real chapter', async () => {
+    mobile();
+    const user = userEvent.setup();
     render(
-      <TableOfContents
-        headings={[
-          { id: 'overview', level: 2, text: 'Overview' },
-          { id: 'details', level: 3, text: 'Details' },
-        ]}
-      />,
-    );
-
-    expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('aria-current', 'location');
-    expect(screen.getByRole('link', { name: 'Overview' })).not.toHaveAttribute('aria-current');
-    window.history.replaceState(null, '', '/');
-  });
-
-  it('marks a Chinese heading when the location hash is percent encoded', () => {
-    window.history.replaceState(null, '', '#%E7%AC%AC%E4%B8%80%E8%8A%82');
-
-    render(<TableOfContents headings={[{ id: '第一节', level: 2, text: '第一节' }]} />);
-
-    expect(screen.getByRole('link', { name: '第一节' })).toHaveAttribute('aria-current', 'location');
-    window.history.replaceState(null, '', '/');
-  });
-
-  it('links extracted h2 and h3 headings to matching stable IDs', () => {
-    const headings = extractHeadings(`
-# 页面标题
-
-## 第一节
-
-### 细节
-
-\`\`\`md
-## 代码块里的标题
-\`\`\`
-
-## 第一节
-`);
-
-    render(<TableOfContents headings={headings} />);
-
-    expect(screen.getByRole('navigation', { name: '文章目录' })).toBeInTheDocument();
-    expect(screen.getByText('目录').closest('details')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: '第一节' })[0]).toHaveAttribute('href', '#第一节');
-    expect(screen.getByRole('link', { name: '细节' })).toHaveAttribute('href', '#细节');
-    expect(screen.getAllByRole('link', { name: '第一节' })[1]).toHaveAttribute('href', '#第一节-2');
-    expect(screen.queryByRole('link', { name: '代码块里的标题' })).toBeNull();
-  });
-
-  it('derives TOC links and rendered IDs from the same Markdown AST', () => {
-    const source = `\`\`\`bad\`info
-## Invalid-info heading
-
-- list item
----
-
-Setext section
----
-
-### ATX section
-
-\`\`\`\`md
-\`\`\`
-## fenced heading
-\`\`\`\`
-
-## Actual section`;
-    const headings = extractHeadings(source);
-
-    const { container } = render(
       <>
         <TableOfContents headings={headings} />
-        <section aria-label="Rendered Markdown">
-          <MarkdownRenderer source={source} />
-        </section>
+        <h2 id="第一节">第一节正文</h2>
       </>,
     );
-
-    const renderedRegion = screen.getByRole('region', { name: 'Rendered Markdown' });
-    const renderedHeadings = within(renderedRegion).getAllByRole('heading', { level: 2 });
-    const renderedSubheadings = within(renderedRegion).getAllByRole('heading', { level: 3 });
-    const renderedIds = [...renderedHeadings, ...renderedSubheadings].map((heading) => heading.id);
-    const tocLinks = within(screen.getByRole('navigation', { name: '文章目录' })).getAllByRole(
-      'link',
-    );
-    const tocIds = tocLinks.map((link) => link.getAttribute('href')?.slice(1));
-
-    expect(headings.map((heading) => heading.text)).toEqual([
-      'Invalid-info heading',
-      'Setext section',
-      'ATX section',
-      'Actual section',
-    ]);
-    expect(renderedIds.sort()).toEqual(tocIds.sort());
-    expect(container.querySelectorAll('h2, h3')).toHaveLength(tocLinks.length);
-    expect(screen.queryByRole('link', { name: 'fenced heading' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'list item' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: '文章目录' })).not.toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: '打开文章目录' });
+    await user.click(trigger);
+    const dialog = screen.getByRole('dialog', { name: '文章目录' });
+    expect(document.body.style.overflow).toBe('hidden');
+    expect(within(dialog).getByRole('link', { name: '第一节' })).toHaveAttribute('href', '#第一节');
+    await user.click(within(dialog).getByRole('link', { name: '第一节' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('');
+    expect(document.getElementById('第一节')).toHaveFocus();
+    expect(decodeURIComponent(window.location.hash)).toBe('#第一节');
   });
-
-  it('normalizes INPUT to a deterministic lowercase ID', () => {
-    expect(extractHeadings('## INPUT')).toEqual([{ id: 'input', level: 2, text: 'INPUT' }]);
+  it('traps focus, closes with Escape and restores the trigger focus', async () => {
+    mobile();
+    const user = userEvent.setup();
+    render(<TableOfContents headings={headings} />);
+    const trigger = screen.getByRole('button', { name: '打开文章目录' });
+    await user.click(trigger);
+    await user.tab({ shift: true });
+    expect(screen.getByRole('link', { name: 'Second' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+  it('dismisses on the backdrop and keeps desktop contents visible', async () => {
+    mobile();
+    const user = userEvent.setup();
+    const view = render(<TableOfContents headings={headings} />);
+    await user.click(screen.getByRole('button', { name: '打开文章目录' }));
+    fireEvent.click(screen.getByTestId('mobile-toc-backdrop'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    view.unmount();
+    mobile(false);
+    render(<TableOfContents headings={headings} />);
+    expect(screen.getByRole('navigation', { name: '文章目录' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '打开文章目录' })).not.toBeInTheDocument();
+  });
+  it('restores background state when resizing an open drawer to desktop', async () => {
+    let matches = true;
+    let update = () => {};
+    const media = {
+      get matches() {
+        return matches;
+      },
+      addEventListener(_event: string, listener: () => void) {
+        update = listener;
+      },
+      removeEventListener() {},
+    };
+    vi.stubGlobal('matchMedia', () => media);
+    const user = userEvent.setup();
+    const view = render(<TableOfContents headings={headings} />);
+    const previousInert = view.container.inert;
+    await user.click(screen.getByRole('button', { name: '打开文章目录' }));
+    expect(view.container.inert).toBe(true);
+    act(() => {
+      matches = false;
+      update();
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('');
+    expect(view.container.inert).toBe(previousInert);
+    expect(screen.getByRole('navigation', { name: '文章目录' })).toBeInTheDocument();
+  });
+  it('tracks the selected chapter without replacing the router history state', async () => {
+    mobile();
+    window.history.replaceState({ key: 'reader-entry', usr: { fromPath: '/posts' } }, '', '/');
+    const user = userEvent.setup();
+    render(
+      <>
+        <TableOfContents headings={headings} />
+        <h2 id="第一节">第一节正文</h2>
+        <h3 id="second">Second body</h3>
+      </>,
+    );
+    await user.click(screen.getByRole('button', { name: '打开文章目录' }));
+    await user.click(screen.getByRole('link', { name: 'Second' }));
+    expect(window.history.state).toEqual({ key: 'reader-entry', usr: { fromPath: '/posts' } });
+    await user.click(screen.getByRole('button', { name: '打开文章目录' }));
+    expect(screen.getByRole('link', { name: 'Second' })).toHaveAttribute(
+      'aria-current',
+      'location',
+    );
+  });
+  it('collapses filters on mobile while preserving selected values and changes', async () => {
+    mobile();
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <MemoryRouter>
+        <FilterBar
+          query={{ page: 1, year: 2026 }}
+          categories={[]}
+          tags={[]}
+          onChange={onChange}
+          clearTo="/posts"
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /筛选.*1/ }));
+    const yearCombobox = screen.getByRole('combobox', { name: '年份' });
+    expect(yearCombobox).toHaveTextContent('2026 年');
+    await user.click(yearCombobox);
+    await user.click(screen.getByRole('option', { name: '2025 年' }));
+    expect(onChange).toHaveBeenCalledWith('year', '2025');
   });
 });

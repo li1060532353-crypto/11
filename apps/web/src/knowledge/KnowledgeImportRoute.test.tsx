@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+﻿import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -447,4 +447,22 @@ describe('IMP-01: KnowledgeImportRoute Batch Import & Retry', () => {
 
     expect(receivedOverwrite).toBe(true);
   });
+});
+
+
+it('opens the file chooser once per click and supports Space activation', () => {
+  render(<MemoryRouter><KnowledgeImportRoute /></MemoryRouter>);
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+  const click = vi.spyOn(input, 'click');
+  fireEvent.click(screen.getByLabelText('拖拽或点击上传 Markdown 文件'));
+  expect(click).toHaveBeenCalledTimes(1);
+  click.mockClear();
+  fireEvent.keyDown(screen.getByLabelText('拖拽或点击上传 Markdown 文件'), { key: ' ' });
+  expect(click).toHaveBeenCalledTimes(1);
+});
+
+it('explains unsupported file formats instead of silently ignoring uploads', async () => {
+  render(<MemoryRouter><KnowledgeImportRoute /></MemoryRouter>);
+  fireEvent.drop(screen.getByLabelText('拖拽或点击上传 Markdown 文件'), {dataTransfer:{files:[new File(['x'],'article.docx')]}});
+  expect(await screen.findByRole('alert')).toHaveTextContent('仅支持');
 });

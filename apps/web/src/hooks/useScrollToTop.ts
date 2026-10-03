@@ -98,39 +98,114 @@ export function useScrollToTop() {
         // Immediate restoration attempt
         safeScrollTo(targetY);
 
-        let attempts = 0;
-        const maxAttempts = 15;
-        let rafId: number | null = null;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-        const attemptRestore = () => {
-          safeScrollTo(targetY);
-
-          // If content is still loading or document height has not grown to targetY, retry
-          const docHeight =
-            document.documentElement.scrollHeight || document.body.scrollHeight || 0;
-          if (attempts < maxAttempts && docHeight < targetY + 50) {
-            attempts++;
-            if (typeof requestAnimationFrame === 'function') {
-              rafId = requestAnimationFrame(attemptRestore);
-            } else {
-              timeoutId = setTimeout(attemptRestore, 16);
-            }
-          }
+        const getDocHeight = (): number => {
+          if (typeof document === 'undefined') return 0;
+          return (
+            document.documentElement?.scrollHeight ||
+            document.body?.scrollHeight ||
+            0
+          );
         };
 
-        if (typeof requestAnimationFrame === 'function') {
-          rafId = requestAnimationFrame(attemptRestore);
-        }
+        const isHeightSufficient = (): boolean => {
+          const docHeight = getDocHeight();
+          const currentY = typeof window !== 'undefined' ? window.scrollY : 0;
+          return docHeight >= targetY + 50 || currentY >= targetY - 1;
+        };
 
-        return () => {
+        const startTime = Date.now();
+        const maxWaitMs = 2000;
+        const pollIntervalMs = 50;
+
+        let timerId: ReturnType<typeof setTimeout> | null = null;
+        let rafId: number | null = null;
+        let observer: MutationObserver | null = null;
+        let isDone = false;
+        let lastDocHeight = getDocHeight();
+
+        const cleanup = () => {
+          isDone = true;
+          if (timerId !== null) {
+            clearTimeout(timerId);
+            timerId = null;
+          }
           if (rafId !== null && typeof cancelAnimationFrame === 'function') {
             cancelAnimationFrame(rafId);
+            rafId = null;
           }
-          if (timeoutId !== null) {
-            clearTimeout(timeoutId);
+          if (observer) {
+            observer.disconnect();
+            observer = null;
           }
         };
+
+        const scheduleNextPoll = () => {
+          if (isDone) return;
+          if (timerId !== null) {
+            clearTimeout(timerId);
+          }
+          timerId = setTimeout(attemptRestore, pollIntervalMs);
+        };
+
+        const attemptRestore = () => {
+          if (isDone) return;
+
+          const docHeight = getDocHeight();
+          const currentY = typeof window !== 'undefined' ? window.scrollY : 0;
+          const sufficient = docHeight >= targetY + 50 || currentY >= targetY - 1;
+
+          if (sufficient) {
+            safeScrollTo(targetY);
+            cleanup();
+            return;
+          }
+
+          if (Date.now() - startTime >= maxWaitMs) {
+            cleanup();
+            return;
+          }
+
+          // If document height grew, scroll as far as possible towards targetY
+          if (docHeight !== lastDocHeight) {
+            lastDocHeight = docHeight;
+            safeScrollTo(targetY);
+          }
+
+          scheduleNextPoll();
+        };
+
+        // If height not yet sufficient, observe DOM changes and poll until satisfied or timeout
+        if (!isHeightSufficient()) {
+          if (typeof MutationObserver !== 'undefined' && document.body) {
+            try {
+              observer = new MutationObserver(() => {
+                attemptRestore();
+              });
+              observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+              });
+            } catch {
+              // Ignore in environments where MutationObserver is unavailable
+            }
+          }
+
+          if (typeof requestAnimationFrame === 'function') {
+            rafId = requestAnimationFrame(attemptRestore);
+          } else {
+            timerId = setTimeout(attemptRestore, pollIntervalMs);
+          }
+        } else {
+          // If already sufficient, run one follow-up RAF to ensure layout settled
+          if (typeof requestAnimationFrame === 'function') {
+            rafId = requestAnimationFrame(() => {
+              safeScrollTo(targetY);
+            });
+          }
+        }
+
+        return cleanup;
       }
     }
 

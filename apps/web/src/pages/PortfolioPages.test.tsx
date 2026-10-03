@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+﻿import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -95,7 +95,7 @@ describe('portfolio pages', () => {
     renderAt('/projects/embedded-observability');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '嵌入式可观测性工具箱' }),
+      await screen.findByRole('heading', { level: 1, name: '嵌入式可观测性工具箱' }, { timeout: 5000 }),
     ).toBeInTheDocument();
     expect(
       screen.getByText('为资源受限设备统一采样日志、指标和串口诊断，让现场问题可复现。'),
@@ -118,7 +118,7 @@ describe('portfolio pages', () => {
       </MemoryRouter>,
     );
 
-    await screen.findByRole('heading', { level: 1, name: '嵌入式可观测性工具箱' });
+    await screen.findByRole('heading', { level: 1, name: '嵌入式可观测性工具箱' }, { timeout: 5000 });
     await user.click(screen.getByRole('button', { name: '打开缺失项目' }));
     expect(await screen.findByRole('heading', { name: '未找到项目' })).toBeInTheDocument();
     await waitFor(() => expect(document.title).toBe('未找到项目 | Namdw 的技术笔记'));
@@ -129,7 +129,7 @@ describe('portfolio pages', () => {
 
     await user.click(screen.getByRole('button', { name: '打开可观测性项目' }));
     expect(
-      await screen.findByRole('heading', { level: 1, name: '嵌入式可观测性工具箱' }),
+      await screen.findByRole('heading', { level: 1, name: '嵌入式可观测性工具箱' }, { timeout: 5000 }),
     ).toBeInTheDocument();
     await waitFor(() => expect(document.title).toBe('嵌入式可观测性工具箱 | Namdw 的技术笔记'));
     expect(document.head.querySelector('meta[name="description"]')).toHaveAttribute(

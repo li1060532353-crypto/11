@@ -1,14 +1,17 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+﻿import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { FallbackNotice } from '../../components/content/FallbackNotice';
 import { Pagination } from '../../components/content/Pagination';
 import { PostCard } from '../../components/content/PostCard';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Button } from '../../components/ui/Button';
 import { Container } from '../../components/ui/Container';
 import { DraftingGridBackdrop } from '../../components/ui/DraftingGridBackdrop';
 import { searchPosts } from '../../content/contentGateway';
 import { parsePostQuery } from '../../content/queryParams';
 import { useContentQuery } from '../../content/useContentQuery';
+import { TopReturnBar } from '../../components/navigation/ReturnButton';
+import { getSafeReturnTarget } from '../../components/navigation/navigationSource';
 import { PageIntro } from '../PageIntro';
 export function SearchPage() {
   const [params] = useSearchParams();
@@ -27,22 +30,24 @@ export function SearchPage() {
     else next.delete('q');
     next.delete('page');
     const search = next.toString();
-    navigate(`/search${search ? `?${search}` : ''}`);
+    navigate(`/search${search ? `?${search}` : ''}`, { state: location.state });
   };
   return (
     <div className="page-canvas">
       <DraftingGridBackdrop />
+      <Container><TopReturnBar target={getSafeReturnTarget(location.state, '/posts', '← 返回文章列表')} /></Container>
       <PageIntro title="搜索" description="搜索文章中的知识与实践记录。" />
       <Container className="discovery-page">
         <form className="search-form" role="search" aria-label="文章搜索" onSubmit={submit}>
           <label htmlFor="post-search">搜索文章</label>
           <input
+            className="ui-input"
             id="post-search"
             type="search"
             value={value}
             onChange={(event) => setValue(event.target.value)}
           />
-          <button type="submit">搜索</button>
+          <Button type="submit" variant="primary">搜索</Button>
         </form>
         {contentQuery.state === 'loading' ? <p role="status">正在加载搜索结果…</p> : null}
         {contentQuery.result?.source === 'fallback' && contentQuery.result.error ? (

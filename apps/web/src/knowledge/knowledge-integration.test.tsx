@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+﻿import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -222,7 +222,7 @@ describe('knowledge read-only integration', () => {
       '/knowledge/notes/n1',
     );
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
-      '/api/notes?page=1&pageSize=20',
+      '/api/notes?page=1&pageSize=20&excludeArchived=true',
       expect.any(Object),
     );
   });
@@ -279,10 +279,11 @@ describe('knowledge read-only integration', () => {
       </MemoryRouter>,
     );
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '归档 Note' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: '删除 Note' })).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '归档 Note' }));
+    fireEvent.click(screen.getByRole('button', { name: '删除 Note' }));
+    fireEvent.click(screen.getByRole('button', { name: '移入回收站' }));
     await waitFor(() =>
       expect(vi.mocked(fetch)).toHaveBeenCalledWith(
         '/api/notes/n1',
@@ -335,10 +336,12 @@ describe('knowledge read-only integration', () => {
         <KnowledgeNotesRoute />
       </MemoryRouter>,
     );
-    const archive = await screen.findByRole('button', { name: '归档 Note' });
+    const archive = await screen.findByRole('button', { name: '删除 Note' });
 
     fireEvent.click(archive);
-    fireEvent.click(archive);
+    const confirm = screen.getByRole('button', { name: '移入回收站' });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
     expect(
       vi
         .mocked(fetch)
@@ -348,71 +351,18 @@ describe('knowledge read-only integration', () => {
     resolveArchive(response({ success: true, data: { ...activeNote, status: 'archived' } }));
     await waitFor(() =>
       expect(vi.mocked(fetch)).toHaveBeenCalledWith(
-        '/api/notes?page=1&pageSize=20',
+        '/api/notes?page=1&pageSize=20&excludeArchived=true',
         expect.any(Object),
       ),
     );
   });
 
-  it('does not allow an older deferred response to replace a newer search result', async () => {
-    let resolveOld!: (value: Response) => void;
-    let resolveNew!: (value: Response) => void;
-    vi.mocked(fetch)
-      .mockImplementationOnce(
-        () =>
-          new Promise<Response>((resolve) => {
-            resolveOld = resolve;
-          }),
-      )
-      .mockImplementationOnce(
-        () =>
-          new Promise<Response>((resolve) => {
-            resolveNew = resolve;
-          }),
-      );
-    render(
-      <MemoryRouter>
-        <KnowledgeNotesRoute />
-      </MemoryRouter>,
-    );
-    fireEvent.change(screen.getByLabelText('搜索文章'), { target: { value: 'new' } });
-    resolveNew(
-      response({
-        success: true,
-        data: {
-          items: [
-            {
-              id: 'n1',
-              title: 'New result',
-              slug: 'n1',
-              summary: 'x',
-              category: 'x',
-              updatedAt: '2026-01-02T00:00:00.000Z',
-              excerpt: 'x',
-              tags: [],
-            },
-          ],
-          page: 1,
-          pageSize: 20,
-          totalItems: 1,
-          totalPages: 1,
-        },
-      }),
-    );
-    await waitFor(() => expect(screen.getByText('New result')).toBeInTheDocument());
-    resolveOld(
-      response({
-        success: true,
-        data: {
-          items: [{ ...note, title: 'Old result' }],
-          page: 1,
-          pageSize: 20,
-          totalItems: 1,
-          totalPages: 1,
-        },
-      }),
-    );
-    await waitFor(() => expect(screen.queryByText('Old result')).not.toBeInTheDocument());
+  it('removes workspace search and ignores old query parameters', async () => {
+    vi.mocked(fetch).mockResolvedValue(response({ success: true, data: { items: [note], page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }));
+    render(<MemoryRouter initialEntries={['/knowledge/notes?q=old']}><KnowledgeNotesRoute /></MemoryRouter>);
+    await screen.findByRole('link', { name: 'Note' });
+    expect(screen.queryByLabelText('搜索文章')).not.toBeInTheDocument();
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).startsWith('/api/search'))).toBe(false);
   });
 
   it('renders dashboard loading, real API statistics, and an explicit error without fixture fallback', async () => {

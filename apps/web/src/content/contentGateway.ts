@@ -14,6 +14,9 @@ import {
   mapApiTaxonomy,
 } from './apiMappers';
 import {
+  findPostNeighbors,
+  getPostNeighbors as getStaticPostNeighbors,
+  type PostNeighbors,
   getDynamicPosts,
   syncDynamicPosts,
   getPostBySlug as getStaticPostBySlug,
@@ -26,7 +29,13 @@ import {
   searchPosts as searchStaticPosts,
   type FeaturedContent,
 } from './contentQueries';
-import { fetchPublishedNoteBySlug } from './dynamicContentSync';
+import {
+  syncPublishedNotes,
+  fetchPublishedNoteBySlug,
+  fetchWithTimeout,
+  noteToPost,
+  toSummary,
+} from './dynamicContentSync';
 import type {
   ArchiveGroup,
   Category,
@@ -48,6 +57,50 @@ export type GatewayPostListOptions = PostListOptions & {
 const featuredPageSize = 12;
 const featuredItemLimit = 3;
 
+export async function getPostNeighbors(slug: string): Promise<ContentResult<PostNeighbors>> {
+  if (import.meta.env.PROD && !import.meta.env.VITE_API_BASE_URL) {
+    if (typeof fetch === 'function') {
+      try {
+        const response = await fetchWithTimeout(`/api/public/neighbors?slug=${encodeURIComponent(slug)}`);
+        if (response.ok) {
+          const json = await response.json();
+          if (json && json.success !== false && json.data) {
+            return { source: 'api', data: json.data };
+          }
+        }
+      } catch {
+        // Fall back to static
+      }
+    }
+    return { source: 'fallback', data: getStaticPostNeighbors(slug) };
+  }
+
+  return withFallback(async () => {
+    let previousPageLast: PostSummary | undefined;
+    for (let page = 1; ; page += 1) {
+      const result = mapPaginatedPosts(await requestContent('/content/posts', {
+        search: toSearchParams({ page, pageSize: 24 }),
+      }));
+      const index = result.items.findIndex((post) => post.slug === slug);
+      if (index >= 0) {
+        const neighbors = findPostNeighbors(result.items, slug);
+        if (index === 0) neighbors.previous = previousPageLast;
+        if (!neighbors.next && page < result.totalPages) {
+          const nextPage = mapPaginatedPosts(await requestContent('/content/posts', {
+            search: toSearchParams({ page: page + 1, pageSize: 24 }),
+          }));
+          neighbors.next = nextPage.items[0];
+        }
+        return neighbors;
+      }
+      if (page >= result.totalPages || result.items.length === 0) {
+        return { previous: undefined, next: undefined };
+      }
+      previousPageLast = result.items.at(-1);
+    }
+  }, () => getStaticPostNeighbors(slug));
+}
+
 export async function listPosts(
   options: GatewayPostListOptions = {},
 ): Promise<ContentResult<Paginated<PostSummary>>> {
@@ -61,6 +114,17 @@ export async function listPosts(
 }
 
 export async function getPostBySlug(slug: string): Promise<ContentResult<Post | undefined>> {
+  if (import.meta.env.PROD && !import.meta.env.VITE_API_BASE_URL) {
+    const directPost = await fetchPublishedNoteBySlug(slug);
+    if (directPost) {
+      syncDynamicPosts([...getDynamicPosts().filter(post => post.slug !== slug), directPost]);
+      return { data: directPost, source: 'api' };
+    }
+    if (directPost === null) {
+      syncDynamicPosts(getDynamicPosts().filter(post => post.slug !== slug));
+    }
+    return { data: getStaticPostBySlug(slug), source: 'fallback' };
+  }
   return withFallback(
     async () =>
       mapApiPostDetail(
@@ -120,6 +184,52 @@ export async function searchPosts(
     return { data: searchStaticPosts(query, options), source: 'fallback' };
   }
 
+  if (import.meta.env.PROD && !import.meta.env.VITE_API_BASE_URL) {
+    const page = options.page || 1;
+    const pageSize = options.pageSize || 12;
+    if (typeof fetch === 'function') {
+      try {
+        const response = await fetchWithTimeout(
+          `/api/public/search?q=${encodeURIComponent(query)}&page=${page}&pageSize=${pageSize}`,
+        );
+        if (response.ok) {
+          const json = await response.json();
+          if (json && json.success !== false) {
+            const payload = json.data ?? json;
+            const rawItems = Array.isArray(payload?.items)
+              ? payload.items
+              : Array.isArray(payload)
+                ? payload
+                : null;
+            if (rawItems) {
+              const items = rawItems.map((item: unknown) =>
+                toSummary(noteToPost(item as Record<string, unknown>)),
+              );
+              const totalItems = Number.isFinite(Number(payload?.totalItems))
+                ? Number(payload?.totalItems)
+                : items.length;
+              return {
+                source: 'api',
+                data: {
+                  items,
+                  page: Number(payload?.page) || page,
+                  pageSize: Number(payload?.pageSize) || pageSize,
+                  totalItems,
+                  totalPages:
+                    Number(payload?.totalPages) ||
+                    Math.max(1, Math.ceil(totalItems / pageSize)),
+                },
+              };
+            }
+          }
+        }
+      } catch {
+        // Fall back to static search
+      }
+    }
+    return { data: searchStaticPosts(query, options), source: 'fallback' };
+  }
+
   return withFallback(
     async () =>
       mapPaginatedPosts(
@@ -143,6 +253,10 @@ async function withFallback<T>(
   loadApi: () => Promise<T>,
   loadFallback: () => T | Promise<T>,
 ): Promise<ContentResult<T>> {
+  if (import.meta.env.PROD && !import.meta.env.VITE_API_BASE_URL) {
+    await syncPublishedNotes();
+    return { data: await loadFallback(), source: 'api' };
+  }
   try {
     return { data: await loadApi(), source: 'api' };
   } catch (error) {

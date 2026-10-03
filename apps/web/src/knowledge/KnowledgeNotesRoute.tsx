@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { NotesPage } from '../knowledge-ui/NotesPage';
-import type { BatchOperationResult, ToastState } from '../knowledge-ui/NotesPage';
+import type { BatchOperationResult as UIBatchOperationResult, ToastState } from '../knowledge-ui/NotesPage';
 import type { NotesViewModel } from '../knowledge-ui/fixtures';
-import type { NoteRecord, NoteStatus, SearchResult } from '@namdw/shared';
+import type { NoteRecord, NoteSortOption, NoteStatus, SearchResult } from '@namdw/shared';
+
+export type BatchOperationResult = UIBatchOperationResult & {
+  targetCategory?: string;
+};
 import { mapNoteToCard } from './knowledge-adapter';
 import {
   archiveKnowledgeNote,
@@ -23,48 +27,12 @@ export function KnowledgeNotesRoute() {
 
   // Read URL query parameters
   const tab = searchParams.get('tab') || searchParams.get('status') || 'all';
-  const urlQ = searchParams.get('q') || '';
   const category = searchParams.get('category') || '';
-  const sort = searchParams.get('sort') || 'updated_desc';
+  const urlSort = searchParams.get('sort');
+  const sort = urlSort || 'updated_desc';
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
   const pinned = searchParams.get('pinned') === '1' || searchParams.get('pinned') === 'true';
   const featured = searchParams.get('featured') === '1' || searchParams.get('featured') === 'true';
-
-  // Local search input for responsive typing
-  const [searchInput, setSearchInput] = useState(urlQ);
-  const [debouncedSearch, setDebouncedSearch] = useState(urlQ);
-
-  // Sync search input if URL q changes externally (e.g. back/forward)
-  useEffect(() => {
-    if (urlQ !== searchInput.trim()) {
-      setSearchInput(urlQ);
-    }
-    setDebouncedSearch(urlQ);
-  }, [urlQ]);
-
-  // Debounce search input
-  useEffect(() => {
-    if (isTestEnv) {
-      setDebouncedSearch(searchInput.trim());
-      return;
-    }
-    const timer = setTimeout(() => {
-      const trimmed = searchInput.trim();
-      setDebouncedSearch(trimmed);
-      // Synchronize to URL if different
-      if (trimmed !== urlQ) {
-        const next = new URLSearchParams(searchParams);
-        if (trimmed) {
-          next.set('q', trimmed);
-        } else {
-          next.delete('q');
-        }
-        next.delete('page');
-        setSearchParams(next, { replace: true });
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput, urlQ, searchParams, setSearchParams]);
 
   // Data & status state
   const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
@@ -88,6 +56,11 @@ export function KnowledgeNotesRoute() {
   // Batch operations
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchResult, setBatchResult] = useState<BatchOperationResult | null>(null);
+
+  // Clear selection when page or any filter/sort/search changes
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [page, tab, category, sort, pinned, featured]);
 
   // Toast notifications
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -184,7 +157,7 @@ export function KnowledgeNotesRoute() {
     loadKnowledgeStats()
       .then((stats) => {
         setTabCounts({
-          all: stats.total,
+          all: stats.total - stats.archived,
           draft: stats.draft,
           published: stats.published,
           archived: stats.archived,
@@ -204,11 +177,9 @@ export function KnowledgeNotesRoute() {
       page,
       pageSize: 20,
     };
+    if (!tab || tab === 'all') query.excludeArchived = true;
     if (tab && tab !== 'all') {
       query.status = tab as NoteStatus;
-    }
-    if (debouncedSearch) {
-      query.q = debouncedSearch;
     }
     if (category) {
       query.category = category;
@@ -219,38 +190,33 @@ export function KnowledgeNotesRoute() {
     if (featured) {
       query.featured = true;
     }
+    if (urlSort && (urlSort === 'updated_desc' || urlSort === 'published_desc' || urlSort === 'title_asc')) {
+      query.sort = urlSort as NoteSortOption;
+    }
 
     loadKnowledgeNotes(query)
       .then((result) => {
         if (generation.current !== current) return;
+        if (page > Math.max(1, result.totalPages)) {
+          updateParams({ page: Math.max(1, result.totalPages) }, { replace: true });
+          return;
+        }
         const mappedNotes = result.items.map((item: NoteRecord | SearchResult) => {
           const card = mapNoteToCard(item);
           return {
             ...card,
+            publishedAt: 'publishedAt' in item ? (item.publishedAt ?? null) : null,
             isFeatured: 'isFeatured' in item ? Boolean(item.isFeatured) : false,
             tags: 'tags' in item && Array.isArray(item.tags) ? item.tags : [],
           };
         });
 
-        // Client-side sort if requested
-        if (sort === 'title_asc') {
-          mappedNotes.sort((a, b) => a.title.localeCompare(b.title));
-        } else if (sort === 'published_desc') {
-          mappedNotes.sort((a, b) => {
-            const dateA = ('publishedAt' in a && a.publishedAt ? String(a.publishedAt) : '') || '';
-            const dateB = ('publishedAt' in b && b.publishedAt ? String(b.publishedAt) : '') || '';
-            return dateB.localeCompare(dateA);
-          });
-        }
-
-        const filterLabel = debouncedSearch
-          ? `搜索结果: "${debouncedSearch}"`
-          : tab !== 'all'
-            ? `${tab === 'draft' ? '草稿' : tab === 'published' ? '已发布' : '已归档'}`
+        const filterLabel = tab !== 'all'
+            ? `${tab === 'draft' ? '草稿' : tab === 'published' ? '已发布' : '回收站'}`
             : '全部文章';
 
         setModel({
-          searchTerm: searchInput,
+          searchTerm: '',
           filterLabel,
           notes: mappedNotes,
         });
@@ -267,7 +233,7 @@ export function KnowledgeNotesRoute() {
     return () => {
       generation.current += 1;
     };
-  }, [debouncedSearch, page, refresh, tab, category, sort, pinned, featured, searchInput]);
+  }, [page, refresh, tab, category, sort, pinned, featured, updateParams]);
 
   // Single note archive
   const handleArchive = useCallback(
@@ -278,9 +244,10 @@ export function KnowledgeNotesRoute() {
       setMutationError(null);
       try {
         await archiveKnowledgeNote(noteId);
+        setSelectedIds((ids) => ids.filter((id) => id !== noteId));
         invalidateDynamicContent();
         setToast({
-          text: '文章已归档',
+          text: '文章已移入回收站',
           actionLabel: '撤销',
           onAction: () => {
             void handleRestore(noteId);
@@ -293,7 +260,7 @@ export function KnowledgeNotesRoute() {
           setRefresh((r) => r + 1);
         }
       } catch {
-        setMutationError('文章归档失败。');
+        setMutationError('文章删除失败。');
       } finally {
         mutationLock.current = false;
         setMutatingNoteId(null);
@@ -351,7 +318,7 @@ export function KnowledgeNotesRoute() {
       invalidateDynamicContent();
 
       if (failed.length === 0) {
-        setToast({ text: `已成功批量归档 ${succeeded.length} 篇文章` });
+        setToast({ text: `已移入回收站 ${succeeded.length} 篇文章` });
         setSelectedIds([]);
         setBatchResult(null);
       } else {
@@ -458,6 +425,7 @@ export function KnowledgeNotesRoute() {
           succeeded,
           failed,
           actionType: 'category',
+          targetCategory,
         });
         setSelectedIds(failed.map((f) => f.id));
       }
@@ -470,14 +438,32 @@ export function KnowledgeNotesRoute() {
   // Retry single failed batch item
   const handleRetrySingle = useCallback(
     async (noteId: string) => {
-      if (!batchResult) return;
-      if (batchResult.actionType === 'archive') {
-        await handleBatchArchive([noteId]);
-      } else if (batchResult.actionType === 'restore') {
-        await handleBatchRestore([noteId]);
+      if (!batchResult || mutationLock.current) return;
+      mutationLock.current = true;
+      setMutatingNoteId(noteId);
+      try {
+        if (batchResult.actionType === 'archive') await archiveKnowledgeNote(noteId);
+        else if (batchResult.actionType === 'restore') await restoreKnowledgeNote(noteId);
+        else if (batchResult.targetCategory) await updateKnowledgeNote(noteId, { category: batchResult.targetCategory });
+        setBatchResult((result) => result ? {
+          ...result,
+          succeeded: [...result.succeeded, noteId],
+          failed: result.failed.filter((item) => item.id !== noteId),
+        } : null);
+        setSelectedIds((ids) => ids.filter((id) => id !== noteId));
+        invalidateDynamicContent();
+        setRefresh((r) => r + 1);
+      } catch {
+        setBatchResult((result) => result ? {
+          ...result,
+          failed: result.failed.map((item) => item.id === noteId ? { ...item, error: '重试失败，请稍后再试' } : item),
+        } : null);
+      } finally {
+        mutationLock.current = false;
+        setMutatingNoteId(null);
       }
     },
-    [batchResult, handleBatchArchive, handleBatchRestore],
+    [batchResult],
   );
 
   // Retry all failed batch items
@@ -488,13 +474,13 @@ export function KnowledgeNotesRoute() {
       await handleBatchArchive(failedIds);
     } else if (batchResult.actionType === 'restore') {
       await handleBatchRestore(failedIds);
+    } else if (batchResult.actionType === 'category' && batchResult.targetCategory) {
+      await handleBatchCategoryChange(failedIds, batchResult.targetCategory);
     }
-  }, [batchResult, handleBatchArchive, handleBatchRestore]);
+  }, [batchResult, handleBatchArchive, handleBatchRestore, handleBatchCategoryChange]);
 
   // Reset all filters
   const handleResetFilters = useCallback(() => {
-    setSearchInput('');
-    setDebouncedSearch('');
     updateParams(
       {
         q: '',
@@ -517,18 +503,6 @@ export function KnowledgeNotesRoute() {
       totalPages={totalPages}
       totalItems={totalItems}
       onPageChange={(nextPage) => updateParams({ page: nextPage }, { replace: false })}
-      onSearchChange={(value) => {
-        setSearchInput(value);
-        if (isTestEnv) {
-          setDebouncedSearch(value.trim());
-          updateParams({ q: value.trim(), page: 1 }, { replace: true });
-        }
-      }}
-      onClearSearch={() => {
-        setSearchInput('');
-        setDebouncedSearch('');
-        updateParams({ q: '', page: 1 }, { replace: true });
-      }}
       onArchive={handleArchive}
       onRestore={handleRestore}
       mutatingNoteId={mutatingNoteId}

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+﻿import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type * as ReactRouterDom from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -20,6 +20,12 @@ vi.mock('./NotFoundPage', () => ({
 import { ProjectDetailPage } from './ProjectDetailPage';
 
 describe('ProjectDetailPage', () => {
+  it('typesets project descriptions as paragraphs instead of exposing Markdown source', async () => {
+    render(<MemoryRouter><ProjectDetailPage /></MemoryRouter>);
+    await screen.findByRole('heading', { level: 1, name: '嵌入式可观测性工具箱' });
+    expect(document.querySelector('.project-detail__body p')).toBeInTheDocument();
+    expect(document.querySelector('pre.project-detail__body')).not.toBeInTheDocument();
+  });
   afterEach(() => {
     routeParams.slug = 'embedded-observability';
     metadataSpy.mockClear();

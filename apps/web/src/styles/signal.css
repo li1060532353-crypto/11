@@ -1,0 +1,309 @@
+﻿/* Extend the homepage signal palette without styling article typography. */
+:root {
+  --signal-blue: #2455e8;
+  --signal-lime: #c6f244;
+  --signal-on-lime: #151713;
+  --signal-radius: 6px;
+}
+[data-theme='dark'] { --signal-blue: #94b0ff; }
+
+#main-content:not(:has(.home-canvas)) {
+  --accent-solid: var(--signal-blue);
+  --accent-hover: #1944c7;
+  --color-accent: var(--signal-blue);
+  --color-accent-text-on-light: var(--signal-blue);
+  --color-focus-on-light: var(--signal-blue);
+}
+[data-theme='dark'] #main-content:not(:has(.home-canvas)) {
+  --accent-solid: #2455e8;
+  --accent-hover: #1944c7;
+}
+
+html .page-intro__eyebrow,
+html .knowledge-shell__eyebrow,
+html .owner-login__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+html .page-intro__eyebrow::before,
+html .knowledge-shell__eyebrow::before,
+html .owner-login__eyebrow::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  background: var(--surface-sunken);
+}
+html .page-intro h1 { font-size: clamp(2.3rem, 4vw, 3.75rem); font-weight: 700; }
+html .page-intro__description { max-width: 42rem; line-height: 1.7; }
+
+html :is(.post-card, .project-card, .knowledge-note-card, .knowledge-stat-card, .knowledge-create-option) {
+  border-radius: var(--signal-radius);
+  box-shadow: none;
+}
+html :is(.post-card, .project-card):is(:hover, :focus-within),
+html .archive-list a:is(:hover, :focus-visible) {
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border-color: transparent;
+  box-shadow: none;
+}
+html :is(.post-card, .project-card):is(:hover, :focus-within) :is(h2 a, p, .post-meta, .post-meta__kicker, .post-meta__category, .post-meta__date, .post-meta__tags a, .post-card__chevron, .project-card__eyebrow, .project-card__links a),
+html .archive-list a:is(:hover, :focus-visible) time {
+  color: var(--text-primary);
+  opacity: 1;
+}
+html .project-card:is(:hover, :focus-within) .technology-list li {
+  color: var(--text-primary);
+  background: transparent;
+  border-color: #657c23;
+}
+html .knowledge-note-card:is(:hover, :focus-within),
+html .knowledge-create-option:is(:hover, :focus-visible) {
+  border-color: var(--signal-blue);
+  box-shadow: none;
+  transform: none;
+}
+html .knowledge-overview__statistics > div { border-left: 2px solid var(--signal-blue); }
+html .knowledge-overview__recent-list a:is(:hover, :focus-visible) strong { color: var(--signal-blue); }
+html .about-page__detail { border-top: 1px solid var(--color-border); padding-top: 1.25rem; }
+
+html :is(.ui-input, .filter-bar select, .search-form input, .knowledge-select, .knowledge-setting-input, .knowledge-setting-select, .knowledge-editor__field input, .knowledge-editor__field textarea, .owner-login input) {
+  border: 1px solid var(--color-border);
+  border-radius: var(--signal-radius);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  min-height: 2.75rem;
+}
+html :is(.ui-input, .filter-bar select, .search-form input, .knowledge-select, .knowledge-setting-input, .knowledge-setting-select, .knowledge-editor__field input, .knowledge-editor__field textarea, .owner-login input):focus-visible {
+  outline: 2px solid var(--signal-blue);
+  outline-offset: 3px;
+}
+html .search-form button,
+html .owner-login button {
+  min-height: 2.75rem;
+  padding: .625rem 1rem;
+  border-radius: var(--signal-radius);
+  background: var(--accent-solid);
+  color: #fff;
+  font-weight: 600;
+}
+html :is(.search-form button, .owner-login button):hover:not(:disabled) {
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+}
+html .owner-login__card {
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  border-color: var(--color-border);
+  border-radius: var(--signal-radius);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+html .owner-login__card > p:not(.owner-login__eyebrow) { color: var(--text-secondary); line-height: 1.7; }
+html .owner-login__card > a { color: var(--signal-blue); }
+html .site-drawer .nav-link.active {
+  border-radius: var(--signal-radius);
+  color: var(--text-primary);
+  background: var(--surface-sunken);
+}
+
+/* Reading controls remain quiet; no changes to body width, text or spacing. */
+html :is(.post-detail__back-link, .article-navigation__return-link) {
+  border-radius: var(--signal-radius);
+}
+html :is(.post-detail__back-link, .article-navigation__return-link):is(:hover, :focus-visible) {
+  color: var(--signal-blue);
+  border-color: var(--signal-blue);
+  background: var(--surface-raised);
+  transform: none;
+}
+html .table-of-contents a[aria-current='true'] { color: var(--signal-blue); }
+html .mobile-toc-trigger { border-radius: var(--signal-radius); }
+@media (prefers-reduced-motion: reduce) {
+  html :is(.post-card, .project-card, .archive-list a, .knowledge-note-card, .knowledge-create-option) { transition: none; }
+}
+
+
+html .knowledge-import-step.is-active { color: var(--signal-blue); }
+html :is(.knowledge-import-card, .knowledge-import-dropzone, .knowledge-editor__sidebar-panel) { border-radius: var(--signal-radius); box-shadow: none; }
+html .knowledge-import-dropzone:is(:hover, .is-drag-active) { border-color: var(--signal-blue); }
+html .knowledge-toolbar button.is-active { color: var(--signal-blue); background: var(--surface-sunken); }
+html .taxonomy-list a:hover span { color: var(--text-primary); }
+
+html[data-theme='dark'] :is(.post-card, .project-card):is(:hover, :focus-within),
+html[data-theme='dark'] .archive-list a:is(:hover, :focus-visible) {
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border-color: transparent;
+  box-shadow: none;
+}
+html[data-theme='dark'] :is(.post-card, .project-card):is(:hover, :focus-within) :is(h2 a, p, .post-meta, .post-meta__kicker, .post-meta__category, .post-meta__date, .post-meta__tags a, .post-card__chevron, .project-card__eyebrow, .project-card__links a),
+html[data-theme='dark'] .archive-list a:is(:hover, :focus-visible) time {
+  color: var(--text-primary);
+}
+html[data-theme='dark'] .project-card:is(:hover, :focus-within) .technology-list li { color: var(--text-primary); background: transparent; border-color: #657c23; }
+/* Keep decorative drafting lines outside the reading surface. */
+html .post-detail-canvas > .drafting-grid-backdrop,
+html .post-detail__backdrop { display: none; }
+html[data-theme='dark'] .post-card:is(:hover, :focus-within) .post-meta__tags a:hover { color: var(--text-primary); }
+
+/* Inverse panels are bounded content surfaces, with theme-aware roles. */
+:root {
+  --panel-inverse-bg: #171e1b;
+  --panel-inverse-ink: #e9ece5;
+  --panel-inverse-muted: #a6b4a6;
+  --panel-inverse-border: #3d4b40;
+  --panel-inverse-control: #233027;
+  --panel-inverse-accent: #c6f244;
+  --panel-inverse-link: #96b1ff;
+}
+[data-theme='dark'] {
+  --panel-inverse-bg: #e9ece5;
+  --panel-inverse-ink: #202722;
+  --panel-inverse-muted: #616c63;
+  --panel-inverse-border: #c8cfc5;
+  --panel-inverse-control: #fff;
+  --panel-inverse-accent: #3e5909;
+  --panel-inverse-link: #2455e8;
+}
+html .posts-index-band {
+  position: relative;
+  width: min(calc(100% - 2 * var(--space-page)), var(--content-max));
+  margin: 2rem auto 3rem;
+  border-radius: var(--signal-radius);
+  background: var(--panel-inverse-bg);
+  color: var(--panel-inverse-ink);
+  --text-primary: var(--panel-inverse-ink);
+  --text-secondary: var(--panel-inverse-muted);
+  --color-ink: var(--panel-inverse-ink);
+  --color-muted: var(--panel-inverse-muted);
+  --color-border: var(--panel-inverse-border);
+  --surface-raised: var(--panel-inverse-control);
+  --surface-sunken: var(--panel-inverse-control);
+  --signal-blue: var(--panel-inverse-link);
+  --color-accent-text-on-light: var(--panel-inverse-accent);
+  --color-focus-on-light: var(--panel-inverse-accent);
+}
+html .posts-index-band .discovery-page { width: 100%; padding: 2rem 1.25rem 2.5rem; }
+html .posts-index-band .filter-bar { margin-bottom: 2rem; }
+html .posts-index-band .filter-bar label { color: var(--panel-inverse-muted); }
+html .posts-index-band .filter-bar a { color: var(--panel-inverse-accent); }
+html .posts-index-band .filter-bar select { color-scheme: dark; }
+html[data-theme='dark'] .posts-index-band .filter-bar select { color-scheme: light; }
+html .posts-index-band .article-table__header { color: var(--panel-inverse-muted); border-bottom: 0; }
+html .posts-index-band .post-card { margin-inline: 0; padding: 1.75rem 1rem; border-radius: 6px; }
+html .posts-index-band .post-card:not(:hover):not(:focus-within) :is(.post-meta__kicker, .post-meta__category) { color: var(--panel-inverse-accent); }
+html .posts-index-band .post-card:not(:hover):not(:focus-within) .post-meta__tags a { opacity: 1; }
+html .posts-index-band .post-card:is(:hover, :focus-within) :is(h2 a, p, .post-meta, .post-meta__kicker, .post-meta__category, .post-meta__date, .post-meta__tags a, .post-card__chevron) { color: var(--text-primary); }
+html .posts-index-band .post-card:is(:hover, :focus-within) .post-meta__tags a:hover { color: var(--text-primary); text-decoration: underline; }
+html .posts-index-band .fallback-notice { background: var(--panel-inverse-control); color: var(--panel-inverse-muted); border-color: var(--panel-inverse-border); }
+html .posts-index-band .pagination a[aria-current='page'] { background: #c6f244; color: var(--signal-on-lime); }
+@media (max-width: 47.99rem) {
+  html .posts-index-band { margin-block: 1rem 2rem; }
+  html .posts-index-band .discovery-page { padding: 1.25rem .75rem 2rem; }
+  html .posts-index-band .post-card { padding: 1.25rem .5rem; }
+}
+
+/* Signal paths connect the content edge to the surrounding drafting canvas. */
+html #main-content { position: relative; isolation: isolate; }
+.page-signal-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+  --frame-gutter: max(0px, calc((100% - var(--content-max)) / 2));
+}
+.page-signal-frame__side {
+  position: absolute;
+  top: 4rem;
+  width: var(--frame-gutter);
+  height: 48rem;
+  max-height: calc(100% - 4rem);
+  overflow: hidden;
+}
+.page-signal-frame__side--left { left: 0; }
+.page-signal-frame__side--right { right: 0; transform: scaleX(-1); }
+.page-signal-frame__side svg { width: 100%; height: 100%; }
+.page-signal-frame__guide { stroke: var(--text-secondary); opacity: .25; }
+.page-signal-frame__trace { stroke: var(--signal-blue); opacity: .38; }
+.page-signal-frame__node { fill: var(--signal-blue); opacity: .65; }
+.page-signal-frame--reading { opacity: .45; }
+html .posts-index-band {
+  border: 1px solid var(--panel-inverse-border);
+  border-radius: 2px;
+}
+html .posts-index-band::before,
+html .posts-index-band::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  border-color: var(--signal-blue);
+  border-style: solid;
+  opacity: .65;
+}
+html .posts-index-band::before { top: -8px; left: -8px; border-width: 1px 0 0 1px; }
+html .posts-index-band::after { bottom: -8px; right: -8px; border-width: 0 1px 1px 0; }
+html .posts-index-band .article-table__header { letter-spacing: .12em; }
+html .posts-index-band .post-card { border-radius: 2px; }
+@media (max-width: 80rem) { .page-signal-frame { display: none; } }
+/* Wide reading and editing layouts reserve their own actual outer gutters. */
+html #main-content:has(.post-detail-canvas) .page-signal-frame { --frame-gutter: max(0px, calc((100% - 91rem) / 2)); }
+html #main-content:has(.knowledge-editor) .page-signal-frame { --frame-gutter: max(0px, calc((100% - 90rem) / 2)); }
+
+.theme-select { position: relative; min-width: 8.5rem; font-family: var(--font-sans); }
+.theme-select__label { display: block; margin-bottom: .4rem; color: var(--text-secondary); font-size: .75rem; font-weight: 600; }
+.theme-select__trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  width: 100%; min-height: 2.75rem; padding: .625rem .875rem;
+  border: 1px solid var(--color-border); border-radius: 4px;
+  background: var(--surface-raised); color: var(--text-primary);
+  cursor: pointer; font: inherit; font-size: .875rem;
+}
+.theme-select__trigger[aria-expanded='true'] { border-color: var(--color-accent-text-on-light); }
+.theme-select__trigger[aria-expanded='true'] svg { transform: rotate(180deg); }
+.theme-select__menu {
+  position: absolute; top: calc(100% + .5rem); left: 0; z-index: 20;
+  min-width: 100%; width: max-content; max-width: min(18rem, 75vw);
+  max-height: min(19rem, 45vh); overflow-y: auto; padding: .375rem;
+  border: 1px solid var(--color-border); border-radius: 4px;
+  background: var(--surface-raised); color: var(--text-primary);
+  box-shadow: 0 8px 24px rgb(0 0 0 / .16);
+  scrollbar-width: thin;
+}
+.theme-select__option {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  min-height: 2.5rem; padding: .5rem .625rem; border-radius: 2px;
+  font-size: .875rem; cursor: pointer;
+}
+.theme-select__option[aria-selected='true'] { color: var(--color-accent-text-on-light); font-weight: 650; }
+.theme-select__option[data-active='true'] { color: var(--text-primary); background: var(--surface-sunken); }
+@media (max-width: 47.99rem) {
+  .filter-bar__controls .theme-select { flex: 1 1 8rem; }
+}
+
+/* Shared workbench chrome and restrained ledger feedback. */
+html .site-header { background: var(--surface-canvas); backdrop-filter: none; box-shadow: none; }
+html .site-brand > span:first-child { font-size: 1.5rem; letter-spacing: -.06em; }
+html :is(.site-header__search, .theme-toggle) { min-height: 2.75rem; border-radius: 2px; background: transparent; box-shadow: none; }
+html :is(.page-intro__eyebrow, .knowledge-shell__eyebrow, .owner-login__eyebrow)::before { background: var(--signal-blue); }
+html :is(.post-card, .project-card):is(:hover, :focus-within) h2 a,
+html .archive-list a:is(:hover, :focus-visible),
+html .taxonomy-list a:hover span { color: var(--signal-blue); }
+
+html .posts-index-band .post-card:is(:hover, :focus-within) h2 a { color: var(--panel-inverse-link); }
+html .posts-index-band .post-card:is(:hover, :focus-within) :is(.post-meta__kicker, .post-meta__category) { color: var(--panel-inverse-accent); }
+html .theme-select__option[data-active='true'] { color: var(--signal-blue); background: var(--surface-sunken); }
+html .project-grid { grid-template-columns: 1fr; gap: 0; border-top: 1px solid var(--color-border); }
+html .project-card, html .project-card:first-child { grid-column: auto; border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0; background: transparent; padding: clamp(1.5rem, 3vw, 2.5rem) 1rem; }
+html .project-card__body { max-width: 58rem; }
+html .project-card .technology-list li { border-radius: 2px; background: transparent; border: 1px solid var(--color-border); color: var(--text-secondary); }
+html .project-card:is(:hover, :focus-within) .technology-list li { border-color: var(--color-border); color: var(--text-secondary); }

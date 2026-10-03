@@ -749,3 +749,22 @@ describe('authoritative Tiptap document validation', () => {
     );
   });
 });
+
+describe('recycle bin query', () => {
+  it('parses explicit exclusion and rejects invalid input', () => {
+    expect(parseNoteListQuery(new Request('http://localhost/api/notes?excludeArchived=true'))).toMatchObject({ excludeArchived: true });
+    expect(parseNoteListQuery(new Request('http://localhost/api/notes?excludeArchived=false'))).toMatchObject({ excludeArchived: false });
+    expect(() => parseNoteListQuery(new Request('http://localhost/api/notes?excludeArchived=yes'))).toThrow(NoteDomainError);
+  });
+});
+
+it('excludes recycled notes in both D1 rows and pagination counts', async () => {
+  const { createD1NoteStore } = await import('../../../functions/lib/notes');
+  const queries: string[] = [];
+  const db = { prepare: (sql: string) => {
+    queries.push(sql);
+    return { bind: () => ({ all: async () => ({ results: [] }), first: async () => ({ count: 0 }) }) };
+  }};
+  await createD1NoteStore(db as never).list({ excludeArchived: true, page: 1, pageSize: 20 });
+  expect(queries.filter((sql) => sql.includes("notes.status != 'archived'"))).toHaveLength(2);
+});

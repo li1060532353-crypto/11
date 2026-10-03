@@ -174,7 +174,7 @@ export function AssetPanel({
                       </button>
                       <button
                         type="button"
-                        className="knowledge-danger-button knowledge-button--small"
+                        className="knowledge-button knowledge-button--danger knowledge-button--small"
                         onClick={() => openDelete(asset)}
                         disabled={!onDelete || !!asset.busy}
                         aria-label={`删除 ${asset.name}`}
@@ -273,7 +273,7 @@ export function AssetPanel({
               <button
                 ref={confirmButton}
                 type="button"
-                className="knowledge-button knowledge-danger-button"
+                className="knowledge-button knowledge-button--danger"
                 onClick={() => {
                   onDelete?.(pendingDelete.id);
                   closeDelete();

@@ -1,7 +1,8 @@
-import { render, screen, within } from '@testing-library/react';
+﻿import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { MemoryRouter } from 'react-router-dom';
 import { SiteHeader } from './SiteHeader';
 
 describe('SiteHeader', () => {
@@ -9,14 +10,30 @@ describe('SiteHeader', () => {
     const user = userEvent.setup();
     render(<SiteHeader />);
 
-    expect(screen.getByRole('link', { name: '知识库' })).toHaveAttribute('href', '/knowledge');
+
 
     await user.click(screen.getByRole('button', { name: '打开导航' }));
-    const navigation = screen.getByRole('navigation', { name: '移动端导航' });
-    expect(within(navigation).getByRole('link', { name: '知识库' })).toHaveAttribute(
+    const navigation = screen.getByRole('navigation', { name: '主导航' });
+    expect(within(navigation).getByRole('link', { name: '工作台' })).toHaveAttribute(
       'href',
       '/knowledge',
     );
+  });
+
+  it('disables search and its shortcut inside the workspace', () => {
+    render(<MemoryRouter initialEntries={['/knowledge/notes']}><SiteHeader /></MemoryRouter>);
+    expect(screen.queryByRole('button', { name: '搜索 (⌘K)' })).not.toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  it('opens the drawer on a mouse entering the left edge', () => {
+    render(<SiteHeader />);
+    const event = new MouseEvent('pointerover', { bubbles: true });
+    Object.defineProperty(event, 'pointerType', { value: 'mouse' });
+    fireEvent(screen.getByRole('button', { name: '展开左侧导航' }), event);
+    expect(screen.getByRole('navigation', { name: '主导航' })).toHaveAttribute('data-open', 'true');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('button', { name: '打开导航' })).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('includes the editorial context beside the site name', () => {
@@ -35,7 +52,7 @@ describe('SiteHeader', () => {
     await user.click(toggle);
 
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    const navigation = screen.getByRole('navigation', { name: '移动端导航' });
+    const navigation = screen.getByRole('navigation', { name: '主导航' });
     expect(within(navigation).getByRole('link', { name: '文章' })).toHaveAttribute(
       'href',
       '/posts',

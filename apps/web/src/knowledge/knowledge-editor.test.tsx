@@ -56,6 +56,182 @@ function renderEditor(path = '/knowledge/notes/n1') {
 afterEach(() => vi.useRealTimers());
 
 describe('knowledge editor mutation integration', () => {
+  it('retains a pasted file with a retry action when draft creation fails', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new TypeError('offline'));
+    renderEditor('/knowledge/notes/new?format=markdown');
+    fireEvent.paste(screen.getByLabelText('Markdown 正文'), {
+      clipboardData: { files: [new File(['png'], 'shot.png', { type: 'image/png' })], items: [] },
+    });
+    await screen.findByRole('button', { name: '重试上传 shot.png' });
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      if (url === '/api/assets')
+        return response({
+          success: true,
+          data: {
+            asset: {
+              id: 'asset-shot',
+              noteId: 'created',
+              originalName: 'shot.png',
+              mimeType: 'image/png',
+              sizeBytes: 3,
+              createdAt: note.createdAt,
+            },
+          },
+        });
+      return response({
+        success: true,
+        data: { ...note, ...JSON.parse(String(init!.body)), id: 'created' },
+      });
+    });
+    fireEvent.click(screen.getByRole('button', { name: '重试上传 shot.png' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText('Markdown 正文')).toHaveValue(
+        '\n\n![shot.png](/api/assets/asset-shot?inline=1)\n\n',
+      ),
+    );
+  });
+
+  it('keeps navigation guarded when one of two concurrent uploads completes', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: note }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue('Note'));
+    const pending: Array<(value: Response) => void> = [];
+    vi.mocked(fetch).mockImplementation(() => new Promise((resolve) => pending.push(resolve)));
+    fireEvent.change(screen.getByLabelText('附件上传'), {
+      target: { files: [new File(['png'], 'a.png', { type: 'image/png' })] },
+    });
+    fireEvent.change(screen.getByLabelText('附件上传'), {
+      target: { files: [new File(['png'], 'b.png', { type: 'image/png' })] },
+    });
+    await act(async () =>
+      pending[0]!(
+        response({
+          success: true,
+          data: {
+            asset: {
+              id: 'asset-a',
+              noteId: 'n1',
+              originalName: 'a.png',
+              mimeType: 'image/png',
+              sizeBytes: 3,
+              createdAt: note.createdAt,
+            },
+          },
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByTestId('nav-notes'));
+    expect(screen.getByRole('dialog', { name: '当前有未保存的修改' })).toBeInTheDocument();
+    await act(async () =>
+      pending[1]!(
+        response({
+          success: true,
+          data: {
+            asset: {
+              id: 'asset-b',
+              noteId: 'n1',
+              originalName: 'b.png',
+              mimeType: 'image/png',
+              sizeBytes: 3,
+              createdAt: note.createdAt,
+            },
+          },
+        }),
+      ),
+    );
+  });
+  it('pastes into a new Markdown note, creates its identity once, retries and saves the image', async () => {
+    let attempts = 0;
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      if (url === '/api/assets') {
+        expect((init!.body as FormData).get('noteId')).toBe('created');
+        if (++attempts === 1)
+          return response(
+            { success: false, error: { code: 'GATEWAY_TIMEOUT', message: 'Timeout' } },
+            504,
+          );
+        return response(
+          {
+            success: true,
+            data: {
+              asset: {
+                id: 'asset-shot',
+                noteId: 'created',
+                originalName: 'shot.png',
+                mimeType: 'image/png',
+                sizeBytes: 3,
+                createdAt: note.createdAt,
+              },
+            },
+          },
+          201,
+        );
+      }
+      const payload = init?.body ? JSON.parse(String(init.body)) : {};
+      return response({ success: true, data: { ...note, ...payload, id: 'created' } });
+    });
+    renderEditor('/knowledge/notes/new?format=markdown');
+    const input = screen.getByLabelText('Markdown 正文');
+    fireEvent.change(input, { target: { value: '# Heading' } });
+    (input as HTMLTextAreaElement).setSelectionRange(9, 9);
+    fireEvent.paste(input, {
+      clipboardData: { files: [new File(['png'], 'shot.png', { type: 'image/png' })], items: [] },
+    });
+    await screen.findByRole('button', { name: '重试上传 shot.png' });
+    expect(screen.getByLabelText('Markdown 正文')).toHaveValue('# Heading');
+    fireEvent.click(screen.getByRole('button', { name: '重试上传 shot.png' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText('Markdown 正文')).toHaveValue(
+        '# Heading\n\n![shot.png](/api/assets/asset-shot?inline=1)\n\n',
+      ),
+    );
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.filter(([url, init]) => url === '/api/notes' && init?.method === 'POST'),
+    ).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByLabelText('Markdown 正文')).not.toBeInTheDocument());
+    const save = vi
+      .mocked(fetch)
+      .mock.calls.find(([url, init]) => url === '/api/notes/created' && init?.method === 'PATCH');
+    expect(JSON.parse(String(save![1]!.body)).contentJson).toContain('asset-shot');
+    expect(document.querySelector('.tiptap img')).toHaveAttribute(
+      'src',
+      '/api/assets/asset-shot?inline=1',
+    );
+  });
+
+  it('uploads a clipboard image into an existing rich text document', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: note }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue('Note'));
+    vi.mocked(fetch).mockResolvedValueOnce(
+      response({
+        success: true,
+        data: {
+          asset: {
+            id: 'asset-shot',
+            noteId: 'n1',
+            originalName: 'shot.png',
+            mimeType: 'image/png',
+            sizeBytes: 3,
+            createdAt: note.createdAt,
+          },
+        },
+      }),
+    );
+    fireEvent.paste(document.querySelector('.tiptap')!, {
+      clipboardData: {
+        getData: () => '',
+        files: [new File(['png'], 'shot.png', { type: 'image/png' })],
+        items: [],
+      },
+    });
+    await waitFor(() =>
+      expect(document.querySelector('.tiptap img')).toHaveAttribute('data-asset-id', 'asset-shot'),
+    );
+  });
   it('loads an existing note and presents a malformed response safely', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: note }));
     renderEditor();
@@ -66,6 +242,26 @@ describe('knowledge editor mutation integration', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/response was invalid/i),
     );
+  });
+
+  it('saves Markdown preview as canonical JSON and enters the persisted editor', async () => {
+    const text = '# Heading\n\nFormula $a_i+b_j$';
+    vi.mocked(fetch).mockImplementation(async (_url, init) => {
+      const payload = init?.body ? JSON.parse(String(init.body)) : {};
+      return response({ success: true, data: { ...note, ...payload, id: 'created' } }, 201);
+    });
+    renderEditor('/knowledge/notes/new?format=markdown');
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Markdown draft' } });
+    fireEvent.change(screen.getByLabelText('Markdown 正文'), { target: { value: text } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByLabelText('Markdown 正文')).not.toBeInTheDocument());
+    const call = vi
+      .mocked(fetch)
+      .mock.calls.find(([url, init]) => url === '/api/notes' && init?.method === 'POST');
+    const body = JSON.parse(String(call![1]!.body));
+    expect(JSON.parse(body.contentJson).content[0].type).toBe('heading');
+    expect(body.contentJson).toContain('$a_i+b_j$');
+    expect(screen.getByRole('toolbar', { name: '富文本编辑器工具栏' })).toBeInTheDocument();
   });
 
   it('creates once and never creates a version automatically', async () => {
@@ -298,10 +494,9 @@ describe('knowledge editor mutation integration', () => {
     ).toEqual(['/api/notes/n1', '/api/notes/n1/versions']);
   });
 
-  it('blocks attachment uploads until a new note has been saved', async () => {
+  it('allows attachment uploads on a new note without creating it eagerly', async () => {
     renderEditor('/knowledge/notes/new');
-    expect(screen.getByLabelText('附件上传')).toBeDisabled();
-    expect(screen.getByText('附件上传会在笔记首次保存后可用。')).toBeInTheDocument();
+    expect(screen.getByLabelText('附件上传')).toBeEnabled();
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -573,6 +768,55 @@ describe('knowledge editor mutation integration', () => {
       expect(screen.getByRole('button', { name: '重试上传 diagram.png' })).toBeInTheDocument();
     });
 
+    // Editor is NOT frozen or blocked: user can continue typing
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Typing smoothly' } });
+    expect(screen.getByLabelText('Title')).toHaveValue('Typing smoothly');
+
+    // Clicking retry successfully uploads
+    vi.mocked(fetch).mockResolvedValueOnce(
+      response(
+        {
+          success: true,
+          data: {
+            asset: {
+              id: 'asset-diagram',
+              noteId: 'n1',
+              originalName: 'diagram.png',
+              mimeType: 'image/png',
+              sizeBytes: 8,
+              createdAt: note.createdAt,
+            },
+          },
+        },
+        201,
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: '重试上传 diagram.png' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '下载 diagram.png' })).toBeInTheDocument();
+    });
+  });
+  it('retains an expired-session upload and offers a new-window login before explicit retry', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ success: true, data: note }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue('Note'));
+
+    // Inject 504 gateway timeout on asset upload
+    vi.mocked(fetch).mockResolvedValueOnce(
+      response(
+        { success: false, error: { code: 'AUTH_REQUIRED', message: 'Login required' } },
+        401,
+      ),
+    );
+    const testFile = new File(['png-data'], 'diagram.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('附件上传'), { target: { files: [testFile] } });
+
+    // Asset panel shows failure and retry button
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '重试上传 diagram.png' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('link', { name: '重新登录' })).toHaveAttribute('target', '_blank');
     // Editor is NOT frozen or blocked: user can continue typing
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Typing smoothly' } });
     expect(screen.getByLabelText('Title')).toHaveValue('Typing smoothly');

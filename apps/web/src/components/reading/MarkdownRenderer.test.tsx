@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { MarkdownRenderer } from './MarkdownRenderer';
+import { extractHeadings, MarkdownRenderer } from './MarkdownRenderer';
 
 describe('MarkdownRenderer', () => {
   it('renders GFM, code, math, and links without rendering raw HTML elements', () => {
@@ -57,12 +57,26 @@ const safe = true;
       '安全-markdown-2',
     );
   });
-  it('renders markdown images with their alt text and source path', () => {
+
+  it('renders markdown images with their alt text, source path, and lazy/async loading attributes', () => {
     render(<MarkdownRenderer source={'![System diagram](/content-media/hello-static-blog/diagram.png)'} />);
 
-    expect(screen.getByRole('img', { name: 'System diagram' })).toHaveAttribute(
+    const img = screen.getByRole('img', { name: 'System diagram' });
+    expect(img).toHaveAttribute(
       'src',
       '/content-media/hello-static-blog/diagram.png',
     );
+    expect(img).toHaveAttribute('loading', 'lazy');
+    expect(img).toHaveAttribute('decoding', 'async');
+    expect(img).toHaveStyle({ maxWidth: '100%', height: 'auto' });
+  });
+
+  it('re-exports extractHeadings preserving backward compatibility', () => {
+    const headings = extractHeadings('## 第一节\n### 小节 A\n## 第一节');
+    expect(headings).toEqual([
+      { id: '第一节', level: 2, text: '第一节' },
+      { id: '小节-a', level: 3, text: '小节 A' },
+      { id: '第一节-2', level: 2, text: '第一节' },
+    ]);
   });
 });

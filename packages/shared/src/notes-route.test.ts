@@ -367,7 +367,12 @@ describe('notes Pages route', () => {
     expect(publishData.status).toBe('published');
     expect(publishData.publishedTitle).toBe('Title');
     expect(publishData.publishedContentJson).toBe(row.content_json);
-    expect(mock.runs.some((r) => r.sql.includes('INSERT INTO notes'))).toBe(true);
+    expect(
+      mock.batches.flat().some(
+        (r) => r.sql.includes('INSERT INTO notes') && r.sql.includes('ON CONFLICT(id) DO UPDATE SET'),
+      ),
+    ).toBe(true);
+    expect(mock.batches.flat().some((r) => r.sql.includes('note_publication_metadata'))).toBe(true);
 
     // Stale revision check on publish
     const staleRes = await notesRoute(
@@ -526,7 +531,7 @@ describe('notes Pages route', () => {
       env: {},
       next: async () => new Response('ok'),
     });
-    expect(denied.status).toBe(403);
+    expect(denied.status).toBe(401);
     const allowed = await accessMiddleware({
       request: new Request('http://localhost/api/notes'),
       env: { LOCAL_AUTH_BYPASS: 'true' },
@@ -538,6 +543,6 @@ describe('notes Pages route', () => {
       env: { LOCAL_AUTH_BYPASS: 'true' },
       next: async () => new Response('ok'),
     });
-    expect(productionBypass.status).toBe(403);
+    expect(productionBypass.status).toBe(401);
   });
 });

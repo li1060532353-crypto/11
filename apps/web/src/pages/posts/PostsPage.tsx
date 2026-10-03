@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { FallbackNotice } from '../../components/content/FallbackNotice';
 import { FilterBar } from '../../components/content/FilterBar';
 import { Pagination } from '../../components/content/Pagination';
-import { PostCard } from '../../components/content/PostCard';
+import { PostIndexRow } from '../../components/content/PostIndexRow';
+import { ReturnButton } from '../../components/navigation/ReturnButton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { listCategories, listPosts, listTags } from '../../content/contentGateway';
 import { buildPostQuery, parsePostQuery } from '../../content/queryParams';
@@ -33,9 +34,21 @@ export function PostsPage() {
     navigate(`/posts${buildPostQuery(next)}`);
   };
   return (
-    <div className="page-canvas">
+    <div className="page-canvas posts-index-page">
       <DraftingGridBackdrop />
-      <PageIntro title="文章" description="按时间浏览全部技术文章。" />
+      <PageIntro
+        title="文章"
+        description="学习、推导与实践，按时间串起每一次记录。"
+        action={
+          <ReturnButton
+            target={{ path: '/', label: '← 返回主页', kind: 'direct', hopCount: 0, scrollY: 0 }}
+            className="ui-button ui-button--secondary"
+            testId="posts-home-return"
+            ariaLabel="返回主页"
+          />
+        }
+      />
+      <section className="posts-index-band" aria-label="文章索引">
       <Container className="discovery-page">
         <FilterBar
           query={query}
@@ -50,13 +63,16 @@ export function PostsPage() {
         ) : null}
         {results?.items.length ? (
           <>
-            <div className="article-table__header" role="row" aria-hidden="true">
-              <span className="article-table__th article-table__th--title">Title & Abstract</span>
-              <span className="article-table__th article-table__th--date">Date & Taxonomy</span>
+            <div className="post-index-heading">
+              <h2>文章索引</h2>
+              <p>共 {results.totalItems} 篇 <span aria-hidden="true">/</span> 最新在前</p>
             </div>
-            <div className="post-grid">
-              {results.items.map((post) => (
-                <PostCard key={post.slug} post={post} />
+            <div className="post-index-columns" aria-hidden="true">
+              <span>标题 / 摘要</span><span>日期 / 分类</span>
+            </div>
+            <div className="post-index-list">
+              {results.items.map((post, index) => (
+                <PostIndexRow key={post.slug} post={post} number={(results.page - 1) * results.pageSize + index + 1} />
               ))}
             </div>
           </>
@@ -77,6 +93,7 @@ export function PostsPage() {
           />
         ) : null}
       </Container>
+      </section>
     </div>
   );
 }

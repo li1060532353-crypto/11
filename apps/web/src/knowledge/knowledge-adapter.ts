@@ -16,6 +16,16 @@ export function mapStatsToDashboard(
   };
 }
 export function mapNoteToCard(note: NoteRecord | SearchResult): NoteCardViewModel {
+  const isPublished = 'status' in note && note.status === 'published';
+  const hasUnpublishedEdits =
+    isPublished &&
+    'publishedContentJson' in note &&
+    note.publishedContentJson !== undefined &&
+    note.publishedContentJson !== null &&
+    (note.publishedContentJson !== note.contentJson ||
+      note.publishedTitle !== note.title ||
+      note.publishedSummary !== note.summary);
+
   return {
     id: note.id,
     title: note.title,
@@ -27,5 +37,6 @@ export function mapNoteToCard(note: NoteRecord | SearchResult): NoteCardViewMode
     ...('isPinned' in note && note.isPinned ? { pinned: true } : {}),
     ...('status' in note ? { status: note.status } : {}),
     ...('status' in note && note.status === 'archived' ? { archived: true } : {}),
+    ...(hasUnpublishedEdits ? { hasUnpublishedEdits: true } : {}),
   };
 }

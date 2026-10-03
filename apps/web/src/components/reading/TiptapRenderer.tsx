@@ -1,59 +1,73 @@
-﻿import { type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import type { TiptapDocument, TiptapNode } from '@namdw/shared';
+import katex from 'katex';
 import { CodeBlock } from './CodeBlock';
-import type { ArticleHeading } from './MarkdownRenderer';
+import { extractHeadingsFromDocument, getNodeText, slugBase } from './headingExtractor';
 
-function slugBase(value: string): string {
-  return (
-    value
-      .normalize('NFKC')
-      .toLowerCase()
-      .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
-      .trim()
-      .replace(/[\s-]+/g, '-') || 'section'
-  );
+export { extractHeadingsFromDocument } from './headingExtractor';
+
+const MATH_REGEX = /\$\$([\s\S]+?)\$\$|\$([^$\s](?:[^$\n]*?[^$\s])?)\$/g;
+
+function renderMathToString(formula: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(formula, {
+      displayMode,
+      throwOnError: false,
+    });
+  } catch {
+    return formula;
+  }
+}
+
+function renderTextWithMath(text: string, keyPrefix: string): ReactNode[] {
+  if (!text.includes('$')) {
+    return [text];
+  }
+
+  const elements: ReactNode[] = [];
+  let lastIndex = 0;
+  MATH_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = MATH_REGEX.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      elements.push(text.slice(lastIndex, match.index));
+    }
+
+    const isDisplay = Boolean(match[1]);
+    const formula = match[1] ?? match[2] ?? '';
+    const html = renderMathToString(formula, isDisplay);
+
+    if (isDisplay) {
+      elements.push(
+        <span
+          key={`${keyPrefix}-math-${match.index}`}
+          className="katex-display"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />,
+      );
+    } else {
+      elements.push(
+        <span
+          key={`${keyPrefix}-math-${match.index}`}
+          className="katex"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />,
+      );
+    }
+
+    lastIndex = MATH_REGEX.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    elements.push(text.slice(lastIndex));
+  }
+
+  return elements.length > 0 ? elements : [text];
 }
 
 function isExternalLink(href: string | undefined): boolean {
   return Boolean(href && /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href));
-}
-
-function getNodeText(node: TiptapNode): string {
-  if (node.type === 'text') return node.text ?? '';
-  if (node.type === 'hardBreak') return '\n';
-  return (node.content ?? []).map(getNodeText).join('');
-}
-
-export function extractHeadingsFromDocument(
-  docOrJson: TiptapDocument | string,
-): readonly ArticleHeading[] {
-  let doc: TiptapDocument;
-  try {
-    doc = typeof docOrJson === 'string' ? (JSON.parse(docOrJson) as TiptapDocument) : docOrJson;
-  } catch {
-    return [];
-  }
-
-  if (!doc || !Array.isArray(doc.content)) return [];
-
-  const counts = new Map<string, number>();
-  const headings: ArticleHeading[] = [];
-
-  for (const node of doc.content) {
-    if (node.type === 'heading') {
-      const level = Number(node.attrs?.level ?? 1);
-      if (level === 2 || level === 3) {
-        const text = getNodeText(node).trim();
-        const base = slugBase(text);
-        const count = (counts.get(base) ?? 0) + 1;
-        const id = count === 1 ? base : `${base}-${count}`;
-        counts.set(base, count);
-        headings.push({ id, level, text });
-      }
-    }
-  }
-
-  return headings;
 }
 
 export function TiptapRenderer({ content }: { content: TiptapDocument | string }) {
@@ -78,7 +92,34 @@ export function TiptapRenderer({ content }: { content: TiptapDocument | string }
 
       if (inlineNode.type === 'text') {
         const text = inlineNode.text ?? '';
-        let wrapped: ReactNode = text;
+        const hasCodeMark = Boolean(inlineNode.marks?.some((m) => m.type === 'code'));
+
+        let isCodeMath = false;
+        let mathFormula = '';
+        let isDisplayMath = false;
+        if (hasCodeMark) {
+          if (text.startsWith('$$') && text.endsWith('$$') && text.length > 4) {
+            isCodeMath = true;
+            isDisplayMath = true;
+            mathFormula = text.slice(2, -2).trim();
+          } else if (text.startsWith('$') && text.endsWith('$') && text.length > 2) {
+            isCodeMath = true;
+            isDisplayMath = false;
+            mathFormula = text.slice(1, -1).trim();
+          }
+        }
+
+        let wrapped: ReactNode = isCodeMath ? (
+          <span
+            key={`math-${idx}`}
+            className={isDisplayMath ? 'katex-display' : 'katex'}
+            dangerouslySetInnerHTML={{ __html: renderMathToString(mathFormula, isDisplayMath) }}
+          />
+        ) : hasCodeMark ? (
+          text
+        ) : (
+          renderTextWithMath(text, `text-${idx}`)
+        );
 
         if (inlineNode.marks && Array.isArray(inlineNode.marks)) {
           for (const mark of inlineNode.marks) {
@@ -89,7 +130,9 @@ export function TiptapRenderer({ content }: { content: TiptapDocument | string }
             } else if (mark.type === 'strike') {
               wrapped = <s>{wrapped}</s>;
             } else if (mark.type === 'code') {
-              wrapped = <code>{wrapped}</code>;
+              if (!isCodeMath) {
+                wrapped = <code>{wrapped}</code>;
+              }
             } else if (mark.type === 'link') {
               const href = (mark.attrs?.href as string) ?? '#';
               const target = mark.attrs?.target as string | undefined;
@@ -127,6 +170,7 @@ export function TiptapRenderer({ content }: { content: TiptapDocument | string }
             src={`/api/assets/${encodeURIComponent(id)}?inline=1`}
             alt={typeof node.attrs?.alt === 'string' ? node.attrs.alt : ''}
             loading="lazy"
+            decoding="async"
             style={{ maxWidth: '100%', height: 'auto' }}
           />
         );
@@ -209,9 +253,34 @@ export function TiptapRenderer({ content }: { content: TiptapDocument | string }
             {node.content?.map((child, childIdx) => renderBlock(child, childIdx))}
           </blockquote>
         );
+      case 'mathBlock': {
+        const mathText =
+          (node.attrs?.latex as string) ??
+          (node.content ?? []).map((c) => c.text ?? '').join('');
+        return (
+          <div
+            key={`math-${index}`}
+            className="katex-display"
+            dangerouslySetInnerHTML={{
+              __html: renderMathToString(mathText, true),
+            }}
+          />
+        );
+      }
       case 'codeBlock': {
         const codeText = (node.content ?? []).map((c) => c.text ?? '').join('');
-        const language = (node.attrs?.language as string) || undefined;
+        const language = ((node.attrs?.language as string) || '').toLowerCase();
+        if (language === 'math' || language === 'latex') {
+          return (
+            <div
+              key={`code-${index}`}
+              className="katex-display"
+              dangerouslySetInnerHTML={{
+                __html: renderMathToString(codeText, true),
+              }}
+            />
+          );
+        }
         return (
           <CodeBlock key={`code-${index}`}>
             <code className={language ? `language-${language}` : undefined}>{codeText}</code>

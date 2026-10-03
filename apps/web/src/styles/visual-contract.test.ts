@@ -160,10 +160,18 @@ describe('visual CSS contract', () => {
   it('defines the approved Apple-inspired palette and page scale', () => {
     const tokens = readStyle('./tokens.css');
 
-    expect(tokens).toContain('--color-canvas: #f5f5f7');
-    expect(tokens).toContain('--color-ink: #1d1d1f');
-    expect(tokens).toContain('--color-accent: #0071e3');
+    expect(tokens).toContain('--accent-blue: #2455e8');
+    expect(tokens).toContain('--accent-lime: #c6f244');
+    expect(tokens).toContain('--signal-blue: #2455e8');
+    expect(tokens).toContain('--signal-lime: #c6f244');
+    expect(tokens).toContain('--border-hairline: 1px solid rgba(29, 29, 31, 0.12)');
+    expect(tokens).toContain('--radius-sharp: 0px');
+    expect(tokens).toContain('--radius-subtle: 2px');
+    expect(tokens).toContain('--radius-ui: 4px');
+    expect(tokens).toContain('--radius-max: 6px');
     expect(tokens).toContain('--content-max: 75rem');
+    expect(tokens).toContain('--reader-max-width: 46.25rem');
+    expect(tokens).toContain('--reader-toc-width: 13.75rem');
   });
 
   it('defines mobile navigation and reduced-motion behavior', () => {

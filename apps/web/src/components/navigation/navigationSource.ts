@@ -196,3 +196,19 @@ export function buildAdjacentPostState(currentTarget: SafeReturnTarget): Navigat
     hopCount: (currentTarget.hopCount || 0) + 1,
   };
 }
+
+/**
+ * Creates navigation source state for admin notes list entries.
+ */
+export function createAdminNotesSourceState(
+  fromPath: string,
+  fromLabel = '← 返回文章列表',
+  scrollY = typeof window !== 'undefined' ? window.scrollY : 0,
+): NavigationSourceState {
+  return {
+    kind: 'admin_notes',
+    fromPath,
+    fromLabel: formatReturnLabel(fromLabel),
+    scrollY,
+  };
+}

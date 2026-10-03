@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import type { AssetRecord, NoteRecord } from '@namdw/shared';
 
@@ -7,6 +7,8 @@ import { ReadingProgress } from '../components/reading/ReadingProgress';
 import { TableOfContents } from '../components/reading/TableOfContents';
 import { Container } from '../components/ui/Container';
 import { DraftingGridBackdrop } from '../components/ui/DraftingGridBackdrop';
+import { useReaderNavigationOffset } from '../components/navigation/useReaderNavigationOffset';
+import { FloatingReturnButton } from '../components/navigation/ReturnButton';
 import { getSafeReturnTarget } from '../components/navigation/navigationSource';
 import { siteContent } from '../content/site';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
@@ -38,6 +40,7 @@ const messageFor = (error: unknown) => {
 export function KnowledgeNoteReadRoute() {
   const { id = '' } = useParams();
   const location = useLocation();
+  const readerToolbarRef = useReaderNavigationOffset<HTMLDivElement>();
   const [note, setNote] = useState<NoteRecord | null>(null);
   const [assets, setAssets] = useState<readonly AssetRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,9 +140,10 @@ export function KnowledgeNoteReadRoute() {
     <div className="page-canvas post-detail-canvas">
       <DraftingGridBackdrop />
       <ReadingProgress key={note.id} />
+      <FloatingReturnButton target={returnTarget} />
       <Container>
         {/* Workspace Quick Actions Bar */}
-        <div className="knowledge-reader-toolbar" aria-label="阅读模式控制条">
+        <div ref={readerToolbarRef} className="knowledge-reader-toolbar" aria-label="阅读模式控制条">
           <div className="knowledge-reader-toolbar__left">
             <Link
               className="knowledge-button knowledge-button--quiet"
@@ -184,67 +188,6 @@ export function KnowledgeNoteReadRoute() {
 
         <article id="article-content" className="post-detail" tabIndex={-1}>
           <header className="post-detail__header">
-            <div className="post-detail__backdrop" aria-hidden="true">
-              <svg
-                className="post-detail__backdrop-svg"
-                viewBox="0 0 1440 260"
-                preserveAspectRatio="xMidYMin slice"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <g stroke="var(--color-accent, #0071e3)" fill="none">
-                  <path
-                    d="M 1400,60 L 1050,60 L 1020,95 L 420,95 L 390,130 L 40,130"
-                    strokeWidth="0.75"
-                    strokeDasharray="4 6"
-                    strokeOpacity="0.14"
-                  />
-                  <circle
-                    cx="1020"
-                    cy="95"
-                    r="2"
-                    fill="var(--color-accent, #0071e3)"
-                    fillOpacity="0.25"
-                  />
-                  <circle
-                    cx="390"
-                    cy="130"
-                    r="2"
-                    fill="var(--color-accent, #0071e3)"
-                    fillOpacity="0.25"
-                  />
-                </g>
-                <g
-                  fill="currentColor"
-                  fontFamily="var(--font-mono, monospace)"
-                  fontSize="9"
-                  letterSpacing="0.08em"
-                  opacity="0.35"
-                >
-                  <path
-                    d="M 40,16 L 40,24 L 32,24 M 40,24 L 48,24 M 40,24 L 40,32"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                    fill="none"
-                  />
-                  <text x="54" y="24" dominantBaseline="auto">
-                    KNOWLEDGE // NOTE_READER
-                  </text>
-                  <text x="1400" y="24" textAnchor="end" dominantBaseline="auto">
-                    SOURCE · D1_DYNAMIC
-                  </text>
-                  <line
-                    x1="40"
-                    y1="259"
-                    x2="1400"
-                    y2="259"
-                    stroke="currentColor"
-                    strokeWidth="0.5"
-                    strokeOpacity="0.15"
-                  />
-                </g>
-              </svg>
-            </div>
-
             <div className="post-detail__intro">
               <p className="eyebrow">Knowledge Article</p>
               <h1>{note.title}</h1>

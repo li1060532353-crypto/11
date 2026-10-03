@@ -13,6 +13,7 @@ export type NoteCardViewModel = {
   pinned?: boolean;
   archived?: boolean;
   status?: 'draft' | 'published' | 'archived';
+  hasUnpublishedEdits?: boolean;
 };
 
 export type NotesViewModel = {

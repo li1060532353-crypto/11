@@ -1,3 +1,20 @@
+﻿# 当前生产认证：站内单管理员登录（2026-10-02）
+
+用户已确认替代 Cloudflare Access：已发布文章公开，知识库及全部写入需要站内登录。生产地址 https://11-9tc.pages.dev，登录地址 `/login`。原文后续 Access 步骤仅作历史记录，不是当前生产认证依赖。
+
+- D1 应用 migrations 0001–0006，含会话、限流和公开元数据快照。
+- Cloudflare Pages Secret `OWNER_LOGIN_CONFIG` 保存用户名、PBKDF2-SHA256 校验值与凭据版本，不能写入 VITE 环境变量。
+- `node scripts/configure-owner-login.mjs --configure` 创建/复用本机管理员凭据并配置云端 Secret；部署后生效。
+- 更新密码：通过安全本机输入运行该脚本的 `--rotate --password-stdin --configure`，随后重新部署；旧凭据版本的会话失效。不要将密码写入命令行参数或聊天。
+- 本机 `.owner-login/owner-login.txt` 保存登录信息，此目录已被 Git 忽略，打包时必须排除。
+- Cookie 采用 Secure、HttpOnly、SameSite=Lax，会话 12 小时；服务端限制尝试次数并验证同源 Origin。
+- `/api/public/posts` 只读发布快照；`/api/notes`、统计、搜索、导入和附件仍需登录。R2 继续私有。
+- 本机显式 LOCAL_AUTH_BYPASS 仍只对 localhost 生效，不允许部署 true。
+
+已通过生产登录、中文 BOM Markdown 导入并重新读取、R2 图片上传下载字节一致、公开发布快照不受草稿修改影响、跨站拒绝与退出验收。验收笔记归档，测试附件清理；原八篇笔记保留。
+
+---
+
 # Cloudflare Pages, D1, R2, and Access Setup
 
 This is a configuration runbook. It describes the checked-in application

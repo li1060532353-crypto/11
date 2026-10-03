@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 
 import { FallbackNotice } from '../../components/content/FallbackNotice';
 import { PostMeta } from '../../components/content/PostMeta';
-import { extractHeadings, MarkdownRenderer } from '../../components/reading/MarkdownRenderer';
-import { extractHeadingsFromDocument, TiptapRenderer } from '../../components/reading/TiptapRenderer';
+import {
+  extractHeadings,
+  extractHeadingsFromDocument,
+} from '../../components/reading/headingExtractor';
 import { ReadingProgress } from '../../components/reading/ReadingProgress';
 import { TableOfContents } from '../../components/reading/TableOfContents';
 import { Container } from '../../components/ui/Container';
@@ -13,39 +15,22 @@ import {
   buildAdjacentPostState,
   getSafeReturnTarget,
 } from '../../components/navigation/navigationSource';
-import { BottomReturnBar, TopReturnBar } from '../../components/navigation/ReturnButton';
-import { getPostNeighbors } from '../../content/contentQueries';
-import { getPostBySlug } from '../../content/contentGateway';
+import { BottomReturnBar, TopReturnBar, FloatingReturnButton } from '../../components/navigation/ReturnButton';
+import { getPostBySlug, getPostNeighbors } from '../../content/contentGateway';
 import { siteContent } from '../../content/site';
-import type { ContentResult, Post, PostSummary } from '../../content/types';
 import { useContentQuery } from '../../content/useContentQuery';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import { NotFoundPage } from '../NotFoundPage';
 
+const MarkdownRenderer = lazy(() =>
+  import('../../components/reading/MarkdownRenderer').then((m) => ({ default: m.MarkdownRenderer })),
+);
+const TiptapRenderer = lazy(() =>
+  import('../../components/reading/TiptapRenderer').then((m) => ({ default: m.TiptapRenderer })),
+);
+
 function articleBody(body: string): string {
   return body.replace(/^\s*#\s+.+?(?:\r?\n){2,}/, '');
-}
-
-function navigationPosts(result: ContentResult<Post | undefined> | undefined): {
-  previousPost: PostSummary | undefined;
-  nextPost: PostSummary | undefined;
-} {
-  const post = result?.data;
-  if (!post) return { previousPost: undefined, nextPost: undefined };
-
-  if (post.relatedPosts?.length) {
-    return {
-      previousPost: post.relatedPosts[0],
-      nextPost: post.relatedPosts[1],
-    };
-  }
-
-  if (result.source === 'fallback') {
-    const { previous, next } = getPostNeighbors(post.slug);
-    return { previousPost: previous, nextPost: next };
-  }
-
-  return { previousPost: undefined, nextPost: undefined };
 }
 
 export function PostDetailPage() {
@@ -57,8 +42,12 @@ export function PostDetailPage() {
   );
 
   const load = useMemo(() => () => getPostBySlug(slug), [slug]);
-  const query = useContentQuery(load, [load]);
+  const query = useContentQuery(load, [load], false);
   const post = query.result?.data;
+  const loadNeighbors = useMemo(() => () => post
+    ? getPostNeighbors(slug)
+    : Promise.resolve({ source: 'api' as const, data: { previous: undefined, next: undefined } }), [slug, post]);
+  const neighborsQuery = useContentQuery(loadNeighbors, [loadNeighbors], false);
   useDocumentMeta(
     query.state === 'loading'
       ? {
@@ -90,82 +79,45 @@ export function PostDetailPage() {
   const headings = post.contentJson
     ? extractHeadingsFromDocument(post.contentJson as never)
     : extractHeadings(source);
-  const { previousPost, nextPost } = navigationPosts(query.result);
+  const previousPost = neighborsQuery.result?.data.previous;
+  const nextPost = neighborsQuery.result?.data.next;
 
   return (
     <div className="page-canvas post-detail-canvas">
       <DraftingGridBackdrop />
       <ReadingProgress key={post.slug} />
+      <FloatingReturnButton target={returnTarget} />
       <Container>
         {query.result?.source === 'fallback' ? <FallbackNotice error={query.result.error} /> : null}
         <article id="article-content" className="post-detail" tabIndex={-1}>
           <TopReturnBar target={returnTarget} />
           <header className="post-detail__header">
-            <div className="post-detail__backdrop" aria-hidden="true">
-              <svg
-                className="post-detail__backdrop-svg"
-                viewBox="0 0 1440 260"
-                preserveAspectRatio="xMidYMin slice"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Subtle horizontal bus trace */}
-                <g stroke="var(--color-accent, #0071e3)" fill="none">
-                  <path
-                    d="M 1400,60 L 1050,60 L 1020,95 L 420,95 L 390,130 L 40,130"
-                    strokeWidth="0.75"
-                    strokeDasharray="4 6"
-                    strokeOpacity="0.14"
-                  />
-                  <circle cx="1020" cy="95" r="2" fill="var(--color-accent, #0071e3)" fillOpacity="0.25" />
-                  <circle cx="390" cy="130" r="2" fill="var(--color-accent, #0071e3)" fillOpacity="0.25" />
-                </g>
-                {/* Corner Fiducials & CAD Reference */}
-                <g
-                  fill="currentColor"
-                  fontFamily="var(--font-mono, monospace)"
-                  fontSize="9"
-                  letterSpacing="0.08em"
-                  opacity="0.35"
-                >
-                  <path
-                    d="M 40,16 L 40,24 L 32,24 M 40,24 L 48,24 M 40,24 L 40,32"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                    fill="none"
-                  />
-                  <text x="54" y="24" dominantBaseline="auto">
-                    CAD_REF: 0x00 // TECHNICAL_MEMO
-                  </text>
-                  <text x="1400" y="24" textAnchor="end" dominantBaseline="auto">
-                    DOC_SPEC · PEER_REVIEWED
-                  </text>
-                  <line
-                    x1="40"
-                    y1="259"
-                    x2="1400"
-                    y2="259"
-                    stroke="currentColor"
-                    strokeWidth="0.5"
-                    strokeOpacity="0.15"
-                  />
-                </g>
-              </svg>
-            </div>
             {post.cover.image ? (
-              <img className="post-detail__cover-image" src={post.cover.image} alt={post.cover.alt} />
-            ) : (
-              <div
-                className={`post-detail__cover post-card__visual post-card__visual--${post.cover.tone}`}
-                role="img"
-                aria-label={post.cover.alt}
+              <img
+                className="post-detail__cover-image"
+                src={post.cover.image}
+                alt={post.cover.alt}
+                loading="eager"
+                decoding="async"
               />
-            )}
+            ) : null}
             <div className="post-detail__intro">
-              <p className="eyebrow">Article</p>
+              <div className="post-detail__eyebrow-row">
+                <p className="eyebrow post-detail__eyebrow">
+                  <span className="post-detail__eyebrow-pip" aria-hidden="true" />
+                  ARTICLE / {(post.category || 'NOTE').toUpperCase()}
+                </p>
+                <div className="post-detail__doc-meta" aria-label="技术文档参考编号">
+                  <span>DOC_REF {post.slug.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || '01'}</span>
+                  <span className="post-detail__doc-meta-sep" aria-hidden="true">/</span>
+                  <span>REV {post.publishedAt ? post.publishedAt.slice(0, 7).replace('-', '.') : '2026.10'}</span>
+                </div>
+              </div>
               <h1>{post.title}</h1>
               <p className="post-detail__summary">{post.summary}</p>
               <PostMeta post={post} />
             </div>
+            <div className="post-detail__header-accent-tick" aria-hidden="true" />
           </header>
 
           <div className="post-detail__layout">
@@ -173,36 +125,46 @@ export function PostDetailPage() {
               <TableOfContents headings={headings} />
             </aside>
             <div className="markdown-body">
-              {post.contentJson ? (
-                <TiptapRenderer content={post.contentJson as never} />
-              ) : (
-                <MarkdownRenderer source={source} />
-              )}
+              <Suspense
+                fallback={
+                  <div className="article-renderer-skeleton" role="status">
+                    正在加载正文…
+                  </div>
+                }
+              >
+                {post.contentJson ? (
+                  <TiptapRenderer content={post.contentJson as never} />
+                ) : (
+                  <MarkdownRenderer source={source} />
+                )}
+              </Suspense>
             </div>
           </div>
 
-          <nav className="article-navigation" aria-label="相邻文章">
+          {previousPost || nextPost ? <nav className="article-navigation" aria-label="相邻文章">
             {previousPost ? (
               <Link
+                className="article-navigation__previous"
+                rel="prev"
                 to={`/posts/${previousPost.slug}`}
                 state={buildAdjacentPostState(returnTarget)}
               >
-                <span>上一篇</span>
+                <span>← 上一篇</span>
                 {previousPost.title}
               </Link>
-            ) : (
-              <span />
-            )}
+            ) : null}
             {nextPost ? (
               <Link
+                className="article-navigation__next"
+                rel="next"
                 to={`/posts/${nextPost.slug}`}
                 state={buildAdjacentPostState(returnTarget)}
               >
-                <span>下一篇</span>
+                <span>下一篇 →</span>
                 {nextPost.title}
               </Link>
             ) : null}
-          </nav>
+          </nav> : null}
           <BottomReturnBar target={returnTarget} />
         </article>
       </Container>

@@ -1,4 +1,4 @@
-import { apiSuccess } from '../../../packages/shared/src/api';
+﻿import { apiSuccess } from '../../../packages/shared/src/api';
 import type { KnowledgeBaseEnv } from '../../env';
 import { jsonError } from '../../lib/http';
 import {
@@ -22,7 +22,7 @@ export const onRequest = async (context: Context): Promise<Response> => {
     },
     get: async (key) => {
       const object = await context.env.KB_ASSETS.get(key);
-      return object ? { body: object.body, size: object.size } : null;
+      return object ? { body: object.body as unknown as ReadableStream<Uint8Array>, size: object.size } : null;
     },
     delete: async (key) => {
       await context.env.KB_ASSETS.delete(key);

@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { FallbackNotice } from '../components/content/FallbackNotice';
 import { Container } from '../components/ui/Container';
+import { MarkdownRenderer } from '../components/reading/MarkdownRenderer';
 import { getProjectBySlug } from '../content/contentGateway';
 import { siteContent } from '../content/site';
 import { useContentQuery } from '../content/useContentQuery';
@@ -43,6 +44,11 @@ export function ProjectDetailPage() {
 
   if (!project) return <NotFoundPage resource="project" />;
 
+  const bodyLines = project.body.split(/\r?\n/);
+  const description = bodyLines[0]?.trim() === `# ${project.name}`
+    ? bodyLines.slice(1).join('\n')
+    : project.body;
+
   return (
     <>
       <PageIntro title={project.name} description={project.summary} eyebrow="Project" />
@@ -50,7 +56,7 @@ export function ProjectDetailPage() {
         {query.result?.source === 'fallback' ? <FallbackNotice error={query.result.error} /> : null}
         <section aria-labelledby="project-detail-content">
           <h2 id="project-detail-content">项目说明</h2>
-          <pre className="project-detail__body">{project.body}</pre>
+          <div className="project-detail__body article-body"><MarkdownRenderer source={description} /></div>
         </section>
         <section aria-labelledby="project-detail-technologies">
           <h2 id="project-detail-technologies">技术栈</h2>

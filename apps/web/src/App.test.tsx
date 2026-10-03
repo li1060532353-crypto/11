@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+﻿import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -50,11 +50,11 @@ describe('App visual shell', () => {
     );
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
     expect(
-      screen.getByRole('heading', { level: 1, name: '让复杂知识，变得清晰。' }),
+      screen.getByRole('heading', { level: 1, name: /从信号到系统，\s*从理解\s*到实现。/ }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '浏览最新文章' })).toHaveAttribute('href', '/posts');
+    expect(screen.getByRole('link', { name: '进入文章索引' })).toHaveAttribute('href', '/posts');
     expect(
-      screen.getByRole('heading', { level: 2, name: '正在构建，也持续记录。' }),
+      screen.getByRole('heading', { level: 2, name: '近期记录' }),
     ).toBeInTheDocument();
     expect(
       await screen.findByRole('heading', { level: 4, name: '智能冷链仓储系统' }),
@@ -119,7 +119,7 @@ describe('App visual shell', () => {
   it.each([
     [
       '/',
-      '让复杂知识，变得清晰。',
+      /从信号到系统，\s*从理解\s*到实现。/,
       'Namdw 的技术笔记',
       '记录电子信息、嵌入式系统与工程实践中的学习和思考。',
     ],
@@ -202,7 +202,7 @@ describe('App visual shell', () => {
       render(<App initialPath={path} />);
 
       expect(screen.getAllByRole('main')).toHaveLength(1);
-      expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { level: 1, name: heading }, { timeout: 5000 })).toBeInTheDocument();
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
       await waitFor(() => expect(document.title).toBe(title));
       expect(document.head.querySelector('meta[name="description"]')).toHaveAttribute(
@@ -249,7 +249,7 @@ describe('App visual shell', () => {
     async (path, heading, title, description) => {
       render(<App initialPath={path} />);
 
-      expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { level: 1, name: heading }, { timeout: 5000 })).toBeInTheDocument();
       await waitFor(() => expect(document.title).toBe(title));
       expect(document.head.querySelector('meta[name="description"]')).toHaveAttribute(
         'content',

@@ -1,8 +1,10 @@
-import type { NoteCardViewModel, NotesViewModel } from './fixtures';
+﻿import type { NoteCardViewModel, NotesViewModel } from './fixtures';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import type { NavigationSourceState } from '../components/navigation/navigationSource';
 import { KnowledgeShell } from './KnowledgeShell';
 import './knowledge.css';
+import { DeleteNotesDialog } from './DeleteNotesDialog';
 
 export type NotesPresentationState = 'ready' | 'loading' | 'empty' | 'error';
 
@@ -17,6 +19,7 @@ export type BatchOperationResult = {
   succeeded: readonly string[];
   failed: readonly BatchItemFailure[];
   actionType: 'archive' | 'restore' | 'category';
+  targetCategory?: string;
 };
 
 export type ToastState = {
@@ -32,11 +35,12 @@ export type NotesPageProps = {
   totalPages?: number;
   totalItems?: number;
   onPageChange?: (page: number) => void;
+  showSearch?: boolean;
   // Search
   onSearchChange?: (value: string) => void;
   onClearSearch?: () => void;
   // Single note actions
-  onArchive?: (noteId: string) => void;
+  onArchive?: (noteId: string) => void | Promise<void>;
   onRestore?: (noteId: string) => void;
   mutatingNoteId?: string | null;
   mutationError?: string | null;
@@ -65,13 +69,13 @@ export type NotesPageProps = {
   onToggleSelect?: (noteId: string) => void;
   onSelectAll?: () => void;
   onClearSelection?: () => void;
-  onBatchArchive?: (noteIds: string[]) => void;
+  onBatchArchive?: (noteIds: string[]) => void | Promise<void>;
   onBatchRestore?: (noteIds: string[]) => void;
   onBatchCategoryChange?: (noteIds: string[], targetCategory: string) => void;
   batchResult?: BatchOperationResult | null;
   onClearBatchResult?: () => void;
-  onRetryBatch?: () => void;
-  onRetrySingle?: (noteId: string) => void;
+  onRetryBatch?: () => void | Promise<void>;
+  onRetrySingle?: (noteId: string) => void | Promise<void>;
   // Toast
   toast?: ToastState | null;
   onClearToast?: () => void;
@@ -80,7 +84,7 @@ export type NotesPageProps = {
 function formatStatus(status: NonNullable<NoteCardViewModel['status']>): string {
   if (status === 'draft') return '草稿';
   if (status === 'published') return '已发布';
-  if (status === 'archived') return '已归档';
+  if (status === 'archived') return '回收站';
   return String(status);
 }
 
@@ -91,6 +95,7 @@ export function NotesPage({
   totalPages = 1,
   totalItems = 0,
   onPageChange,
+  showSearch = false,
   onSearchChange,
   onClearSearch,
   onArchive,
@@ -124,6 +129,19 @@ export function NotesPage({
   toast,
   onClearToast,
 }: NotesPageProps) {
+  const [deletion, setDeletion] = useState<{ ids: string[]; run: () => void | Promise<void> } | null>(null);
+  const requestDelete = (ids: string[], run: () => void | Promise<void>) => setDeletion({ ids, run });
+  const location = useLocation();
+  const currentPathAndQuery = `${location.pathname}${location.search}`;
+  const navSourceState: NavigationSourceState = {
+    kind: 'admin_notes',
+    fromPath: currentPathAndQuery,
+    fromLabel: '← 返回文章列表',
+    get scrollY() {
+      return typeof window !== 'undefined' ? window.scrollY : 0;
+    },
+  };
+
   // Local fallbacks for uncontrolled usage
   const [localTab, setLocalTab] = useState('all');
   const [localCategory, setLocalCategory] = useState('');
@@ -202,7 +220,7 @@ export function NotesPage({
     { id: 'all', label: '全部', count: tabCounts?.all },
     { id: 'draft', label: '草稿', count: tabCounts?.draft },
     { id: 'published', label: '已发布', count: tabCounts?.published },
-    { id: 'archived', label: '已归档', count: tabCounts?.archived },
+    { id: 'archived', label: '回收站', count: tabCounts?.archived },
   ];
 
   const hasActiveFilters = Boolean(
@@ -229,138 +247,135 @@ export function NotesPage({
   return (
     <KnowledgeShell title="知识库工作区">
       <section className="knowledge-shell" aria-labelledby="knowledge-notes-title">
-        <header className="knowledge-shell__heading">
-          <div className="knowledge-shell__meta" aria-hidden="true">
-            <span>WORKSPACE // 0x02</span>
-            <span className="knowledge-shell__sep">·</span>
-            <span>文章管理</span>
+        <header className="knowledge-shell__heading knowledge-workbench-header">
+          <div className="knowledge-workbench-header__top">
+            <div className="knowledge-workbench-header__title-wrap">
+              <h1 id="knowledge-notes-title" className="knowledge-workbench-title" aria-label="文章管理">
+                内容
+              </h1>
+            </div>
+
+            <div className="knowledge-workbench-header__actions">
+              {showSearch ? <div className="knowledge-workbench-search">
+                <label className="knowledge-search-field" htmlFor="knowledge-note-search">
+                  <span className="sr-only">搜索文章</span>
+                  <input
+                    id="knowledge-note-search"
+                    type="search"
+                    placeholder="搜索文章标题、摘要或正文…"
+                    value={model.searchTerm}
+                    readOnly={!onSearchChange}
+                    onChange={(event) => onSearchChange?.(event.target.value)}
+                    aria-label="搜索文章"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="knowledge-button knowledge-button--quiet knowledge-search-clear-btn"
+                  disabled={!onClearSearch || !model.searchTerm}
+                  aria-disabled={!onClearSearch || !model.searchTerm}
+                  onClick={onClearSearch}
+                  aria-label="清除搜索"
+                >
+                  清除搜索
+                </button>
+              </div> : null}
+
+              <nav className="knowledge-page-actions" aria-label="文章管理操作">
+                <Link
+                  className="knowledge-button knowledge-button--primary"
+                  to="/knowledge/create"
+                  state={navSourceState}
+                  aria-label="新建文章"
+                >
+                  新建文档
+                </Link>
+                <Link className="knowledge-button knowledge-button--quiet sr-only" to="/knowledge">
+                  知识库概览
+                </Link>
+              </nav>
+            </div>
           </div>
-          <p className="knowledge-shell__eyebrow">知识库工作区</p>
-          <h1 id="knowledge-notes-title">文章管理</h1>
-          <p className="knowledge-overview__intro">
-            记录推导与实践，整理可复用的工程笔记。支持实时检索、分页浏览、归档与持续维护。
-          </p>
-          <nav className="knowledge-page-actions" aria-label="文章管理操作">
-            <Link className="knowledge-button knowledge-button--quiet" to="/knowledge">
-              知识库概览
-            </Link>
-            <Link className="knowledge-button knowledge-button--quiet" to="/knowledge/import">
-              导入 Markdown
-            </Link>
-            <Link
-              className="knowledge-button knowledge-button--primary"
-              to="/knowledge/notes/new"
-              aria-label="新建文章"
-            >
-              新建文章
-            </Link>
-          </nav>
         </header>
 
-        {/* 状态流转 Tabs */}
-        <div className="knowledge-tabs" role="tablist" aria-label="文章状态分组">
-          {tabs.map((t) => {
-            const isSelected = activeTab === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                id={`tab-${t.id}`}
-                data-tab={t.id}
-                data-status={t.id}
-                aria-selected={isSelected}
-                aria-controls="notes-panel"
-                className={`knowledge-tab${isSelected ? ' is-active' : ''}`}
-                onClick={() => handleTabChange(t.id)}
+        {/* 状态流转 Tabs 与辅助筛选 */}
+        <div className="knowledge-tabs-bar">
+          <div className="knowledge-tabs" role="tablist" aria-label="文章状态分组">
+            {tabs.map((t) => {
+              const isSelected = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  id={`tab-${t.id}`}
+                  data-tab={t.id}
+                  data-status={t.id}
+                  aria-selected={isSelected}
+                  aria-controls="notes-panel"
+                  className={`knowledge-tab${isSelected ? ' is-active' : ''}`}
+                  onClick={() => handleTabChange(t.id)}
+                >
+                  <span>{t.label}</span>
+                  {t.count !== undefined ? (
+                    <span className="knowledge-tab__badge">{t.count}</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="knowledge-filter-selects">
+            <label className="knowledge-select-wrap">
+              <span className="sr-only">按分类筛选</span>
+              <select
+                value={activeCategory}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                aria-label="按分类筛选"
+                className="knowledge-select"
               >
-                <span>{t.label}</span>
-                {t.count !== undefined ? (
-                  <span className="knowledge-tab__badge">{t.count}</span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 筛选与排序控制条 */}
-        <div className="knowledge-notes-controls">
-          <div className="knowledge-filter-bar">
-            <label className="knowledge-search-field" htmlFor="knowledge-note-search">
-              <span className="sr-only">搜索文章</span>
-              <input
-                id="knowledge-note-search"
-                type="search"
-                placeholder="搜索文章标题、摘要或正文…"
-                value={model.searchTerm}
-                readOnly={!onSearchChange}
-                onChange={(event) => onSearchChange?.(event.target.value)}
-                aria-label="搜索文章"
-              />
+                <option value="">全部分类</option>
+                {availableCategories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </label>
-            <button
-              type="button"
-              className="knowledge-button knowledge-button--quiet"
-              disabled={!onClearSearch || !model.searchTerm}
-              aria-disabled={!onClearSearch || !model.searchTerm}
-              onClick={onClearSearch}
-              aria-label="清除搜索"
-            >
-              清除搜索
-            </button>
 
-            <div className="knowledge-filter-selects">
-              <label className="knowledge-select-wrap">
-                <span className="sr-only">按分类筛选</span>
-                <select
-                  value={activeCategory}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                  aria-label="按分类筛选"
-                  className="knowledge-select"
-                >
-                  <option value="">全部分类</option>
-                  {availableCategories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <label className="knowledge-select-wrap">
+              <span className="sr-only">排序方式</span>
+              <select
+                value={activeSort}
+                onChange={(e) => handleSortChange(e.target.value)}
+                aria-label="排序方式"
+                className="knowledge-select"
+              >
+                <option value="updated_desc">最近更新</option>
+                <option value="published_desc">发布时间</option>
+                <option value="title_asc">标题字典序</option>
+              </select>
+            </label>
 
-              <label className="knowledge-select-wrap">
-                <span className="sr-only">排序方式</span>
-                <select
-                  value={activeSort}
-                  onChange={(e) => handleSortChange(e.target.value)}
-                  aria-label="排序方式"
-                  className="knowledge-select"
-                >
-                  <option value="updated_desc">最近更新</option>
-                  <option value="published_desc">发布时间</option>
-                  <option value="title_asc">标题字典序</option>
-                </select>
-              </label>
+            <label className="knowledge-toggle">
+              <input
+                type="checkbox"
+                checked={activePinned}
+                onChange={(e) => handlePinnedChange(e.target.checked)}
+                aria-label="仅看置顶"
+              />
+              <span>仅看置顶</span>
+            </label>
 
-              <label className="knowledge-toggle">
-                <input
-                  type="checkbox"
-                  checked={activePinned}
-                  onChange={(e) => handlePinnedChange(e.target.checked)}
-                  aria-label="仅看置顶"
-                />
-                <span>仅看置顶</span>
-              </label>
-
-              <label className="knowledge-toggle">
-                <input
-                  type="checkbox"
-                  checked={activeFeatured}
-                  onChange={(e) => handleFeaturedChange(e.target.checked)}
-                  aria-label="仅看精选"
-                />
-                <span>仅看精选</span>
-              </label>
-            </div>
+            <label className="knowledge-toggle">
+              <input
+                type="checkbox"
+                checked={activeFeatured}
+                onChange={(e) => handleFeaturedChange(e.target.checked)}
+                aria-label="仅看精选"
+              />
+              <span>仅看精选</span>
+            </label>
           </div>
         </div>
 
@@ -391,16 +406,19 @@ export function NotesPage({
                 <button
                   type="button"
                   className="knowledge-button knowledge-button--danger knowledge-button--small"
-                  onClick={() => onBatchArchive(selectedIds.slice())}
+                  onClick={() => {
+                    const ids = model.notes.filter((note) => selectedIds.includes(note.id) && !note.archived).map((note) => note.id);
+                    requestDelete(ids, () => onBatchArchive(ids));
+                  }}
                 >
-                  批量归档
+                  批量删除
                 </button>
               ) : null}
               {hasArchivedSelected && onBatchRestore ? (
                 <button
                   type="button"
                   className="knowledge-button knowledge-button--small"
-                  onClick={() => onBatchRestore(selectedIds.slice())}
+                  onClick={() => onBatchRestore(model.notes.filter((note) => selectedIds.includes(note.id) && note.archived).map((note) => note.id))}
                 >
                   批量恢复
                 </button>
@@ -444,7 +462,7 @@ export function NotesPage({
             <div className="knowledge-batch-result__header">
               <strong>
                 {batchResult.actionType === 'archive'
-                  ? `批量归档完成：${batchResult.succeeded.length} 篇成功，${batchResult.failed.length} 篇失败`
+                  ? `批量删除完成：${batchResult.succeeded.length} 篇成功，${batchResult.failed.length} 篇失败`
                   : batchResult.actionType === 'restore'
                     ? `批量恢复完成：${batchResult.succeeded.length} 篇成功，${batchResult.failed.length} 篇失败`
                     : `批量调整分类完成：${batchResult.succeeded.length} 篇成功，${batchResult.failed.length} 篇失败`}
@@ -472,7 +490,9 @@ export function NotesPage({
                         <button
                           type="button"
                           className="knowledge-button knowledge-button--small"
-                          onClick={() => onRetrySingle(f.id)}
+                          onClick={() => batchResult.actionType === 'archive'
+                            ? requestDelete([f.id], () => onRetrySingle(f.id))
+                            : onRetrySingle(f.id)}
                         >
                           重试
                         </button>
@@ -485,7 +505,9 @@ export function NotesPage({
                     <button
                       type="button"
                       className="knowledge-button knowledge-button--primary knowledge-button--small"
-                      onClick={onRetryBatch}
+                      onClick={() => batchResult.actionType === 'archive'
+                        ? requestDelete(batchResult.failed.map((item) => item.id), onRetryBatch)
+                        : onRetryBatch()}
                     >
                       重试失败项
                     </button>
@@ -531,15 +553,16 @@ export function NotesPage({
                   清除筛选条件
                 </button>
               </div>
-            </section>
+      </section>
           ) : (
             <section className="knowledge-empty-state" aria-labelledby="knowledge-empty-title">
-              <h2 id="knowledge-empty-title">知识库暂无文章</h2>
-              <p>记录推导与实践，沉淀属于你的技术知识资产。</p>
+              <h2 id="knowledge-empty-title">{activeTab === 'archived' ? '回收站为空' : '知识库暂无文章'}</h2>
+              <p>{activeTab === 'archived' ? '删除的文章会显示在这里，可恢复为草稿。' : '记录推导与实践，沉淀属于你的技术知识资产。'}</p>
               <div className="knowledge-empty-state__actions">
                 <Link
                   className="knowledge-button knowledge-button--primary"
-                  to="/knowledge/notes/new"
+                  to="/knowledge/create"
+                  state={navSourceState}
                 >
                   新建第一篇文章
                 </Link>
@@ -547,7 +570,7 @@ export function NotesPage({
                   导入 Markdown 文档
                 </Link>
               </div>
-            </section>
+      </section>
           )
         ) : null}
 
@@ -597,6 +620,7 @@ export function NotesPage({
                           <div className="knowledge-table__title-cell">
                             <Link
                               to={`/knowledge/notes/${note.id}`}
+                              state={navSourceState}
                               className="knowledge-table__title-link"
                             >
                               <strong>{note.title}</strong>
@@ -619,9 +643,17 @@ export function NotesPage({
                         <td>
                           <div className="knowledge-table__status-group">
                             {note.status ? (
-                              <span className={`knowledge-badge knowledge-badge--${note.status}`}>
-                                {formatStatus(note.status)}
-                              </span>
+                              <div className={`knowledge-status-indicator knowledge-status-indicator--${note.status}`}>
+                                <span
+                                  className={`knowledge-status-dot knowledge-status-dot--${note.status}`}
+                                  aria-hidden="true"
+                                />
+                                <span className={`knowledge-badge knowledge-badge--${note.status}`}>
+                                  {note.status === 'published' && extendedNote.hasUnpublishedEdits
+                                    ? '已发布 · 有未发布修改'
+                                    : formatStatus(note.status)}
+                                </span>
+                              </div>
                             ) : null}
                             {note.pinned ? (
                               <span
@@ -648,6 +680,7 @@ export function NotesPage({
                           <div className="knowledge-table__actions">
                             <Link
                               to={`/knowledge/notes/${note.id}`}
+                              state={navSourceState}
                               className="knowledge-action-btn"
                               aria-label={`编辑 ${note.title}`}
                             >
@@ -655,6 +688,7 @@ export function NotesPage({
                             </Link>
                             <Link
                               to={`/knowledge/notes/${note.id}/read`}
+                              state={navSourceState}
                               className="knowledge-action-btn"
                               aria-label={`阅读 ${note.title}`}
                             >
@@ -676,12 +710,20 @@ export function NotesPage({
                                 type="button"
                                 className="knowledge-action-btn knowledge-action-btn--danger"
                                 disabled={isMutating}
-                                onClick={() => onArchive(note.id)}
-                                aria-label={`归档 ${note.title}`}
+                                onClick={() => requestDelete([note.id], () => onArchive(note.id))}
+                                aria-label={`删除 ${note.title}`}
                               >
-                                归档
+                                删除
                               </button>
                             ) : null}
+                            <button
+                              type="button"
+                              className="knowledge-action-btn knowledge-action-btn--more"
+                              aria-label={`更多操作 ${note.title}`}
+                              title="更多操作"
+                            >
+                              ⋮
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -741,6 +783,13 @@ export function NotesPage({
               </button>
             ) : null}
           </aside>
+        ) : null}
+        {deletion ? (
+          <DeleteNotesDialog
+            titles={deletion.ids.map((id) => model.notes.find((note) => note.id === id)?.title ?? batchResult?.failed.find((item) => item.id === id)?.title ?? id)}
+            onConfirm={deletion.run}
+            onCancel={() => setDeletion(null)}
+          />
         ) : null}
       </section>
     </KnowledgeShell>

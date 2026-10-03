@@ -1,4 +1,4 @@
-﻿import { render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { extractHeadingsFromDocument, TiptapRenderer } from './TiptapRenderer';
 
@@ -116,5 +116,42 @@ describe('TiptapRenderer', () => {
     for (const text of screen.getAllByText('After image')) {
       expect(text.closest('p')).toBeInTheDocument();
     }
+  });
+
+  it('renders inline math, display block math, and math code blocks with KaTeX', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: '质能方程为 $E=mc^2$ 还有块级公式：' },
+            { type: 'text', text: '$$\\sum_{i=1}^n i = \\frac{n(n+1)}{2}$$' },
+          ],
+        },
+        {
+          type: 'codeBlock',
+          attrs: { language: 'math' },
+          content: [{ type: 'text', text: '\\int_0^\\infty e^{-x} dx = 1' }],
+        },
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: '$a^2 + b^2 = c^2$',
+              marks: [{ type: 'code' }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const { container } = render(<TiptapRenderer content={JSON.stringify(doc)} />);
+    const katexInline = container.querySelectorAll('.katex');
+    expect(katexInline.length).toBeGreaterThanOrEqual(3);
+
+    const katexDisplay = container.querySelectorAll('.katex-display');
+    expect(katexDisplay.length).toBeGreaterThanOrEqual(2);
   });
 });

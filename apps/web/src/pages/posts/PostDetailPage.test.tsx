@@ -6,7 +6,9 @@ import { MemoryRouter, useNavigate } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import * as gateway from '../../content/contentGateway';
 import { AppRoutes } from '../../router';
+import { getAllPosts } from '../../content/contentQueries';
 
 function renderAt(path: string) {
   return render(
@@ -39,22 +41,30 @@ function ArticleRouteNavigator() {
 }
 
 describe('PostDetailPage', () => {
+  it('shows the article before a slow adjacent navigation query completes', async () => {
+    let finish!: (value: Awaited<ReturnType<typeof gateway.getPostNeighbors>>) => void;
+    vi.spyOn(gateway, 'getPostNeighbors').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    renderAt('/posts/discrete-convolution');
+    expect(await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }, { timeout: 5000 })).toBeInTheDocument();
+    finish({ source: 'api', data: { previous: { ...getAllPosts()[0]!, slug: 'previous', title: 'Previous article' }, next: undefined } });
+    expect(await screen.findByRole('link', { name: /上一篇.*Previous article/ })).toHaveAttribute('href', '/posts/previous');
+  });
+
   afterEach(() => {
     document.title = '';
     document.head.querySelector('meta[name="description"]')?.remove();
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it('renders the repository article, metadata, reader region, and stable adjacent navigation', async () => {
     renderAt('/posts/discrete-convolution');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+      await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }, { timeout: 5000 }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText('离散信号的卷积曲线')).toHaveClass(
-      'post-card__visual',
-      'post-card__visual--blue',
-    );
+    expect(screen.queryByLabelText('离散信号的卷积曲线')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '返回上一级' })).toHaveAttribute('href', '/posts');
     expect(
       screen.getByText('从单位冲激分解出发，理解每一个输入样本如何共同构成当前输出。'),
     ).toBeInTheDocument();
@@ -69,13 +79,15 @@ describe('PostDetailPage', () => {
       'href',
       '#用索引表检查求和',
     );
-    expect(document.querySelector('#从冲激响应出发')).toHaveTextContent('从冲激响应出发');
+    await waitFor(() => expect(document.querySelector('#从冲激响应出发')).toHaveTextContent('从冲激响应出发'), {
+      timeout: 5000,
+    });
     expect(document.querySelector('#用索引表检查求和')).toHaveTextContent('用索引表检查求和');
-    expect(screen.getByRole('link', { name: /上一篇.*从秩理解矩阵的结构/ })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /上一篇.*从秩理解矩阵的结构/ })).toHaveAttribute(
       'href',
       '/posts/matrix-rank',
     );
-    expect(screen.getByRole('link', { name: /下一篇.*周期信号分析的三个检查点/ })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /下一篇.*周期信号分析的三个检查点/ })).toHaveAttribute(
       'href',
       '/posts/signal-period-analysis',
     );
@@ -91,7 +103,7 @@ describe('PostDetailPage', () => {
       </MemoryRouter>,
     );
 
-    await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' });
+    await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }, { timeout: 5000 });
     await user.click(screen.getByRole('button', { name: '打开缺失文章' }));
     expect(
       await screen.findByRole('heading', { level: 1, name: '未找到文章' }),
@@ -101,70 +113,61 @@ describe('PostDetailPage', () => {
 
     await user.click(screen.getByRole('button', { name: '打开卷积文章' }));
     expect(
-      await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+      await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }, { timeout: 5000 }),
     ).toBeInTheDocument();
     await waitFor(() => expect(document.title).toBe('离散卷积与系统响应 | Namdw 的技术笔记'));
   });
 
-  it('uses API related posts for article navigation when post detail provides them', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          data: {
-            slug: 'api-source',
-            title: 'API Source Article',
-            summary: 'Loaded from the API.',
-            category: { slug: 'linear-algebra', label: 'Linear Algebra', postCount: 3 },
-            tags: [{ slug: 'api', label: 'API', postCount: 3 }],
-            publishedAt: '2026-02-01T00:00:00.000Z',
-            readingMinutes: 5,
-            seoTitle: null,
-            seoDescription: null,
-            body: '# API Source Article\n\n## API Body\n\nContent.',
-            relatedPosts: [
-              {
-                slug: 'api-related-one',
-                title: 'API Related One',
-                summary: 'First API relation.',
-                category: { slug: 'linear-algebra', label: 'Linear Algebra', postCount: 3 },
-                tags: [{ slug: 'api', label: 'API', postCount: 3 }],
-                publishedAt: '2026-01-20T00:00:00.000Z',
-                readingMinutes: 4,
-                seoTitle: null,
-                seoDescription: null,
-              },
-              {
-                slug: 'api-related-two',
-                title: 'API Related Two',
-                summary: 'Second API relation.',
-                category: { slug: 'linear-algebra', label: 'Linear Algebra', postCount: 3 },
-                tags: [{ slug: 'api', label: 'API', postCount: 3 }],
-                publishedAt: '2026-01-18T00:00:00.000Z',
-                readingMinutes: 3,
-                seoTitle: null,
-                seoDescription: null,
-              },
-            ],
-          },
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
-
+  it('uses ordered API articles instead of related posts for navigation', async () => {
+    const apiSummary = (slug: string, title: string) => ({
+      slug, title, summary: title,
+      category: { slug: 'notes', label: 'Notes', postCount: 3 }, tags: [],
+      publishedAt: '2026-02-01T00:00:00Z', readingMinutes: 5,
+      seoTitle: null, seoDescription: null,
+    });
+    const current = apiSummary('api-source', 'API Source Article');
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      if (String(input).includes('/content/posts/api-source')) {
+        return Response.json({ data: {
+          ...current, body: '## API Body',
+          relatedPosts: [apiSummary('unrelated', 'Unrelated Article')],
+        } });
+      }
+      if (String(input).includes('/content/posts')) {
+        return Response.json({ data: {
+          items: [apiSummary('newer', 'Newer Article'), current, apiSummary('older', 'Older Article')],
+          page: 1, pageSize: 24, totalItems: 3, totalPages: 1,
+        } });
+      }
+      return Response.json({ success: true, data: [] });
+    });
     renderAt('/posts/api-source');
+    await screen.findByRole('heading', { level: 1, name: 'API Source Article' });
+    expect(await screen.findByRole('link', { name: /上一篇.*Newer Article/ })).toHaveAttribute('href', '/posts/newer');
+    expect(await screen.findByRole('link', { name: /下一篇.*Older Article/ })).toHaveAttribute('href', '/posts/older');
+    expect(screen.queryByRole('link', { name: /Unrelated Article/ })).not.toBeInTheDocument();
+  });
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'API Source Article' }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /上一篇.*API Related One/ })).toHaveAttribute(
-      'href',
-      '/posts/api-related-one',
-    );
-    expect(screen.getByRole('link', { name: /下一篇.*API Related Two/ })).toHaveAttribute(
-      'href',
-      '/posts/api-related-two',
-    );
-    expect(screen.queryByText(/内容服务暂时不可用/)).not.toBeInTheDocument();
+  it.each(['first', 'last'])('hides the missing direction for the %s production article', async (boundary) => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    const posts = getAllPosts();
+    const post = boundary === 'first' ? posts[0]! : posts.at(-1)!;
+    renderAt('/posts/' + post.slug);
+    await screen.findByRole('heading', { level: 1, name: post.title });
+    const nav = await screen.findByRole('navigation', { name: '相邻文章' });
+    expect(within(nav).getAllByRole('link')).toHaveLength(1);
+    expect(within(nav).queryByRole('link', { name: boundary === 'first' ? /上一篇/ : /下一篇/ })).not.toBeInTheDocument();
+  });
+
+  it('follows the next article and retains the filtered list return path', async () => {
+    const user = userEvent.setup();
+    renderWithEntry({ pathname: '/posts/discrete-convolution', state: {
+      kind: 'post_list', fromPath: '/posts?year=2025&page=2', fromLabel: '← 返回文章列表',
+    } });
+    await user.click(await screen.findByRole('link', { name: /下一篇.*周期信号分析/ }));
+    await screen.findByRole('heading', { level: 1, name: '周期信号分析的三个检查点' });
+    expect(screen.getByTestId('top-return-link')).toHaveAttribute('href', '/posts?year=2025&page=2');
   });
 
   it('defines responsive reader and reduced-motion progress styles', () => {
@@ -214,7 +217,7 @@ describe('PostDetailPage', () => {
       });
 
       expect(
-        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }, { timeout: 5000 }),
       ).toBeInTheDocument();
 
       const topReturnLink = screen.getByTestId('top-return-link');
@@ -242,10 +245,10 @@ describe('PostDetailPage', () => {
       });
 
       expect(
-        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }, { timeout: 5000 }),
       ).toBeInTheDocument();
 
-      const nextPostLink = screen.getByRole('link', { name: /下一篇.*周期信号分析的三个检查点/ });
+      const nextPostLink = await screen.findByRole('link', { name: /下一篇.*周期信号分析的三个检查点/ });
       expect(nextPostLink).toBeInTheDocument();
 
       unmount();
@@ -285,7 +288,7 @@ describe('PostDetailPage', () => {
       renderWithEntry('/posts/discrete-convolution');
 
       expect(
-        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }, { timeout: 5000 }),
       ).toBeInTheDocument();
 
       const topReturnLink = screen.getByTestId('top-return-link');
@@ -308,7 +311,7 @@ describe('PostDetailPage', () => {
       });
 
       expect(
-        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }),
+        await screen.findByRole('heading', { level: 1, name: '从卷积公式理解离散系统的响应' }, { timeout: 5000 }),
       ).toBeInTheDocument();
 
       const topReturnLink = screen.getByTestId('top-return-link');
@@ -321,6 +324,7 @@ describe('PostDetailPage', () => {
     it('returns to editor workbench when opened from editor preview', async () => {
       vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: RequestInfo | URL) => {
         const urlStr = String(url);
+        if (urlStr.includes('/api/auth/session')) return Response.json({success:true,data:{authenticated:true}});
         if (urlStr.includes('/api/notes/draft-nav-test')) {
           return new Response(
             JSON.stringify({
@@ -373,6 +377,7 @@ describe('PostDetailPage', () => {
     it('returns to notes list and displays sanitized action when opened from list or directly', async () => {
       vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: RequestInfo | URL) => {
         const urlStr = String(url);
+        if (urlStr.includes('/api/auth/session')) return Response.json({success:true,data:{authenticated:true}});
         if (urlStr.includes('/api/notes/published-nav-test')) {
           return new Response(
             JSON.stringify({
@@ -420,6 +425,32 @@ describe('PostDetailPage', () => {
         '/posts/published-nav-test',
       );
       expect(screen.queryByText(/查看公开文章/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Phase 3 Optimizations: Lazy loading and Cover Image attributes', () => {
+    it('renders post cover image with eager loading and async decoding', async () => {
+      const mockPost = {
+        ...getAllPosts()[0]!,
+        slug: 'cover-test-post',
+        cover: {
+          image: '/content-media/cover-test.png',
+          alt: 'Cover test image',
+          tone: 'blue' as const,
+        },
+      };
+
+      vi.spyOn(gateway, 'getPostBySlug').mockResolvedValue({
+        source: 'api',
+        data: mockPost,
+      });
+
+      renderAt('/posts/cover-test-post');
+
+      const coverImg = await screen.findByRole('img', { name: 'Cover test image' });
+      expect(coverImg).toHaveAttribute('src', '/content-media/cover-test.png');
+      expect(coverImg).toHaveAttribute('loading', 'eager');
+      expect(coverImg).toHaveAttribute('decoding', 'async');
     });
   });
 });

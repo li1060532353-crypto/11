@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { NavLink, useInRouterContext } from 'react-router-dom';
+﻿import { useEffect, useRef, useState } from 'react';
+import { NavLink, useInRouterContext, useLocation } from 'react-router-dom';
 
 import { Container } from '../ui/Container';
 import { SpotlightModal } from '../spotlight/SpotlightModal';
@@ -7,7 +7,7 @@ import { useSpotlight } from '../spotlight/useSpotlight';
 
 const navigation = [
   { label: '文章', href: '/posts' },
-  { label: '知识库', href: '/knowledge' },
+  { label: '工作台', href: '/knowledge' },
   { label: '项目', href: '/projects' },
   { label: '关于', href: '/about' },
 ] as const;
@@ -32,6 +32,14 @@ function NavigationLinks({ onNavigate }: { onNavigate?: () => void }) {
       ))}
     </ul>
   );
+}
+
+function WorkspaceLinks({ onNavigate }: { onNavigate: () => void }) {
+  const inRouter = useInRouterContext();
+  const items = [{ label: '概览', href: '/knowledge' }, { label: '文章管理', href: '/knowledge/notes' }, { label: '新建文档', href: '/knowledge/create' }];
+  return <ul className="nav-list">{items.map((item) => <li key={item.href}>{inRouter
+    ? <NavLink end className="nav-link" to={item.href} onClick={onNavigate}>{item.label}</NavLink>
+    : <a className="nav-link" href={item.href} onClick={onNavigate}>{item.label}</a>}</li>)}</ul>;
 }
 
 function ThemeToggle() {
@@ -84,10 +92,54 @@ function ThemeToggle() {
 }
 
 export function SiteHeader() {
+  const inRouter = useInRouterContext();
+  return inRouter ? <RoutedSiteHeader /> : <SiteHeaderContent pathname="" />;
+}
+function RoutedSiteHeader() {
+  const { pathname } = useLocation();
+  return <SiteHeaderContent pathname={pathname} />;
+}
+function SiteHeaderContent({ pathname }: { pathname: string }) {
   const [isOpen, setIsOpen] = useState(false);
-  const spotlight = useSpotlight();
+  const workspace = pathname.startsWith('/knowledge');
+  const spotlight = useSpotlight(!workspace);
+  const drawer = useRef<HTMLElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  useEffect(() => setIsOpen(false), [pathname]);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        toggle.current?.focus();
+      }
+      if (event.key === 'Tab' && window.matchMedia?.('(max-width: 63.99rem)').matches) {
+        const elements = drawer.current?.querySelectorAll<HTMLElement>('a, button');
+        if (!elements?.length) return;
+        const first = elements[0]!;
+        const last = elements[elements.length - 1]!;
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    const previousOverflow = document.body.style.overflow;
+    if (window.matchMedia?.('(max-width: 63.99rem)').matches) document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKey);
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', handleKey); };
+  }, [isOpen]);
 
   return (
+    <>
+      <button className="site-drawer-edge" type="button" aria-label="展开左侧导航" aria-expanded={isOpen}
+        onPointerEnter={(event) => { if (event.pointerType === 'mouse') setIsOpen(true); }} onClick={() => setIsOpen(true)} />
+      {isOpen ? <button className="site-drawer-backdrop" type="button" aria-label="收起导航" onClick={() => { setIsOpen(false); toggle.current?.focus(); }} /> : null}
+      <nav ref={drawer} id="mobile-navigation" className="site-drawer" aria-label="主导航" data-open={isOpen} inert={!isOpen}
+        onPointerLeave={(event) => { if (event.pointerType === 'mouse' && !drawer.current?.contains(document.activeElement)) setIsOpen(false); }}>
+        <div className="site-drawer__heading"><strong>namdw.</strong><button className="knowledge-button" type="button" aria-label="关闭导航" onClick={() => { setIsOpen(false); toggle.current?.focus(); }}>关闭</button></div>
+        <NavigationLinks onNavigate={() => setIsOpen(false)} />
+        <p className="site-drawer__label">内容工作台</p>
+        <WorkspaceLinks onNavigate={() => setIsOpen(false)} />
+      </nav>
     <header className="site-header">
       <Container className="site-header__inner">
         <a className="brand" href="/" aria-label="namdw 首页">
@@ -95,10 +147,7 @@ export function SiteHeader() {
           <span className="site-header__context">工程学习笔记</span>
         </a>
         <div className="site-header__actions">
-          <nav className="desktop-nav" aria-label="主导航">
-            <NavigationLinks />
-          </nav>
-          <button
+          {!workspace ? <button
             type="button"
             className="spotlight-trigger"
             aria-label="搜索 (⌘K)"
@@ -119,24 +168,26 @@ export function SiteHeader() {
               <path d="m21 21-4.3-4.3" />
             </svg>
             <kbd className="spotlight-trigger__kbd">⌘K</kbd>
-          </button>
+          </button> : null}
           <ThemeToggle />
           <button
+            ref={toggle}
             className="menu-toggle"
             type="button"
             aria-label={isOpen ? '关闭导航' : '打开导航'}
             aria-expanded={isOpen}
             aria-controls="mobile-navigation"
-            onClick={() => setIsOpen((open) => !open)}
+            onClick={() => {
+              setIsOpen((open) => !open);
+              if (!isOpen) requestAnimationFrame(() => drawer.current?.querySelector<HTMLElement>('button, a')?.focus());
+            }}
           >
             <span className="menu-toggle__lines" aria-hidden="true" />
           </button>
         </div>
       </Container>
-      <nav id="mobile-navigation" className="mobile-nav" aria-label="移动端导航" hidden={!isOpen}>
-        <NavigationLinks onNavigate={() => setIsOpen(false)} />
-      </nav>
-      {spotlight.isOpen ? <SpotlightModal onClose={spotlight.close} /> : null}
+      {!workspace && spotlight.isOpen ? <SpotlightModal onClose={spotlight.close} /> : null}
     </header>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+﻿import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
@@ -61,7 +61,7 @@ describe('NotesPage Component', () => {
     const allTab = screen.getByRole('tab', { name: /全部/ });
     const draftTab = screen.getByRole('tab', { name: /草稿/ });
     const publishedTab = screen.getByRole('tab', { name: /已发布/ });
-    const archivedTab = screen.getByRole('tab', { name: /已归档/ });
+    const archivedTab = screen.getByRole('tab', { name: /回收站/ });
 
     expect(allTab).toHaveAttribute('aria-selected', 'false');
     expect(draftTab).toHaveAttribute('aria-selected', 'true');
@@ -100,16 +100,7 @@ describe('NotesPage Component', () => {
       </MemoryRouter>,
     );
 
-    const searchInput = screen.getByLabelText('搜索文章');
-    expect(searchInput).toHaveValue('分布式');
-    fireEvent.change(searchInput, { target: { value: '网络' } });
-    expect(onSearchChange).toHaveBeenCalledWith('网络');
-
-    const clearButton = screen.getByRole('button', { name: '清除搜索' });
-    expect(clearButton).not.toBeDisabled();
-    fireEvent.click(clearButton);
-    expect(onClearSearch).toHaveBeenCalled();
-
+    expect(screen.queryByLabelText('搜索文章')).not.toBeInTheDocument();
     const categorySelect = screen.getByLabelText('按分类筛选');
     fireEvent.change(categorySelect, { target: { value: '网络协议' } });
     expect(onCategoryChange).toHaveBeenCalledWith('网络协议');
@@ -158,9 +149,11 @@ describe('NotesPage Component', () => {
     expect(readButtons[0]).toHaveTextContent('阅读');
     expect(readButtons[0]).toHaveAttribute('href', '/knowledge/notes/note-1/read');
 
-    const archiveButton = screen.getByRole('button', { name: '归档 分布式共识推导' });
-    expect(archiveButton).toHaveTextContent('归档');
+    const archiveButton = screen.getByRole('button', { name: '删除 分布式共识推导' });
+    expect(archiveButton).toHaveTextContent('删除');
     fireEvent.click(archiveButton);
+    expect(onArchive).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '移入回收站' }));
     expect(onArchive).toHaveBeenCalledWith('note-1');
 
     const restoreButton = screen.getByRole('button', { name: '恢复 前端架构演进史' });
@@ -197,8 +190,10 @@ describe('NotesPage Component', () => {
     expect(screen.getByText(/已选中/)).toHaveTextContent('已选中 1 篇文章');
 
     // Batch actions available
-    const batchArchiveBtn = screen.getByRole('button', { name: '批量归档' });
+    const batchArchiveBtn = screen.getByRole('button', { name: '批量删除' });
     fireEvent.click(batchArchiveBtn);
+    expect(onBatchArchive).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '移入回收站' }));
     expect(onBatchArchive).toHaveBeenCalledWith(['note-1']);
 
     // Check row 3 (archived)
@@ -208,7 +203,7 @@ describe('NotesPage Component', () => {
 
     const batchRestoreBtn = screen.getByRole('button', { name: '批量恢复' });
     fireEvent.click(batchRestoreBtn);
-    expect(onBatchRestore).toHaveBeenCalledWith(['note-1', 'note-3']);
+    expect(onBatchRestore).toHaveBeenCalledWith(['note-3']);
 
     // Batch category change
     const categorySelect = screen.getByLabelText('批量调整分类');
@@ -221,7 +216,7 @@ describe('NotesPage Component', () => {
     expect(screen.queryByRole('toolbar', { name: '批量管理操作栏' })).not.toBeInTheDocument();
   });
 
-  it('displays item-by-item batch feedback and allows retrying failed items (LIST-04)', () => {
+  it('displays item-by-item batch feedback and allows retrying failed items (LIST-04)', async () => {
     const onRetryBatch = vi.fn();
     const onRetrySingle = vi.fn();
     const onClearBatchResult = vi.fn();
@@ -253,7 +248,7 @@ describe('NotesPage Component', () => {
     // Feedback banner shows explicit success and failure count
     const feedback = screen.getByRole('region', { name: '批量操作反馈' });
     expect(feedback).toBeInTheDocument();
-    expect(within(feedback).getByText(/批量归档完成：2 篇成功，1 篇失败/)).toBeInTheDocument();
+    expect(within(feedback).getByText(/批量删除完成：2 篇成功，1 篇失败/)).toBeInTheDocument();
     expect(within(feedback).getByText(/网络协议底层探秘/)).toBeInTheDocument();
     expect(within(feedback).getByText(/发生并发冲突/)).toBeInTheDocument();
 
@@ -264,10 +259,15 @@ describe('NotesPage Component', () => {
     // Retrying failed items
     const retryBatchBtn = screen.getByRole('button', { name: '重试失败项' });
     fireEvent.click(retryBatchBtn);
+    expect(onRetryBatch).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '移入回收站' }));
     expect(onRetryBatch).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
 
     const retrySingleBtn = screen.getByRole('button', { name: '重试' });
     fireEvent.click(retrySingleBtn);
+    expect(onRetrySingle).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '移入回收站' }));
     expect(onRetrySingle).toHaveBeenCalledWith('note-2');
 
     const closeBtn = screen.getByRole('button', { name: '关闭批量操作反馈' });
@@ -287,7 +287,7 @@ describe('NotesPage Component', () => {
     expect(screen.getByRole('heading', { name: '知识库暂无文章' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '新建第一篇文章' })).toHaveAttribute(
       'href',
-      '/knowledge/notes/new',
+      '/knowledge/create',
     );
     expect(screen.getByRole('link', { name: '导入 Markdown 文档' })).toHaveAttribute(
       'href',
@@ -321,13 +321,13 @@ describe('NotesPage Component', () => {
       <MemoryRouter>
         <NotesPage
           model={richNotesFixture}
-          toast={{ text: '文章已归档', actionLabel: '撤销', onAction: onUndo }}
+          toast={{ text: '文章回收站', actionLabel: '撤销', onAction: onUndo }}
           onClearToast={onClearToast}
         />
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('status')).toHaveTextContent('文章已归档');
+    expect(screen.getByRole('status')).toHaveTextContent('文章回收站');
     const undoBtn = screen.getByRole('button', { name: '撤销' });
     fireEvent.click(undoBtn);
     expect(onUndo).toHaveBeenCalled();
@@ -410,7 +410,7 @@ describe('KnowledgeNotesRoute URL Two-Way Binding & Integration (LIST-01, LIST-0
     });
   });
 
-  it('initializes tab, category, and search state from URL query parameters (LIST-01)', async () => {
+  it('initializes filters but ignores obsolete workspace search parameters', async () => {
     render(
       <MemoryRouter initialEntries={['/knowledge/notes?tab=draft&category=系统设计&q=架构']}>
         <Routes>
@@ -424,7 +424,6 @@ describe('KnowledgeNotesRoute URL Two-Way Binding & Integration (LIST-01, LIST-0
       expect.objectContaining({
         status: 'draft',
         category: '系统设计',
-        q: '架构',
       }),
     );
   });
@@ -464,10 +463,46 @@ describe('KnowledgeNotesRoute URL Two-Way Binding & Integration (LIST-01, LIST-0
     );
 
     // Wait for the note to render
-    const archiveBtn = await screen.findByRole('button', { name: '归档 末项文章' });
+    const archiveBtn = await screen.findByRole('button', { name: '删除 末项文章' });
     expect(archiveBtn).toBeInTheDocument();
 
     fireEvent.click(archiveBtn);
+    expect(archiveMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '移入回收站' }));
     expect(archiveMock).toHaveBeenCalledWith('note-last');
   });
+});
+
+it('opens exactly one deletion dialog when retrying from an empty list', () => {
+  render(<MemoryRouter><NotesPage model={emptyNotesFixture} state="empty" onRetryBatch={vi.fn()} batchResult={{total:1,succeeded:[],failed:[{id:'missing',title:'失败文章',error:'网络错误'}],actionType:'archive'}} /></MemoryRouter>);
+  fireEvent.click(screen.getByRole('button', { name: '重试失败项' }));
+  expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+  expect(within(screen.getByRole('alertdialog')).getByText('失败文章')).toBeInTheDocument();
+});
+
+it('preserves other batch failures after retrying one deleted article', async () => {
+  vi.restoreAllMocks();
+  const base = {slug:'test',summary:'',category:'系统设计',contentJson:'{}',contentText:'',status:'draft' as const,isPinned:false,reviewCount:0,createdAt:'2026-10-02',updatedAt:'2026-10-02',lastReviewedAt:null};
+  vi.spyOn(knowledgeApi, 'loadKnowledgeNotes').mockResolvedValue({items:[{...base,id:'a',title:'文章甲'},{...base,id:'b',title:'文章乙'}],page:1,pageSize:20,totalItems:2,totalPages:1});
+  const remove = vi.spyOn(knowledgeApi, 'archiveKnowledgeNote').mockRejectedValueOnce(new Error()).mockRejectedValueOnce(new Error()).mockResolvedValue({} as never);
+  render(<MemoryRouter><KnowledgeNotesRoute /></MemoryRouter>);
+  await screen.findByLabelText('选择文章 文章甲');
+  fireEvent.click(screen.getByLabelText('全选当前页文章'));
+  fireEvent.click(screen.getByRole('button', {name:'批量删除'}));
+  expect(remove).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', {name:'移入回收站'}));
+  await screen.findByText('批量删除完成：0 篇成功，2 篇失败');
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+  fireEvent.click(screen.getAllByRole('button', {name:/^重试$/})[0]!);
+  fireEvent.click(screen.getByRole('button', {name:'移入回收站'}));
+  await screen.findByText('批量删除完成：1 篇成功，1 篇失败');
+  expect(screen.getByText(/《文章乙》/)).toBeInTheDocument();
+  expect(remove).toHaveBeenLastCalledWith('a');
+});
+
+it('clamps an emptied recycle-bin page to the last valid page', async () => {
+  vi.restoreAllMocks();
+  const load = vi.spyOn(knowledgeApi, 'loadKnowledgeNotes').mockResolvedValue({items:[],page:2,pageSize:20,totalItems:0,totalPages:0});
+  render(<MemoryRouter initialEntries={['/knowledge/notes?tab=archived&page=2']}><KnowledgeNotesRoute /></MemoryRouter>);
+  await waitFor(() => expect(load).toHaveBeenCalledWith(expect.objectContaining({status:'archived',page:1})));
 });

@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+﻿import { useCallback, useId, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   parseMarkdownToTiptap,
@@ -9,7 +9,7 @@ import {
 import { extractHeadingsFromDocument, TiptapRenderer } from '../components/reading/TiptapRenderer';
 import { TableOfContents } from '../components/reading/TableOfContents';
 import { Container } from '../components/ui/Container';
-import { DraftingGridBackdrop } from '../components/ui/DraftingGridBackdrop';
+import { KnowledgeShell } from '../knowledge-ui/KnowledgeShell';
 import { importMarkdownNote } from './knowledge-api';
 import { invalidateDynamicContent } from '../content/dynamicContentSync';
 import '../knowledge-ui/knowledge.css';
@@ -42,6 +42,8 @@ export function KnowledgeImportRoute() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formIdPrefix = useId();
   const [step, setStep] = useState<Step>('select');
+  const [fileMessage, setFileMessage] = useState('');
+  const [authExpired, setAuthExpired] = useState(false);
   const [items, setItems] = useState<FileItem[]>([]);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [mobileView, setMobileView] = useState<'info' | 'preview'>('info');
@@ -53,6 +55,7 @@ export function KnowledgeImportRoute() {
 
   // Helper to safely parse markdown content
   const parseContentSafely = useCallback((content: string, filename: string): MarkdownConversionResult => {
+    content = content.replace(/^\uFEFF/, '');
     // Check for corrupted or non-text characters
     if (content.includes('\0')) {
       throw new Error('Markdown 结构解析失败: 文件包含非法不可解析字符');
@@ -70,6 +73,7 @@ export function KnowledgeImportRoute() {
       /\.(?:md|markdown|txt)$/i.test(file.name),
     );
 
+    setFileMessage(validFiles.length !== fileList.length ? '仅支持 .md、.markdown、.txt 文件；其他格式未导入。' : '');
     if (validFiles.length === 0) return;
 
     // Detect duplicate file names in incoming batch
@@ -207,6 +211,7 @@ export function KnowledgeImportRoute() {
     if (e.target.files?.length) {
       handleFiles(e.target.files);
     }
+    e.target.value = '';
   };
 
   // Execute import for a single item by index
@@ -301,7 +306,8 @@ export function KnowledgeImportRoute() {
       }
       if (err && typeof err === 'object' && 'kind' in err) {
         const kind = (err as { kind: string }).kind;
-        if (kind === 'network') errorMsg = '网络请求超时';
+        if (kind === 'access') { errorMsg = '登录已失效，请重新登录后重试，已选择的文件会保留'; setAuthExpired(true); }
+        else if (kind === 'network') errorMsg = '网络请求超时';
         else if (kind === 'repository') errorMsg = '服务器存储异常';
         else if (kind === 'validation') errorMsg = '数据校验未通过';
         else if (kind === 'conflict') errorMsg = '检测到重复文章，建议确认是否覆盖';
@@ -426,8 +432,7 @@ export function KnowledgeImportRoute() {
   const hasDuplicateWarning = items.some((it) => it.isDuplicate || it.status === 'skipped');
 
   return (
-    <div className="page-canvas knowledge-import-canvas">
-      <DraftingGridBackdrop />
+    <KnowledgeShell title="上传 Markdown 文件">
       <Container>
         <header className="knowledge-shell__heading" style={{ marginBottom: '2rem' }}>
           <div className="knowledge-shell__meta">
@@ -440,6 +445,7 @@ export function KnowledgeImportRoute() {
             支持完整导入表格、代码块、列表与链接。所见即所存，严格保证排版一致性。
           </p>
           <nav className="knowledge-page-actions" aria-label="快捷入口">
+            <Link className="knowledge-button knowledge-button--quiet" to="/knowledge/create">← 返回新建文档</Link>
             <Link className="knowledge-button knowledge-button--quiet" to="/knowledge/notes">
               ← 返回笔记列表
             </Link>
@@ -459,6 +465,8 @@ export function KnowledgeImportRoute() {
           </div>
         </div>
 
+        {fileMessage && <p role="alert">{fileMessage}</p>}
+        {authExpired && <p role="alert">登录已失效。<a href="/login?returnTo=%2Fknowledge%2Fimport" target="_blank" rel="noopener noreferrer">在新窗口重新登录</a>后返回此页重试，文件队列会保留。</p>}
         {/* STEP 1: Select files */}
         {step === 'select' ? (
           <section className="knowledge-import-dropzone-section">
@@ -470,7 +478,7 @@ export function KnowledgeImportRoute() {
               onClick={() => fileInputRef.current?.click()}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
               aria-label="拖拽或点击上传 Markdown 文件"
             >
               <input
@@ -480,6 +488,7 @@ export function KnowledgeImportRoute() {
                 accept=".md,.markdown,.txt"
                 style={{ display: 'none' }}
                 onChange={onFileInputChange}
+                onClick={(e) => e.stopPropagation()}
               />
               <div className="dropzone-icon" aria-hidden="true">
                 <svg
@@ -1036,6 +1045,6 @@ export function KnowledgeImportRoute() {
           </section>
         ) : null}
       </Container>
-    </div>
+    </KnowledgeShell>
   );
 }

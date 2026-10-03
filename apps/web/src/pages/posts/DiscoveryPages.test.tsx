@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+﻿import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
@@ -60,11 +60,12 @@ describe('discovery pages', () => {
   });
 
   it('restores a canonical taxonomy selection from a display-case query value', async () => {
-    renderAt('/posts?tag=STM32');
+    const { user } = renderAt('/posts?tag=STM32');
 
     await screen.findByRole('article', { name: /STM32 与 ESP-01S/ });
-    expect(screen.getByRole('combobox', { name: '标签' })).toHaveValue('stm32');
-    expect(screen.getByRole('option', { name: 'STM32' })).toHaveProperty('selected', true);
+    expect(screen.getByRole('combobox', { name: '标签' })).toHaveTextContent('STM32');
+    await user.click(screen.getByRole('combobox', { name: '标签' }));
+    expect(screen.getByRole('option', { name: 'STM32' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('article', { name: /STM32 与 ESP-01S/ })).toBeInTheDocument();
   });
 

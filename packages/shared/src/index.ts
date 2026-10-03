@@ -60,3 +60,11 @@ export type {
 } from './knowledge';
 export { parseMarkdownToTiptap } from './markdown-converter';
 export type { ConvertedMetadata, MarkdownConversionResult } from './markdown-converter';
+export type {
+  PublicCoverTone,
+  PublicPostSummary,
+  PublicPostDetail,
+  PublicNeighborPost,
+  PublicPostNeighbors,
+  PublicPostListResponse,
+} from './public-content';

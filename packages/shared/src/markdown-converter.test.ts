@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+﻿import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -6,6 +6,14 @@ import { parseMarkdownToTiptap } from './markdown-converter';
 import { parseTiptapDocument } from '../../../functions/lib/notes';
 
 describe('parseMarkdownToTiptap', () => {
+  it('preserves private images as validated block nodes and leaves fenced examples as code', () => {
+    const source =
+      'Before\n![shot](/api/assets/asset-1?inline=1)\nAfter\n\n```md\n![example](/api/assets/asset-2?inline=1)\n```';
+    const result = parseMarkdownToTiptap(source, 'images.md', { preserveFirstHeading: true });
+    const doc = parseTiptapDocument(result.documentJson);
+    expect(doc.content![1]).toEqual({ type: 'image', attrs: { assetId: 'asset-1', alt: 'shot' } });
+    expect(doc.content![3]!.type).toBe('codeBlock');
+  });
   it('successfully converts the sample english reading training plan into a valid Tiptap document', () => {
     const filePath = resolve(
       process.cwd(),
@@ -170,5 +178,41 @@ describe('parseMarkdownToTiptap', () => {
     expect(result.warnings.some((w) => w.type === 'html')).toBe(true);
     expect(result.contentText).toContain('强调文本');
     expect(result.contentText).toContain('容器文本');
+  });
+
+  it('never hangs or loops infinitely on lines with pipe characters or malformed tables', () => {
+    const malformed = `
+| 仅仅是一行以竖线开头的文字
+| 另一行文字 | 没有第二行分隔线
+一些普通段落文字 | 包含竖线
+
+| 表头1 | 表头2 |
+普通文字打断了表格
+`;
+    const result = parseMarkdownToTiptap(malformed, 'pipe-test.md');
+    expect(result.document.content.length).toBeGreaterThan(0);
+    expect(() => parseTiptapDocument(result.documentJson)).not.toThrow();
+  });
+
+  it('preserves multi-line and single-line block math formula blocks intact', () => {
+    const markdown = `
+# 数学章节
+
+单行公式块：
+$$E = mc^2$$
+
+多行公式块：
+$$
+(f * g)[n] = \\sum_{k=-\\infty}^{\\infty} f[k] g[n - k]
+$$
+
+正文包含行内公式 $x[n]$ 和说明。
+`;
+    const result = parseMarkdownToTiptap(markdown, 'math-doc.md');
+    expect(() => parseTiptapDocument(result.documentJson)).not.toThrow();
+    expect(result.warnings.filter((w) => w.type === 'math').length).toBeGreaterThanOrEqual(3);
+    expect(result.contentText).toContain('E = mc^2');
+    expect(result.contentText).toContain('\\sum_{k=-\\infty}^{\\infty}');
+    expect(result.contentText).toContain('$x[n]$');
   });
 });

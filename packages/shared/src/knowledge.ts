@@ -1,4 +1,4 @@
-export const noteStatuses = ['draft', 'published', 'archived'] as const;
+﻿export const noteStatuses = ['draft', 'published', 'archived'] as const;
 export type NoteStatus = (typeof noteStatuses)[number];
 
 export const highlightKinds = ['core', 'mistake', 'mastered', 'method', 'investigate'] as const;
@@ -141,6 +141,7 @@ export type BatchOperationResult = {
     title: string;
     error: string;
   }[];
+  targetCategory?: string;
 };
 
 export type PublishNoteRequest = {
@@ -158,6 +159,7 @@ export type RestoreVersionRequest = {
 export type Pagination = { page: number; pageSize: number; totalItems: number; totalPages: number };
 export type Paginated<T> = Pagination & { items: readonly T[] };
 export type NoteListQuery = {
+  excludeArchived?: boolean;
   page?: number;
   pageSize?: number;
   status?: NoteStatus;
@@ -188,7 +190,7 @@ export type NoteVersionRecord = Pick<
 >;
 export type SearchResult = Pick<
   NoteRecord,
-  'id' | 'title' | 'summary' | 'slug' | 'category' | 'updatedAt'
+  'id' | 'title' | 'summary' | 'slug' | 'category' | 'updatedAt' | 'publishedAt'
 > & { excerpt: string; tags: readonly string[] };
 export type KnowledgeStats = {
   total: number;
@@ -251,6 +253,9 @@ export type SearchQuery = {
   pageSize?: number;
   status?: NoteStatus | 'all';
   category?: string;
+  pinned?: boolean;
+  featured?: boolean;
+  sort?: NoteSortOption;
 };
 export type RoadmapListQuery = { status?: RoadmapStatus };
 export const assetUploadRoute = {

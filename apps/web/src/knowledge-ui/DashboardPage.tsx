@@ -1,4 +1,4 @@
-import type { DashboardViewModel, NoteCardViewModel } from './fixtures';
+﻿import type { DashboardViewModel, NoteCardViewModel } from './fixtures';
 import { Link } from 'react-router-dom';
 import { KnowledgeShell } from './KnowledgeShell';
 import './knowledge.css';
@@ -51,11 +51,8 @@ export function DashboardPage({ model, state = 'ready' }: DashboardPageProps) {
           </p>
           {model ? <p className="knowledge-shell__subtle">{model.updatedLabel}</p> : null}
           <nav className="knowledge-page-actions" aria-label="知识库快捷操作">
-            <Link className="knowledge-button knowledge-button--primary" to="/knowledge/notes/new">
-              新建笔记
-            </Link>
-            <Link className="knowledge-button knowledge-button--quiet" to="/knowledge/import">
-              导入 Markdown
+            <Link className="knowledge-button knowledge-button--primary" to="/knowledge/create">
+              新建文档
             </Link>
             <Link className="knowledge-button knowledge-button--quiet" to="/knowledge/notes">
               查看全部笔记

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Continuous Drafting Grid Backdrop
  *
  * Lightweight, 1:1 CSS pixel-accurate CAD drafting grid.
- * Guarantees exactly 40px grid pitch across all screen resolutions (no viewBox distortion).
+ * Guarantees exactly 64px grid pitch across all screen resolutions (no viewBox distortion).
  * Carries zero decorative illustrations, text, or IDs to allow continuous page-level rendering.
  */
 export function DraftingGridBackdrop({ className = '' }: { className?: string }) {
@@ -17,12 +17,12 @@ export function DraftingGridBackdrop({ className = '' }: { className?: string })
         <defs>
           <pattern
             id="cad-subgrid"
-            width="8"
-            height="8"
+            width="16"
+            height="16"
             patternUnits="userSpaceOnUse"
           >
             <path
-              d="M 8 0 L 0 0 0 8"
+              d="M 16 0 L 0 0 0 16"
               fill="none"
               stroke="currentColor"
               strokeWidth="0.5"
@@ -31,13 +31,13 @@ export function DraftingGridBackdrop({ className = '' }: { className?: string })
           </pattern>
           <pattern
             id="cad-grid"
-            width="40"
-            height="40"
+            width="64"
+            height="64"
             patternUnits="userSpaceOnUse"
           >
-            <rect width="40" height="40" fill="url(#cad-subgrid)" />
+            <rect width="64" height="64" fill="url(#cad-subgrid)" />
             <path
-              d="M 40 0 L 0 0 0 40"
+              d="M 64 0 L 0 0 0 64"
               fill="none"
               stroke="currentColor"
               strokeWidth="0.75"

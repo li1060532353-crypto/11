@@ -335,6 +335,7 @@ export type NoteStore = {
   list(query: ApiRequestFor<'GET /api/notes'>): Promise<ApiResponseFor<'GET /api/notes'>>;
   find(id: string): Promise<NoteRecord | null>;
   save(note: NoteRecord): Promise<NoteRecord>;
+  savePublication?(note: NoteRecord): Promise<NoteRecord>;
   saveWithTags(note: NoteRecord, tags?: readonly string[]): Promise<NoteRecord>;
   createVersion(note: NoteRecord, versionId: string): Promise<NoteVersionRecord>;
   listVersions(noteId: string): Promise<readonly NoteVersionRecord[]>;
@@ -513,7 +514,7 @@ export function createNoteService(
         updatedAt: timestamp,
       };
 
-      return store.save(publishedNote);
+      return store.savePublication ? store.savePublication(publishedNote) : store.save(publishedNote);
     },
     async unpublish(noteId: string) {
       const existing = await store.find(noteId);
@@ -711,8 +712,22 @@ function bindNote(statement: D1PreparedStatement, note: NoteRecord) {
   );
 }
 
+function publicationMetadata(db: D1Database, noteId: string, onlyMissing = false) {
+  return db.prepare(`INSERT INTO note_publication_metadata (note_id,slug,category,tags_json,is_featured,published_at)
+    SELECT notes.id,notes.slug,notes.category,
+    COALESCE((SELECT json_group_array(tags.name) FROM tags JOIN note_tags ON tags.id=note_tags.tag_id WHERE note_tags.note_id=notes.id),'[]'),notes.is_featured,notes.published_at
+    FROM notes WHERE notes.id=? ${onlyMissing ? 'AND NOT EXISTS (SELECT 1 FROM note_publication_metadata WHERE note_id=notes.id)' : ''}
+    ON CONFLICT(note_id) DO UPDATE SET slug=excluded.slug,category=excluded.category,tags_json=excluded.tags_json,is_featured=excluded.is_featured,published_at=excluded.published_at`).bind(noteId);
+}
+
 export function createD1NoteStore(db: D1Database): NoteStore {
   return {
+    async savePublication(note) {
+      const conflict = await db.prepare('SELECT note_id FROM note_publication_metadata WHERE slug=? AND note_id<>?').bind(note.slug,note.id).first();
+      if(conflict) throw new NoteDomainError('SLUG_CONFLICT','This published URL is already in use');
+      await db.batch([bindNote(db.prepare(noteWrite),note),publicationMetadata(db,note.id)]);
+      return note;
+    },
     async findImageAsset(assetId) {
       const row = await db
         .prepare('SELECT note_id,mime_type FROM assets WHERE id = ?')
@@ -731,6 +746,7 @@ export function createD1NoteStore(db: D1Database): NoteStore {
         where.push('notes.status = ?');
         values.push(query.status);
       }
+      if (query.excludeArchived) where.push("notes.status != 'archived'");
       if (isPublishedQuery) {
         where.push('notes.published_content_json IS NOT NULL');
       }
@@ -858,6 +874,7 @@ export function createD1NoteStore(db: D1Database): NoteStore {
           );
         }
       }
+      if(note.status === 'published') statements.push(publicationMetadata(db,note.id,true));
       await db.batch(statements);
       return note;
     },
@@ -916,6 +933,7 @@ export function parseNoteListQuery(request: Request): ApiRequestFor<'GET /api/no
     page?: number;
     pageSize?: number;
     status?: NoteRecord['status'];
+    excludeArchived?: boolean;
     category?: string;
     tag?: string;
     pinned?: boolean;
@@ -940,17 +958,22 @@ export function parseNoteListQuery(request: Request): ApiRequestFor<'GET /api/no
     const value = params.get(key);
     if (value !== null) result[key] = value;
   }
+  if (params.has('excludeArchived')) {
+    const value = params.get('excludeArchived');
+    if (value !== 'true' && value !== 'false') throw new NoteDomainError('VALIDATION_ERROR', 'Invalid excludeArchived');
+    result.excludeArchived = value === 'true';
+  }
   if (params.has('pinned')) {
     const value = params.get('pinned');
-    if (value !== 'true' && value !== 'false')
+    if (value !== 'true' && value !== 'false' && value !== '1' && value !== '0')
       throw new NoteDomainError('VALIDATION_ERROR', 'Invalid pinned');
-    result.pinned = value === 'true';
+    result.pinned = value === 'true' || value === '1';
   }
   if (params.has('featured')) {
     const value = params.get('featured');
-    if (value !== 'true' && value !== 'false')
+    if (value !== 'true' && value !== 'false' && value !== '1' && value !== '0')
       throw new NoteDomainError('VALIDATION_ERROR', 'Invalid featured');
-    result.featured = value === 'true';
+    result.featured = value === 'true' || value === '1';
   }
   if (params.has('slug')) {
     const value = params.get('slug');

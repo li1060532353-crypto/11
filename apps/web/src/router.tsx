@@ -1,4 +1,7 @@
+﻿import { PageSignalFrame } from './components/ui/PageSignalFrame';
 import { lazy, Suspense, type ReactNode } from 'react';
+import { LoginPage } from './auth/LoginPage';
+import { RequireOwner } from './auth/RequireOwner';
 import { matchRoutes, Route, Routes, useLocation } from 'react-router-dom';
 
 import { SiteFooter } from './components/layout/SiteFooter';
@@ -18,16 +21,17 @@ import { AboutPage } from './pages/AboutPage';
 import { HomePage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ProjectsPage } from './pages/ProjectsPage';
-import { ProjectDetailPage } from './pages/ProjectDetailPage';
+const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage').then(module => ({ default: module.ProjectDetailPage })));
 import { ArchivesPage } from './pages/posts/ArchivesPage';
 import { CategoryIndexPage } from './pages/posts/CategoryIndexPage';
 import { CategoryPostsPage } from './pages/posts/CategoryPostsPage';
 import { PostsPage } from './pages/posts/PostsPage';
-import { PostDetailPage } from './pages/posts/PostDetailPage';
+const PostDetailPage = lazy(() => import('./pages/posts/PostDetailPage').then(module => ({ default: module.PostDetailPage })));
 import { SearchPage } from './pages/posts/SearchPage';
 import { TagIndexPage } from './pages/posts/TagIndexPage';
 import { TagPostsPage } from './pages/posts/TagPostsPage';
 
+const KnowledgeCreateRoute = lazy(() => import('./knowledge/KnowledgeCreateRoute').then((module) => ({ default: module.KnowledgeCreateRoute })));
 const KnowledgeDashboardRoute = lazy(() => import('./knowledge/KnowledgeDashboardRoute').then((module) => ({ default: module.KnowledgeDashboardRoute })));
 const KnowledgeNotesRoute = lazy(() => import('./knowledge/KnowledgeNotesRoute').then((module) => ({ default: module.KnowledgeNotesRoute })));
 const KnowledgeEditorRoute = lazy(() => import('./knowledge/KnowledgeEditorRoute').then((module) => ({ default: module.KnowledgeEditorRoute })));
@@ -35,10 +39,11 @@ const KnowledgeImportRoute = lazy(() => import('./knowledge/KnowledgeImportRoute
 const KnowledgeNoteReadRoute = lazy(() => import('./knowledge/KnowledgeNoteReadRoute').then((module) => ({ default: module.KnowledgeNoteReadRoute })));
 
 function KnowledgeRouteBoundary({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<p className="knowledge-message" role="status">Loading knowledge workspace</p>}>{children}</Suspense>;
+  return <RequireOwner><Suspense fallback={<p className="knowledge-message" role="status">Loading knowledge workspace</p>}>{children}</Suspense></RequireOwner>;
 }
 
 export const publicRoutes = [
+  { path: '/login', element: <LoginPage /> },
   { path: '/', element: <HomePage /> },
   { path: '/posts', element: <PostsPage /> },
   {
@@ -67,6 +72,7 @@ export const publicRoutes = [
     element: <SearchPage />,
   },
   { path: '/knowledge', element: <KnowledgeRouteBoundary><KnowledgeDashboardRoute /></KnowledgeRouteBoundary> },
+  { path: '/knowledge/create', element: <KnowledgeRouteBoundary><KnowledgeCreateRoute /></KnowledgeRouteBoundary> },
   { path: '/knowledge/import', element: <KnowledgeRouteBoundary><KnowledgeImportRoute /></KnowledgeRouteBoundary> },
   { path: '/knowledge/notes', element: <KnowledgeRouteBoundary><KnowledgeNotesRoute /></KnowledgeRouteBoundary> },
   { path: '/knowledge/notes/new', element: <KnowledgeRouteBoundary><KnowledgeEditorRoute mode="create" /></KnowledgeRouteBoundary> },
@@ -81,6 +87,7 @@ function routeMeta(pathname: string): { title: string; description: string } {
   const slug = match?.params.slug ?? '';
 
   if (routePath === '/knowledge') return { title: '知识库概览', description: '技术知识库工作区与统计概览' };
+  if (routePath === '/knowledge/create') return { title: '新建文档', description: '上传 Markdown 文件或自行编辑文档' };
   if (routePath === '/knowledge/import') return { title: '导入 Markdown', description: '导入并检查 Markdown 文档' };
   if (routePath === '/knowledge/notes') return { title: '文章管理', description: '知识库文章列表与状态管理' };
   if (routePath === '/knowledge/notes/new') return { title: '新建文章', description: '撰写新的技术文章或工程笔记' };
@@ -114,6 +121,7 @@ function routeMeta(pathname: string): { title: string; description: string } {
   }
 
   const metadata: Record<string, { title: string; description: string }> = {
+    '/login': { title: '登录知识库', description: '登录后管理文章、导入笔记与上传附件' },
     '/': { title: siteContent.name, description: siteContent.description },
     '/posts': { title: '文章', description: siteContent.description },
     '/categories': { title: '分类', description: siteContent.description },
@@ -148,11 +156,12 @@ function RouteShell() {
       </a>
       <SiteHeader />
       <main id="main-content">
-        <Routes>
+        {pathname !== '/' ? <PageSignalFrame reading={/^\/posts\/.+/.test(pathname) || pathname.endsWith('/read')} /> : null}
+        <Suspense fallback={<p role="status">正在加载页面…</p>}><Routes>
           {publicRoutes.map((route) => (
             <Route key={route.path} path={route.path} element={route.element} />
           ))}
-        </Routes>
+        </Routes></Suspense>
       </main>
       <SiteFooter />
     </>

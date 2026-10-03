@@ -1,4 +1,4 @@
-import { type MarkdownImportWarning, type TiptapDocument, type TiptapNode } from './knowledge';
+﻿import { type MarkdownImportWarning, type TiptapDocument, type TiptapNode } from './knowledge';
 
 export type ConvertedMetadata = {
   title: string;
@@ -152,16 +152,16 @@ function parseInline(
   });
 
   // Check for math $...$ or $$...$$
-  const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+)\$/g;
+  const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\s](?:[^$\n]*?[^$\s])?)\$/g;
   sanitized = sanitized.replace(mathRegex, (_m, display, inline) => {
     const math = display || inline;
     warnings.push({
       type: 'math',
       line: lineNumber,
-      message: `数学公式已保留为代码形式: "${math}"。`,
+      message: `数学公式已保留: "${math}"。`,
       raw: math,
     });
-    return `\`${math}\``;
+    return _m;
   });
 
   // Check for raw HTML tags (e.g. <script>, <style>, <iframe)
@@ -193,6 +193,13 @@ function parseInline(
   let remaining = sanitized;
 
   while (remaining.length > 0) {
+    // Keep complete formula spans atomic before Markdown emphasis can split them.
+    const formulaMatch = /^(?:\$\$[\s\S]*?\$\$|\$[^$\s](?:[^$\n]*?[^$\s])?\$)/.exec(remaining);
+    if (formulaMatch) {
+      tokens.push({ type: 'text', text: formulaMatch[0] });
+      remaining = remaining.slice(formulaMatch[0].length);
+      continue;
+    }
     // 1. Link: [text](href)
     const linkMatch = /^\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/.exec(remaining);
     if (linkMatch) {
@@ -269,7 +276,7 @@ function parseInline(
     }
 
     // Next plain text character chunk up to next special char [ * _ ~ `
-    const nextSpecialIndex = remaining.search(/[[*_~`]/);
+    const nextSpecialIndex = remaining.search(/[[*_~`$]/);
     if (nextSpecialIndex === -1) {
       tokens.push({ type: 'text', text: remaining });
       break;
@@ -605,7 +612,11 @@ function parseListBlock(
   };
 }
 
-export function parseMarkdownToTiptap(rawContent: string, filename = ''): MarkdownConversionResult {
+export function parseMarkdownToTiptap(
+  rawContent: string,
+  filename = '',
+  options: { preserveFirstHeading?: boolean } = {},
+): MarkdownConversionResult {
   const content = stripBom(rawContent);
   const { frontMatter, body } = parseFrontMatter(content);
   const warnings: MarkdownImportWarning[] = [];
@@ -640,7 +651,8 @@ export function parseMarkdownToTiptap(rawContent: string, filename = ''): Markdo
     '无标题笔记';
 
   // If first H1 matches the identified title, omit it so title isn't duplicated
-  const omitFirstH1 = firstH1Title !== null && firstH1Title === title;
+  const omitFirstH1 =
+    !options.preserveFirstHeading && firstH1Title !== null && firstH1Title === title;
 
   let i = 0;
   while (i < lines.length) {
@@ -655,6 +667,18 @@ export function parseMarkdownToTiptap(rawContent: string, filename = ''): Markdo
 
     // Skip the duplicate first H1 if needed
     if (i === firstH1Index && omitFirstH1) {
+      i++;
+      continue;
+    }
+
+    const startI = i;
+
+    // Only private asset references can become persistent image nodes.
+    const assetImage = /^!\[([^\]]*)\]\(\/api\/assets\/([A-Za-z0-9-]+)(?:\?inline=1)?\)$/.exec(
+      trimmed,
+    );
+    if (assetImage) {
+      nodes.push({ type: 'image', attrs: { assetId: assetImage[2]!, alt: assetImage[1]! } });
       i++;
       continue;
     }
@@ -674,6 +698,55 @@ export function parseMarkdownToTiptap(rawContent: string, filename = ''): Markdo
         type: 'codeBlock',
         attrs: { language: lang || null },
         content: codeContent ? [{ type: 'text', text: codeContent }] : [],
+      });
+      continue;
+    }
+
+    // 1.5 Math Block: $$
+    if (trimmed.startsWith('$$')) {
+      if (trimmed.length > 2 && trimmed.endsWith('$$') && trimmed !== '$$') {
+        const mathContent = trimmed.slice(2, -2).trim();
+        warnings.push({
+          type: 'math',
+          line: i + 1,
+          message: `数学公式已保留: "${mathContent}"。`,
+          raw: mathContent,
+        });
+        nodes.push({
+          type: 'paragraph',
+          content: [{ type: 'text', text: `$$${mathContent}$$` }],
+        });
+        i++;
+        continue;
+      }
+
+      const mathLines: string[] = [];
+      const firstLineContent = trimmed.slice(2).trim();
+      if (firstLineContent) {
+        mathLines.push(firstLineContent);
+      }
+      i++;
+      while (i < lines.length && !lines[i]!.trim().endsWith('$$')) {
+        mathLines.push(lines[i]!);
+        i++;
+      }
+      if (i < lines.length) {
+        const lastLineContent = lines[i]!.trim().replace(/\$\$$/, '').trim();
+        if (lastLineContent) {
+          mathLines.push(lastLineContent);
+        }
+        i++; // Skip closing $$
+      }
+      const mathContent = mathLines.join('\n').trim();
+      warnings.push({
+        type: 'math',
+        line: startI + 1,
+        message: `数学公式已保留: "${mathContent}"。`,
+        raw: mathContent,
+      });
+      nodes.push({
+        type: 'paragraph',
+        content: [{ type: 'text', text: `$$${mathContent}$$` }],
       });
       continue;
     }
@@ -756,7 +829,8 @@ export function parseMarkdownToTiptap(rawContent: string, filename = ''): Markdo
         pTrim.startsWith('```') ||
         pTrim.startsWith('#') ||
         pTrim.startsWith('>') ||
-        pTrim.startsWith('|') ||
+        /^!\[[^\]]*\]\(\/api\/assets\/[A-Za-z0-9-]+(?:\?inline=1)?\)$/.test(pTrim) ||
+        (pTrim.startsWith('|') && parseTable(lines.slice(i), i + 1, warnings) !== null) ||
         parseListItemLine(pLine) !== null ||
         /^(?:---|\*\*\*|___)\s*$/.test(pTrim)
       ) {
@@ -776,6 +850,16 @@ export function parseMarkdownToTiptap(rawContent: string, filename = ''): Markdo
         type: 'paragraph',
         content: inlines.length > 0 ? inlines : [{ type: 'text', text: paraText }],
       });
+    }
+
+    // Safety guarantee: ensure loop always advances by at least 1 line
+    if (i === startI) {
+      const inlines = parseInline(trimmed, i + 1, warnings);
+      nodes.push({
+        type: 'paragraph',
+        content: inlines.length > 0 ? inlines : [{ type: 'text', text: trimmed }],
+      });
+      i++;
     }
   }
 

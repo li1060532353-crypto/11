@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+﻿import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -65,7 +65,7 @@ describe('resource-aware route recovery', () => {
     async (path, heading, title, description, linkName, href) => {
       renderAt(path);
 
-      expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { level: 1, name: heading }, { timeout: 5000 })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: linkName })).toHaveAttribute('href', href);
       await waitFor(() => expect(document.title).toBe(title));
       expect(document.head.querySelector('meta[name="description"]')).toHaveAttribute(

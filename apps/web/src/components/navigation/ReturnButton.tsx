@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react';
+﻿import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { SafeReturnTarget } from './navigationSource';
 import './navigation.css';
+import { useReaderNavigationOffset } from './useReaderNavigationOffset';
 
 export interface ReturnButtonProps {
   target: SafeReturnTarget;
@@ -41,8 +42,9 @@ export function TopReturnBar({
   className?: string;
   testId?: string;
 }) {
+  const navigationRef = useReaderNavigationOffset<HTMLElement>();
   return (
-    <nav className={className} aria-label="文章返回导航">
+    <nav ref={navigationRef} className={className} aria-label="文章返回导航">
       <ReturnButton target={target} testId={testId}>
         {target.label}
       </ReturnButton>
@@ -86,4 +88,9 @@ export function BottomReturnBar({
       )}
     </div>
   );
+}
+
+
+export function FloatingReturnButton({ target }: { target: SafeReturnTarget }) {
+  return <ReturnButton target={target} className="reader-floating-return" testId="reader-floating-return" ariaLabel="返回上一级">← 返回</ReturnButton>;
 }

@@ -9,6 +9,7 @@ export type ContentSource = 'api' | 'fallback';
 export type ContentSourceError = {
   kind: 'network' | 'http' | 'invalid-envelope' | 'invalid-data' | 'aborted';
   message: string;
+  status?: number | undefined;
 };
 
 export type ContentResult<T> = {

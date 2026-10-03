@@ -1,4 +1,11 @@
-import type { ApiRequestFor, ApiResponseFor, KnowledgeStats, SearchResult } from '../../packages/shared/src/index';
+import {
+  type ApiRequestFor,
+  type ApiResponseFor,
+  type KnowledgeStats,
+  type NoteSortOption,
+  noteSortOptions,
+  type SearchResult,
+} from '../../packages/shared/src/index';
 
 import { NoteDomainError } from './notes';
 
@@ -28,7 +35,7 @@ function escapeLike(value: string): string {
 
 function mapSearchRow(row: SearchRow): SearchResult {
   const tagNames = String(row.tag_names ?? '');
-  return {
+  const result: SearchResult = {
     id: String(row.id),
     title: String(row.title),
     summary: String(row.summary),
@@ -38,6 +45,10 @@ function mapSearchRow(row: SearchRow): SearchResult {
     excerpt: String(row.excerpt ?? ''),
     tags: tagNames ? tagNames.split('\u001F') : [],
   };
+  if (row.published_at !== undefined) {
+    result.publishedAt = row.published_at ? String(row.published_at) : null;
+  }
+  return result;
 }
 
 export function parseSearchQuery(request: Request): ApiRequestFor<'GET /api/search'> {
@@ -61,6 +72,27 @@ export function parseSearchQuery(request: Request): ApiRequestFor<'GET /api/sear
   const category = params.get('category');
   if (category?.trim()) {
     result.category = category.trim();
+  }
+  if (params.has('pinned')) {
+    const value = params.get('pinned');
+    if (value !== 'true' && value !== 'false' && value !== '1' && value !== '0') {
+      throw new NoteDomainError('VALIDATION_ERROR', 'Invalid pinned');
+    }
+    result.pinned = value === 'true' || value === '1';
+  }
+  if (params.has('featured')) {
+    const value = params.get('featured');
+    if (value !== 'true' && value !== 'false' && value !== '1' && value !== '0') {
+      throw new NoteDomainError('VALIDATION_ERROR', 'Invalid featured');
+    }
+    result.featured = value === 'true' || value === '1';
+  }
+  if (params.has('sort')) {
+    const sort = params.get('sort');
+    if (!sort || !noteSortOptions.includes(sort as NoteSortOption)) {
+      throw new NoteDomainError('VALIDATION_ERROR', 'Invalid sort');
+    }
+    result.sort = sort as NoteSortOption;
   }
   return result;
 }
@@ -104,14 +136,29 @@ export function createD1SearchStore(db: D1Database): SearchStore {
         values.push(query.category);
       }
 
+      if (query.pinned === true) {
+        whereClauses.push('n.is_pinned = 1');
+      }
+
+      if (query.featured === true) {
+        whereClauses.push('n.is_featured = 1');
+      }
+
       const combinedWhere = whereClauses.join(' AND ');
+
+      let orderBy = 'n.updated_at DESC';
+      if (query.sort === 'published_desc') {
+        orderBy = 'n.published_at DESC NULLS LAST, n.updated_at DESC';
+      } else if (query.sort === 'title_asc') {
+        orderBy = 'n.title ASC';
+      }
 
       const titleField = isPublishedOnly ? 'COALESCE(n.published_title, n.title)' : 'n.title';
       const summaryField = isPublishedOnly ? 'COALESCE(n.published_summary, n.summary)' : 'n.summary';
       const textField = isPublishedOnly ? 'COALESCE(n.published_content_text, n.content_text)' : 'n.content_text';
 
       const rows = await db.prepare(`
-        SELECT n.id, ${titleField} AS title, ${summaryField} AS summary, n.slug, n.category, n.updated_at,
+        SELECT n.id, ${titleField} AS title, ${summaryField} AS summary, n.slug, n.category, n.updated_at, n.published_at,
           substr(${textField}, 1, 240) AS excerpt,
           COALESCE((
             SELECT GROUP_CONCAT(t.name, char(31))
@@ -120,7 +167,7 @@ export function createD1SearchStore(db: D1Database): SearchStore {
           ), '') AS tag_names
         FROM notes n
         WHERE ${combinedWhere}
-        ORDER BY n.updated_at DESC
+        ORDER BY ${orderBy}
         LIMIT ? OFFSET ?
       `).bind(...values, pageSize, (page - 1) * pageSize).all<SearchRow>();
       const count = await db.prepare(`SELECT COUNT(*) AS count FROM notes n WHERE ${combinedWhere}`)

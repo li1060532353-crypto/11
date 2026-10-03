@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   ApiRequestFor,
   ApiResponse,
   ApiResponseFor,
@@ -122,6 +122,7 @@ function isSearchResult(value: unknown): boolean {
     string(item.summary) &&
     string(item.category) &&
     date(item.updatedAt) &&
+    (item.publishedAt === undefined || item.publishedAt === null || date(item.publishedAt)) &&
     string(item.excerpt) &&
     Array.isArray(item.tags) &&
     item.tags.every(string)
@@ -236,6 +237,9 @@ export async function loadKnowledgeNotes(input: KnowledgeNotesQuery) {
           pageSize: input.pageSize,
           status: input.status,
           category: input.category,
+          pinned: input.pinned,
+          featured: input.featured,
+          sort: input.sort,
         })}`,
         'GET',
         (value): value is ApiResponseFor<'GET /api/search'> => isPage(value, isSearchResult),

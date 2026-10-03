@@ -109,4 +109,44 @@ describe('useContentQuery', () => {
     first.resolve({ data: 'stale', source: 'api' });
     await waitFor(() => expect(screen.getByLabelText('value')).toHaveTextContent('fresh'));
   });
+
+  it('allows retrying the query without unmounting the component', async () => {
+    const user = userEvent.setup();
+    const second = deferred<ContentResult<string>>();
+    const load = vi
+      .fn<() => Promise<ContentResult<string>>>()
+      .mockResolvedValueOnce({ data: 'initial', source: 'api' })
+      .mockReturnValueOnce(second.promise);
+
+    function RetryHarness() {
+      const query = useContentQuery(load, []);
+
+      return (
+        <div>
+          <button type="button" onClick={() => query.retry()}>
+            retry-button
+          </button>
+          <output aria-label="state">{query.state}</output>
+          <output aria-label="value">{query.result?.data ?? 'empty'}</output>
+        </div>
+      );
+    }
+
+    render(<RetryHarness />);
+
+    expect(screen.getByLabelText('state')).toHaveTextContent('loading');
+    await waitFor(() => expect(screen.getByLabelText('state')).toHaveTextContent('ready'));
+    expect(screen.getByLabelText('value')).toHaveTextContent('initial');
+    expect(load).toHaveBeenCalledTimes(1);
+
+    // Trigger retry
+    await user.click(screen.getByRole('button', { name: 'retry-button' }));
+
+    expect(screen.getByLabelText('state')).toHaveTextContent('loading');
+    expect(load).toHaveBeenCalledTimes(2);
+
+    second.resolve({ data: 'retried-value', source: 'api' });
+    await waitFor(() => expect(screen.getByLabelText('state')).toHaveTextContent('ready'));
+    expect(screen.getByLabelText('value')).toHaveTextContent('retried-value');
+  });
 });

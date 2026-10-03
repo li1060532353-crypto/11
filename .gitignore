@@ -17,4 +17,5 @@ backups/
 .worktrees/
 .pnpm-store/
 .corepack/
+.owner-login/
 *.tsbuildinfo
